@@ -22,5 +22,7 @@ export type {
   VerifyResult,
   VerifyStep,
   VerifyStepDebugInfo,
+  VerifyStepTiming,
   VerifyStepOverride,
+  VerifyTimings,
 } from './types.js';

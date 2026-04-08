@@ -17,4 +17,6 @@ export {
   type VerifyOverrides,
   type VerifyResult,
   type VerifyStep,
+  type VerifyStepTiming,
+  type VerifyTimings,
 } from './verify/index.js';

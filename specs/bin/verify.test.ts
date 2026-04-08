@@ -226,6 +226,21 @@ describe('verify script', () => {
     expect(execaMock.mock.calls.length).toBe(VERIFY_STEPS.length);
   });
 
+  it('collects per-step timings and total duration when requested', async () => {
+    execaMock.mockReset();
+    execaMock.mockImplementation(async () => okResult());
+
+    const result = await runVerify(VERIFY_STEPS, { collectTimings: true });
+
+    expect(result.code).toBe(0);
+    expect(result.stdout).toBe('verify: ok');
+    expect(result.timings).toBeDefined();
+    expect(result.timings?.steps.map((step) => step.name)).toEqual(VERIFY_STEPS.map((step) => step.name));
+    expect(result.timings?.steps.every((step) => step.code === 0)).toBe(true);
+    expect(result.timings?.steps.every((step) => step.durationMs >= 0)).toBe(true);
+    expect((result.timings?.totalMs ?? -1) >= 0).toBe(true);
+  });
+
   it('throws on unknown error mode', async () => {
     await expect(runVerify([], { errorMode: 'unexpected-mode' as unknown as 'first' | 'all' })).rejects.toThrow(
       'verify: unknown error mode "unexpected-mode"'

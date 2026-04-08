@@ -1,6 +1,6 @@
 import { resolveVerifyPlan } from './config.js';
 import { runVerify } from './run-verify.js';
-import type { ResolvedVerifyPlan } from './types.js';
+import type { ResolvedVerifyPlan, VerifyTimings } from './types.js';
 
 function helpText(): string {
   return [
@@ -8,6 +8,8 @@ function helpText(): string {
     '  verify',
     '  verify --config <path>',
     '  verify --all-errors',
+    '  verify --timings',
+    '  verify --all-errors --timings',
     '',
     'Config module format:',
     '  export default [{ name, command, args }]',
@@ -20,19 +22,21 @@ function parseCliArgs(argv: readonly string[]): {
   configPath?: string;
   help: boolean;
   allErrors: boolean;
+  timings: boolean;
   error?: string;
 } {
   let configPath: string | undefined;
   let allErrors = false;
+  let timings = false;
   for (let index = 0; index < argv.length; index += 1) {
     const value = argv[index] ?? '';
     if (value === '--help' || value === '-h') {
-      return { help: true, allErrors };
+      return { help: true, allErrors, timings };
     }
     if (value === '--config' || value === '-c') {
       const nextValue = argv[index + 1];
       if (!nextValue || nextValue.startsWith('-')) {
-        return { help: false, allErrors, error: `verify: missing value for "${value}"` };
+        return { help: false, allErrors, timings, error: `verify: missing value for "${value}"` };
       }
       configPath = nextValue;
       index += 1;
@@ -42,9 +46,13 @@ function parseCliArgs(argv: readonly string[]): {
       allErrors = true;
       continue;
     }
-    return { help: false, allErrors, error: `verify: unknown option "${value}"` };
+    if (value === '--timings') {
+      timings = true;
+      continue;
+    }
+    return { help: false, allErrors, timings, error: `verify: unknown option "${value}"` };
   }
-  return { configPath, help: false, allErrors };
+  return { configPath, help: false, allErrors, timings };
 }
 
 function isDebugEnabled(): boolean {
@@ -63,6 +71,17 @@ function printDebugInfo(plan: ResolvedVerifyPlan): void {
     const configLabel = info.configPath ?? '<none>';
     process.stderr.write(`verify: debug step=${info.name} source=${info.source} config=${configLabel}\n`);
   }
+}
+
+function formatDuration(durationMs: number): string {
+  return `${durationMs.toFixed(2)}ms`;
+}
+
+function printTimings(timings: VerifyTimings): void {
+  for (const step of timings.steps) {
+    process.stdout.write(`${step.name} take ${formatDuration(step.durationMs)}\n`);
+  }
+  process.stdout.write(`Total ${formatDuration(timings.totalMs)}\n`);
 }
 
 export async function runVerifyCli(options: { argv?: readonly string[]; cwd?: string } = {}): Promise<number> {
@@ -89,12 +108,18 @@ export async function runVerifyCli(options: { argv?: readonly string[]; cwd?: st
     return 1;
   }
   printDebugInfo(plan);
-  const result = await runVerify(plan.steps, { errorMode: parsed.allErrors ? 'all' : 'first' });
+  const result = await runVerify(plan.steps, {
+    errorMode: parsed.allErrors ? 'all' : 'first',
+    collectTimings: parsed.timings,
+  });
   if (result.stdout) {
     process.stdout.write(`${result.stdout}\n`);
   }
   if (result.stderr) {
     process.stderr.write(`${result.stderr}\n`);
+  }
+  if (parsed.timings && result.timings) {
+    printTimings(result.timings);
   }
   return result.code;
 }

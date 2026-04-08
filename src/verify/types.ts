@@ -18,6 +18,7 @@ export interface VerifyResult {
   code: number;
   stdout?: string;
   stderr?: string;
+  timings?: VerifyTimings;
 }
 
 export interface VerifyStepFailure {
@@ -29,6 +30,23 @@ export type VerifyErrorMode = 'first' | 'all';
 
 export interface RunVerifyOptions {
   errorMode?: VerifyErrorMode;
+  collectTimings?: boolean;
+}
+
+export interface VerifyStepTiming {
+  name: string;
+  code: number;
+  durationMs: number;
+}
+
+export interface VerifyTimings {
+  totalMs: number;
+  steps: VerifyStepTiming[];
+}
+
+export interface VerifyStepRunResult {
+  failure: VerifyStepFailure | null;
+  timing: VerifyStepTiming;
 }
 
 export interface StepOverride {

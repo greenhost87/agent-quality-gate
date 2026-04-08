@@ -1,8 +1,18 @@
+import { performance } from 'node:perf_hooks';
+
 import { execa } from 'execa';
 
 import { extractFirstDiagnostic, mergeOutput } from './diagnostics.js';
 import { VERIFY_STEPS } from './default-steps.js';
-import type { RunVerifyOptions, VerifyErrorMode, VerifyResult, VerifyStep, VerifyStepFailure } from './types.js';
+import type {
+  RunVerifyOptions,
+  VerifyErrorMode,
+  VerifyResult,
+  VerifyStep,
+  VerifyStepFailure,
+  VerifyStepRunResult,
+  VerifyStepTiming,
+} from './types.js';
 
 function resolveErrorMode(options: RunVerifyOptions): VerifyErrorMode {
   const { errorMode = 'first' } = options;
@@ -31,7 +41,8 @@ function renderStepFailure(
   };
 }
 
-async function runStep(step: VerifyStep, errorMode: VerifyErrorMode): Promise<VerifyStepFailure | null> {
+async function runStep(step: VerifyStep, errorMode: VerifyErrorMode): Promise<VerifyStepRunResult> {
+  const startedAt = performance.now();
   try {
     const result = await execa(step.command, step.args, {
       reject: false,
@@ -40,17 +51,36 @@ async function runStep(step: VerifyStep, errorMode: VerifyErrorMode): Promise<Ve
       stderr: 'pipe',
       env: { ...process.env, FORCE_COLOR: '0' },
     });
-    if (result.exitCode === 0) {
-      return null;
+    const code = result.exitCode || 0;
+    const timing: VerifyStepTiming = {
+      name: step.name,
+      code,
+      durationMs: performance.now() - startedAt,
+    };
+    if (code === 0) {
+      return {
+        failure: null,
+        timing,
+      };
     }
 
     const output = mergeOutput(result.stdout, result.stderr, result.all || undefined);
-    return renderStepFailure(step, output, result.exitCode || 1, errorMode);
+    return {
+      failure: renderStepFailure(step, output, code, errorMode),
+      timing,
+    };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     return {
-      code: 1,
-      stderr: `verify: failed to start step "${step.name}": ${message}`,
+      failure: {
+        code: 1,
+        stderr: `verify: failed to start step "${step.name}": ${message}`,
+      },
+      timing: {
+        name: step.name,
+        code: 1,
+        durationMs: performance.now() - startedAt,
+      },
     };
   }
 }
@@ -60,24 +90,43 @@ export async function runVerify(
   options: RunVerifyOptions = {}
 ): Promise<VerifyResult> {
   const errorMode = resolveErrorMode(options);
+  const collectTimings = options.collectTimings === true;
   const failures: VerifyStepFailure[] = [];
+  const stepTimings: VerifyStepTiming[] = [];
+  const startedAt = performance.now();
+
+  function withOptionalTimings(result: VerifyResult): VerifyResult {
+    if (!collectTimings) {
+      return result;
+    }
+    return {
+      ...result,
+      timings: {
+        totalMs: performance.now() - startedAt,
+        steps: stepTimings,
+      },
+    };
+  }
 
   for (const step of steps) {
-    const failure = await runStep(step, errorMode);
+    const { failure, timing } = await runStep(step, errorMode);
+    if (collectTimings) {
+      stepTimings.push(timing);
+    }
     if (failure) {
       failures.push(failure);
       if (errorMode === 'first') {
-        return failure;
+        return withOptionalTimings(failure);
       }
     }
   }
 
   if (failures.length > 0) {
-    return {
+    return withOptionalTimings({
       code: failures[0]?.code ?? 1,
       stderr: failures.map((failure) => failure.stderr).join('\n\n'),
-    };
+    });
   }
 
-  return { code: 0, stdout: 'verify: ok' };
+  return withOptionalTimings({ code: 0, stdout: 'verify: ok' });
 }
