@@ -1,0 +1,23 @@
+{
+  "gitignore": true,
+  "threshold": 0,
+  "minLines": 5,
+  "minTokens": 50,
+  "format": "typescript,javascript",
+  "pattern": "{src,extensions,bin,reports,specs}/**/*.{ts,tsx,js,jsx,mjs,cjs}",
+  "reporters": ["console", "json"],
+  "output": ".jscpd",
+  "ignore": [
+    "**/node_modules/**",
+    "**/.git/**",
+    "**/.pi/**",
+    "**/tmp/**",
+    "**/dist/**",
+    "**/coverage/**",
+    "**/__tests__/**",
+    "**/*.test.*",
+    "**/*.spec.*",
+    "**/*.lock",
+    "**/*.min.js"
+  ]
+}
