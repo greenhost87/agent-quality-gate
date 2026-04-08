@@ -1,0 +1,5 @@
+{
+  "entry": ["src/main.ts"],
+  "project": ["src/**/*.ts"],
+  "include": ["exports"]
+}

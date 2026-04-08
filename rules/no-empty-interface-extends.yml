@@ -1,0 +1,6 @@
+id: no-empty-interface-extends
+language: TypeScript
+rule:
+  pattern: interface $NAME extends $BASE {}
+message: Avoid wrapper interfaces that only extend a base type and add no members.
+severity: error

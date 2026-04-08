@@ -1,0 +1,6 @@
+id: no-record-string-unknown
+language: TypeScript
+rule:
+  pattern: Record<string, unknown>
+message: Avoid Record<string, unknown>. Introduce an explicit payload/interface/union instead.
+severity: error
