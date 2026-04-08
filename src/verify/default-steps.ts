@@ -124,6 +124,7 @@ function createBuiltInStep(
           'remark',
           '--quiet',
           '--frail',
+          '--no-stdout',
           '--rc-path',
           overrideConfigPath,
           ...targets,

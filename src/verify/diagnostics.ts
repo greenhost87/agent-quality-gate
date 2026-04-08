@@ -8,10 +8,15 @@ const DIAGNOSTIC_LINE_PATTERNS: RegExp[] = [
   /\d+:\d+-\d+:\d+/,
   /\(\d+,\d+\):/,
 ];
+const ESCAPE_CHARACTER = String.fromCharCode(27);
+const ANSI_ESCAPE_PATTERN = new RegExp(`${ESCAPE_CHARACTER}\\[[0-?]*[ -/]*[@-~]`, 'g');
+
+function normalizeOutput(output: string): string {
+  return output.replaceAll('\r\n', '\n').replace(ANSI_ESCAPE_PATTERN, '');
+}
 
 function toNonEmptyLines(output: string): string[] {
-  return output
-    .replaceAll('\r\n', '\n')
+  return normalizeOutput(output)
     .split('\n')
     .map((line) => line.trimEnd())
     .filter((line) => line.trim().length > 0);
@@ -23,10 +28,10 @@ function looksLikePath(line: string): boolean {
 }
 
 export function mergeOutput(stdout: string, stderr: string, all?: string): string {
-  return (all || [stdout, stderr].filter(Boolean).join('\n')).trim();
+  return normalizeOutput(all || [stdout, stderr].filter(Boolean).join('\n')).trim();
 }
 
-export function extractFirstDiagnostic(output: string): string {
+function extractFirstDiagnosticFromOutput(output: string): string {
   const lines = toNonEmptyLines(output);
   if (lines.length === 0) {
     return '';
@@ -45,4 +50,8 @@ export function extractFirstDiagnostic(output: string): string {
     return `${previousLine}\n${diagnosticLine}`;
   }
   return diagnosticLine;
+}
+
+export function extractFirstDiagnostic(output: string): string {
+  return extractFirstDiagnosticFromOutput(output);
 }

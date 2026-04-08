@@ -42,8 +42,8 @@ const FAILURE_FIXTURES: FailureFixture[] = [
   {
     stepName: 'remark',
     output: [
-      'docs/usage.md',
-      '4:1-4:5  warning  Unexpected duplicate heading',
+      '\u001B[4m\u001B[33mdocs/usage.md\u001B[39m\u001B[24m',
+      '4:1-4:5  \u001B[33mwarning\u001B[39m  Unexpected duplicate heading',
       '8:1-8:5  warning  Another markdown warning',
     ].join('\n'),
     expectedDiagnostic: ['docs/usage.md', '4:1-4:5  warning  Unexpected duplicate heading'].join('\n'),

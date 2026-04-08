@@ -44,6 +44,9 @@ describe('verify config loading', () => {
       'jscpd',
     ]);
     expect(resolved.stepDebugInfo[0]).toEqual({ name: 'protected-coverage', source: 'bundled' });
+    const remarkStep = resolved.steps.find((step) => step.name === 'remark');
+    expect(remarkStep).toBeDefined();
+    expect(remarkStep?.args).toContain('--no-stdout');
     for (const info of resolved.stepDebugInfo.slice(1)) {
       expect(info.source).toBe('bundled');
       expect(info.configPath).toBeDefined();
