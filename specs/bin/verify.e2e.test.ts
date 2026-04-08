@@ -16,6 +16,7 @@ interface StageCase {
 const REPO_ROOT = fileURLToPath(new URL('../../', import.meta.url));
 const VERIFY_MODULE_PATH = fileURLToPath(new URL('../../src/verify/index.ts', import.meta.url));
 const FIXTURES_ROOT = fileURLToPath(new URL('./fixtures/verify-e2e/', import.meta.url));
+const SLOW_E2E_TIMEOUT_MS = 20_000;
 
 function fixturePath(...segments: string[]): string {
   return join(FIXTURES_ROOT, ...segments);
@@ -161,19 +162,23 @@ describe('verify e2e with fixture files', () => {
   });
 
   for (const stageCase of STAGE_CASES) {
-    it(`for "${stageCase.step.name}" raw tool output has 2+ diagnostics, but verify returns only the first one`, () => {
-      const raw = runCommand(stageCase.step.command, stageCase.step.args);
-      expect(raw.code).toBe(stageCase.expectedExitCode);
-      expect(raw.output).toContain(stageCase.firstDiagnosticMarker);
-      expect(raw.output).toContain(stageCase.secondDiagnosticMarker);
+    it(
+      `for "${stageCase.step.name}" raw tool output has 2+ diagnostics, but verify returns only the first one`,
+      () => {
+        const raw = runCommand(stageCase.step.command, stageCase.step.args);
+        expect(raw.code).toBe(stageCase.expectedExitCode);
+        expect(raw.output).toContain(stageCase.firstDiagnosticMarker);
+        expect(raw.output).toContain(stageCase.secondDiagnosticMarker);
 
-      const verifyResult = runVerifyInChild([stageCase.step]);
-      expect(verifyResult.code).toBe(stageCase.expectedExitCode);
-      expect(verifyResult.stdout).toBeUndefined();
-      expect(verifyResult.stderr).toContain(`verify: failed at step "${stageCase.step.name}"`);
-      expect(verifyResult.stderr).toContain(stageCase.firstDiagnosticMarker);
-      expect(verifyResult.stderr).not.toContain(stageCase.secondDiagnosticMarker);
-    });
+        const verifyResult = runVerifyInChild([stageCase.step]);
+        expect(verifyResult.code).toBe(stageCase.expectedExitCode);
+        expect(verifyResult.stdout).toBeUndefined();
+        expect(verifyResult.stderr).toContain(`verify: failed at step "${stageCase.step.name}"`);
+        expect(verifyResult.stderr).toContain(stageCase.firstDiagnosticMarker);
+        expect(verifyResult.stderr).not.toContain(stageCase.secondDiagnosticMarker);
+      },
+      stageCase.step.name === 'tsc' ? SLOW_E2E_TIMEOUT_MS : undefined
+    );
   }
 
   for (const stageCase of STAGE_CASES) {
