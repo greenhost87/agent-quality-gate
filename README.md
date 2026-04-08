@@ -59,17 +59,24 @@ VERIFY_DEBUG=1 verify
 
 ## Configuration
 
-- `verify` runs fixed steps in this order: `protected-coverage`, `eslint`, `ast-grep`, `remark`, `tsc`, `duplicate-shapes`, `depcruise`, `knip`, `jscpd`.
+- `verify` runs fixed steps in this order: `protected-coverage`, `eslint`,
+  `ast-grep`, `remark`, `tsc`, `duplicate-shapes`, `depcruise`, `knip`,
+  `jscpd`.
 - Locked mode rejects local `verify.config.*` files and local `--config` paths.
 - Bundled configs from `dist/default-configs` are used.
 
 ## Verification Stack
 
 - `protected-coverage`: internal preflight step that ensures protected paths are still covered before the external tools run.
-- `eslint`: uses `eslint`, `@eslint/js`, `typescript-eslint`, and `eslint-plugin-check-file` to validate JavaScript and TypeScript code style, correctness, and file naming rules.
+- `eslint`: uses `eslint`, `@eslint/js`, `typescript-eslint`, and
+  `eslint-plugin-check-file` to validate JavaScript and TypeScript code style,
+  correctness, and file naming rules.
 - `ast-grep`: uses `@ast-grep/cli` with the bundled `sgconfig.yml` rules to catch forbidden code patterns by syntax tree matching.
-- `remark`: uses `remark-cli`, `remark-lint`, `remark-preset-lint-recommended`, `remark-lint-maximum-line-length`, and `remark-lint-no-duplicate-headings` to lint Markdown files.
-- `tsc`: uses `typescript` to run type-checking with the bundled `tsconfig.verify.json`, including unused locals and unused parameters checks.
+- `remark`: uses `remark-cli`, `remark-lint`,
+  `remark-preset-lint-recommended`, `remark-lint-maximum-line-length`, and
+  `remark-lint-no-duplicate-headings` to lint Markdown files.
+- `tsc`: uses `typescript` to run type-checking with the bundled
+  `tsconfig.verify.json`, including unused locals and unused parameters checks.
 - `duplicate-shapes`: uses the internal `ts-morph`-based analyzer to detect duplicate exported TypeScript shapes in `src/`.
 - `depcruise`: uses `dependency-cruiser` to validate module dependency structure in `src/`.
 - `knip`: uses `knip` to find unused exports.
