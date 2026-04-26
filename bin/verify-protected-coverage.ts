@@ -13,7 +13,7 @@ function main(): number {
     process.stderr.write(
       [
         `verify: debug coverage eslint=${targets.eslint.length}`,
-        `verify: debug coverage remark=${targets.remark.length}`,
+        `verify: debug coverage markdown=${targets.markdown.length}`,
         `verify: debug coverage tsc=${targets.tsc.length}`,
         `verify: debug coverage jscpd=${targets.jscpd.length}`,
       ].join('\n')

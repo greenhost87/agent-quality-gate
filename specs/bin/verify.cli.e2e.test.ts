@@ -46,7 +46,7 @@ describe('verify cli e2e', () => {
       expect(result.stdout).toContain('verify: ok');
       expect(result.stdout).toContain('protected-coverage take ');
       expect(result.stdout).toContain('eslint take ');
-      expect(result.stdout).toContain('remark take ');
+      expect(result.stdout).toContain('markdown-headings take ');
       expect(result.stdout).toContain('Total ');
       expect(result.stderr).toBe('');
     },

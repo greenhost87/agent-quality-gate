@@ -43,13 +43,16 @@ const STAGE_CASES: StageCase[] = [
   },
   {
     step: {
-      name: 'remark',
+      name: 'markdown-headings',
       command: 'bun',
-      args: ['x', 'remark', '--quiet', '--frail', fixturePath('remark', 'multiple-errors.md')],
+      args: [
+        join(REPO_ROOT, 'bin', 'verify-markdown-headings.ts'),
+        fixturePath('markdown-headings', 'multiple-errors.md'),
+      ],
     },
     expectedExitCode: 1,
-    firstDiagnosticMarker: '5:1-5:20',
-    secondDiagnosticMarker: '9:1-9:20',
+    firstDiagnosticMarker: '5:3 error Duplicate markdown heading "Duplicate Heading"',
+    secondDiagnosticMarker: '9:3 error Duplicate markdown heading "Duplicate Heading"',
   },
   {
     step: {
@@ -98,6 +101,17 @@ interface CommandResult {
   stdout: string;
 }
 
+function isVerifyResult(value: unknown): value is VerifyResult {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'code' in value &&
+    typeof value.code === 'number' &&
+    (!('stdout' in value) || typeof value.stdout === 'string') &&
+    (!('stderr' in value) || typeof value.stderr === 'string')
+  );
+}
+
 function runCommand(command: string, args: string[]): CommandResult {
   const result = spawnSync(command, args, {
     cwd: REPO_ROOT,
@@ -139,7 +153,11 @@ function runVerifyInChild(steps: VerifyStep[], options: RunVerifyOptions = {}): 
   if (!payload.trim()) {
     throw new Error('verify child process returned empty stdout');
   }
-  return JSON.parse(payload) as VerifyResult;
+  const parsed: unknown = JSON.parse(payload);
+  if (!isVerifyResult(parsed)) {
+    throw new Error('verify child process returned an unexpected result shape');
+  }
+  return parsed;
 }
 
 describe('verify e2e with fixture files', () => {
@@ -194,8 +212,8 @@ describe('verify e2e with fixture files', () => {
   }
 
   it('stops at the first failed stage when multiple stages fail', () => {
-    const first = STAGE_CASES[0] as StageCase;
-    const second = STAGE_CASES[1] as StageCase;
+    const first = STAGE_CASES[0];
+    const second = STAGE_CASES[1];
     const result = runVerifyInChild([first.step, second.step]);
 
     expect(result.code).toBe(first.expectedExitCode);
@@ -206,8 +224,8 @@ describe('verify e2e with fixture files', () => {
   });
 
   it('in all-errors mode keeps running and reports failures from all failed stages', () => {
-    const first = STAGE_CASES[0] as StageCase;
-    const second = STAGE_CASES[1] as StageCase;
+    const first = STAGE_CASES[0];
+    const second = STAGE_CASES[1];
     const result = runVerifyInChild([first.step, second.step], { errorMode: 'all' });
 
     expect(result.code).toBe(first.expectedExitCode);

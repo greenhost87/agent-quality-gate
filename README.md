@@ -14,30 +14,50 @@
 - Bun `>=1.3`.
 - Git.
 
-Install from a Git tag:
-
-```bash
-bun add -d git+https://github.com/greenhost87/agent-quality-gate.git#v0.0.1
-```
-
 Install from a GitHub Release tarball:
 
 ```bash
-bun add -d https://github.com/greenhost87/agent-quality-gate/releases/download/v0.0.1/agent-quality-gate-0.0.1.tgz
+bunx --package https://github.com/greenhost87/agent-quality-gate/releases/download/v0.0.1/agent-quality-gate-init-0.0.1.tgz agent-quality-gate-init
 ```
 
-Add a script:
+`agent-quality-gate-init` installs the heavy runtime into the user cache and writes a small project launcher. The runtime is not added to the consumer project dependencies, so the consumer project lockfile does not receive the quality-gate toolchain dependency graph.
+
+The generated project shape is:
 
 ```json
 {
   "scripts": {
-    "verify": "verify"
+    "verify": "bun .agent-quality-gate/agent-quality-gate.mjs verify"
+  },
+  "agentQualityGate": {
+    "version": "0.0.1"
   }
 }
 ```
 
+The runtime cache lives under:
+
+```text
+~/.cache/agent-quality-gate/runtimes/v0.0.1
+```
+
+For local development or release validation, run the local init tarball and pass the local runtime tarball as the explicit runtime source:
+
+```bash
+bunx --package file:/path/to/agent-quality-gate/artifacts/agent-quality-gate-init-0.0.1.tgz agent-quality-gate-init --runtime-source file:/path/to/agent-quality-gate/artifacts/agent-quality-gate-0.0.1.tgz
+```
+
+If the runtime is already installed, `verify` uses it. If it is missing, `verify` fails and prints the init command to run; it does not install dependencies silently.
+
 ```bash
 bun run verify
+```
+
+Direct runtime package installation is still supported for release smoke tests:
+
+```bash
+bun add -d git+https://github.com/greenhost87/agent-quality-gate.git#v0.0.1
+bun add -d https://github.com/greenhost87/agent-quality-gate/releases/download/v0.0.1/agent-quality-gate-0.0.1.tgz
 ```
 
 ## Usage
@@ -59,24 +79,18 @@ VERIFY_DEBUG=1 verify
 
 ## Configuration
 
-- `verify` runs fixed steps in this order: `protected-coverage`, `eslint`,
-  `ast-grep`, `remark`, `tsc`, `duplicate-shapes`, `depcruise`, `knip`,
-  `jscpd`.
+- `verify` runs fixed steps in this order: `protected-coverage`, `eslint`, `ast-grep`, `markdown-headings`, `tsc`, `duplicate-shapes`, `depcruise`, `knip`, `jscpd`, `eslint-length`.
 - Locked mode rejects local `verify.config.*` files and local `--config` paths.
 - Bundled configs from `dist/default-configs` are used.
 
 ## Verification Stack
 
 - `protected-coverage`: internal preflight step that ensures protected paths are still covered before the external tools run.
-- `eslint`: uses `eslint`, `@eslint/js`, `typescript-eslint`, and
-  `eslint-plugin-check-file` to validate JavaScript and TypeScript code style,
-  correctness, and file naming rules.
+- `eslint`: uses `eslint`, `@eslint/js`, `typescript-eslint`, and `eslint-plugin-check-file` to validate JavaScript and TypeScript code style, correctness, and file naming rules.
+- `eslint-length`: uses a separate late ESLint pass for `max-len` and `max-lines`, after semantic and structure checks.
 - `ast-grep`: uses `@ast-grep/cli` with the bundled `sgconfig.yml` rules to catch forbidden code patterns by syntax tree matching.
-- `remark`: uses `remark-cli`, `remark-lint`,
-  `remark-preset-lint-recommended`, `remark-lint-maximum-line-length`, and
-  `remark-lint-no-duplicate-headings` to lint Markdown files.
-- `tsc`: uses `typescript` to run type-checking with the bundled
-  `tsconfig.verify.json`, including unused locals and unused parameters checks.
+- `markdown-headings`: uses the bundled Bun checker to reject duplicate Markdown headings.
+- `tsc`: uses `typescript` to run type-checking with the bundled `tsconfig.verify.json`, including unused locals and unused parameters checks.
 - `duplicate-shapes`: uses the internal `ts-morph`-based analyzer to detect duplicate exported TypeScript shapes in `src/`.
 - `depcruise`: uses `dependency-cruiser` to validate module dependency structure in `src/`.
 - `knip`: uses `knip` to find unused exports.
@@ -94,19 +108,13 @@ bun install --frozen-lockfile
 bun run --silent verify
 bun test
 bun run check:release-tag -- vX.Y.Z
-bun run pack:verify
+bun run pack:release
 ```
 
 1. Push tag `vX.Y.Z`.
-2. `release.yml` validates tag/version parity, runs checks, and builds the tarball.
+2. `release.yml` validates tag/version parity, runs checks, and builds tarballs.
 3. GitHub Release attaches `artifacts/*.tgz`.
 4. Registry publication remains disabled.
-
-Run install checks explicitly when validating release installs:
-
-```bash
-bun run test:e2e:install
-```
 
 ## License
 

@@ -36,13 +36,15 @@
     "./package.json": "./package.json"
   },
   "scripts": {
+    "build:init": "bun ./bin/build-init-package.ts",
     "build:verify": "bun ./bin/build-verify-bundle.ts",
     "check:release-tag": "bun ./bin/check-release-tag.ts",
+    "pack:init": "bun run build:init && mkdir -p artifacts .npm-cache && npm pack ./packages/agent-quality-gate-init --ignore-scripts --cache ./.npm-cache --pack-destination ./artifacts",
+    "pack:release": "rm -rf artifacts && bun run pack:verify && bun run pack:init",
     "pack:verify": "bun run build:verify && mkdir -p artifacts .npm-cache && npm pack --ignore-scripts --cache ./.npm-cache --pack-destination ./artifacts",
     "prepare": "bun run build:verify",
     "verify": "bun ./bin/verify.ts",
-    "test": "bun test",
-    "test:e2e:install": "VERIFY_INSTALL_E2E=1 bun test specs/bin/verify.install.e2e.test.ts"
+    "test": "bun test"
   },
   "engines": {
     "bun": ">=1.3"
@@ -58,11 +60,6 @@
     "globals": "^17.3.0",
     "jscpd": "^4.0.8",
     "knip": "^5.85.0",
-    "remark-cli": "^12.0.1",
-    "remark-lint": "^10.0.1",
-    "remark-lint-maximum-line-length": "^4.1.1",
-    "remark-lint-no-duplicate-headings": "^4.0.1",
-    "remark-preset-lint-recommended": "^7.0.1",
     "ts-morph": "^27.0.2",
     "typescript": "^5.9.3",
     "typescript-eslint": "^8.56.1"

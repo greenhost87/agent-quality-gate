@@ -36,20 +36,25 @@ describe('verify config loading', () => {
       'protected-coverage',
       'eslint',
       'ast-grep',
-      'remark',
+      'markdown-headings',
       'tsc',
       'duplicate-shapes',
       'depcruise',
       'knip',
       'jscpd',
+      'eslint-length',
     ]);
     expect(resolved.stepDebugInfo[0]).toEqual({ name: 'protected-coverage', source: 'bundled' });
-    const remarkStep = resolved.steps.find((step) => step.name === 'remark');
-    expect(remarkStep).toBeDefined();
-    expect(remarkStep?.args).toContain('--no-stdout');
+    const markdownHeadingsStep = resolved.steps.find((step) => step.name === 'markdown-headings');
+    expect(markdownHeadingsStep).toBeDefined();
+    expect(markdownHeadingsStep?.args[0]).toContain('verify-markdown-headings');
     for (const info of resolved.stepDebugInfo.slice(1)) {
       expect(info.source).toBe('bundled');
-      expect(info.configPath).toBeDefined();
+      if (info.name === 'markdown-headings') {
+        expect(info.configPath).toBeUndefined();
+      } else {
+        expect(info.configPath).toBeDefined();
+      }
     }
   });
 

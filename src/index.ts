@@ -1,5 +1,4 @@
 export {
-  VERIFY_STEPS,
   createDefaultVerifySteps,
   createDefaultVerifyStepsResult,
   loadVerifyConfig,

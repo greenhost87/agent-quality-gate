@@ -3,7 +3,7 @@ import { performance } from 'node:perf_hooks';
 import { execa } from 'execa';
 
 import { extractFirstDiagnostic, mergeOutput } from './diagnostics.js';
-import { VERIFY_STEPS } from './default-steps.js';
+import { createDefaultVerifySteps } from './default-steps.js';
 import type {
   RunVerifyOptions,
   VerifyErrorMode,
@@ -86,7 +86,7 @@ async function runStep(step: VerifyStep, errorMode: VerifyErrorMode): Promise<Ve
 }
 
 export async function runVerify(
-  steps: readonly VerifyStep[] = VERIFY_STEPS,
+  steps: readonly VerifyStep[] = createDefaultVerifySteps(),
   options: RunVerifyOptions = {}
 ): Promise<VerifyResult> {
   const errorMode = resolveErrorMode(options);

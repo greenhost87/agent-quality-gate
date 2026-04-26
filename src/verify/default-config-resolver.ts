@@ -2,14 +2,14 @@ import { existsSync } from 'node:fs';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import type { BuiltinVerifyStepName, ResolvedDefaultConfigMap, ResolveDefaultConfigOptions } from './types.js';
+import type { ConfigBackedVerifyStepName, ResolvedDefaultConfigMap, ResolveDefaultConfigOptions } from './types.js';
 
 const VERIFY_PACKAGE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const DIST_DEFAULT_CONFIGS_DIR = join(VERIFY_PACKAGE_ROOT, 'dist', 'default-configs');
 
-const BUNDLED_CONFIG_FILES: Record<BuiltinVerifyStepName, string> = {
+const BUNDLED_CONFIG_FILES: Record<ConfigBackedVerifyStepName, string> = {
   eslint: 'eslint.config.mjs',
-  remark: '.remarkrc.mjs',
+  'eslint-length': 'eslint-length.config.mjs',
   tsc: 'tsconfig.verify.json',
   knip: 'knip.json',
   jscpd: '.jscpd.json',
@@ -28,7 +28,7 @@ function resolveBundledConfigDir(candidateDir?: string): string {
   return VERIFY_PACKAGE_ROOT;
 }
 
-function resolveBundledConfigPath(bundledDir: string, stepName: BuiltinVerifyStepName): string {
+function resolveBundledConfigPath(bundledDir: string, stepName: ConfigBackedVerifyStepName): string {
   const fileName = BUNDLED_CONFIG_FILES[stepName];
   const primaryPath = join(bundledDir, fileName);
   if (existsSync(primaryPath)) {
@@ -52,10 +52,10 @@ export function resolveDefaultConfigMap(options: ResolveDefaultConfigOptions = {
       source: 'bundled',
       configPath: resolveBundledConfigPath(bundledDir, 'eslint'),
     },
-    remark: {
-      stepName: 'remark',
+    'eslint-length': {
+      stepName: 'eslint-length',
       source: 'bundled',
-      configPath: resolveBundledConfigPath(bundledDir, 'remark'),
+      configPath: resolveBundledConfigPath(bundledDir, 'eslint-length'),
     },
     tsc: {
       stepName: 'tsc',

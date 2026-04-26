@@ -183,6 +183,36 @@ export default [
     },
     rules: {
       '@typescript-eslint/typedef': 'off',
+      '@typescript-eslint/no-explicit-any': 'error',
+      '@typescript-eslint/no-unsafe-assignment': 'error',
+      '@typescript-eslint/no-unsafe-member-access': 'error',
+      '@typescript-eslint/no-unsafe-call': 'error',
+      '@typescript-eslint/no-unsafe-return': 'error',
+      '@typescript-eslint/no-unsafe-argument': 'error',
+      '@typescript-eslint/no-unsafe-type-assertion': 'error',
+      '@typescript-eslint/no-unnecessary-type-assertion': 'error',
+      '@typescript-eslint/consistent-type-assertions': [
+        'error',
+        {
+          assertionStyle: 'as',
+          objectLiteralTypeAssertions: 'never',
+        },
+      ],
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: 'TSAsExpression[typeAnnotation.type="TSAnyKeyword"]',
+          message: 'Casting to any is forbidden. Use a precise type or validate unknown data first.',
+        },
+        {
+          selector: 'TSAsExpression[typeAnnotation.type="TSNeverKeyword"]',
+          message: 'Casting to never is forbidden. Model the impossible state explicitly.',
+        },
+        {
+          selector: 'TSAsExpression > TSAsExpression[typeAnnotation.type="TSUnknownKeyword"]',
+          message: 'Double casts through unknown are forbidden. Use validation or a precise intermediate type.',
+        },
+      ],
     },
   },
   {
@@ -193,13 +223,6 @@ export default [
       quality,
     },
     rules: {
-      '@typescript-eslint/no-explicit-any': 'error',
-      '@typescript-eslint/no-unsafe-assignment': 'error',
-      '@typescript-eslint/no-unsafe-member-access': 'error',
-      '@typescript-eslint/no-unsafe-call': 'error',
-      '@typescript-eslint/no-unsafe-return': 'error',
-      '@typescript-eslint/no-unsafe-argument': 'error',
-      '@typescript-eslint/no-unsafe-type-assertion': 'error',
       '@typescript-eslint/no-empty-object-type': [
         'error',
         {
@@ -218,13 +241,6 @@ export default [
       ],
       '@typescript-eslint/no-unnecessary-type-parameters': 'error',
       '@typescript-eslint/no-unnecessary-type-arguments': 'error',
-      '@typescript-eslint/consistent-type-assertions': [
-        'error',
-        {
-          assertionStyle: 'as',
-          objectLiteralTypeAssertions: 'never',
-        },
-      ],
       '@typescript-eslint/ban-ts-comment': [
         'error',
         {
@@ -232,23 +248,6 @@ export default [
           'ts-expect-error': 'allow-with-description',
           'ts-nocheck': true,
           'ts-check': false,
-        },
-      ],
-      'max-len': [
-        'error',
-        {
-          code: 120,
-          ignoreUrls: true,
-          ignoreTemplateLiterals: true,
-          ignoreStrings: true,
-        },
-      ],
-      'max-lines': [
-        'error',
-        {
-          max: 400,
-          skipBlankLines: true,
-          skipComments: true,
         },
       ],
       'check-file/filename-blocklist': [
@@ -291,10 +290,4 @@ export default [
     },
   },
   ...crossExtensionImportOverrides,
-  {
-    files: ['specs/**/*.{ts,tsx,mts,cts}', '**/__tests__/**/*.{ts,tsx,mts,cts}', '**/*.{test,spec}.{ts,tsx,mts,cts}'],
-    rules: {
-      '@typescript-eslint/no-explicit-any': 'off',
-    },
-  },
 ];

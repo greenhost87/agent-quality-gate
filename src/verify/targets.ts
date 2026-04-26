@@ -101,14 +101,14 @@ function allProjectFiles(cwd: string): string[] {
 
 export function resolveVerifyTargets(cwd: string = process.cwd()): {
   eslint: string[];
-  remark: string[];
+  markdown: string[];
   tsc: string[];
   jscpd: string[];
 } {
   const files = allProjectFiles(cwd);
   return {
     eslint: selectByExtensions(files, CODE_EXTENSIONS),
-    remark: selectByExtensions(files, MARKDOWN_EXTENSIONS),
+    markdown: selectByExtensions(files, MARKDOWN_EXTENSIONS),
     tsc: selectByExtensions(files, TYPESCRIPT_EXTENSIONS),
     jscpd: selectByExtensions(files, CODE_EXTENSIONS),
   };

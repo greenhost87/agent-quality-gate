@@ -36,7 +36,7 @@ const PACKAGE_JSON_PATH = join(REPO_ROOT, 'package.json');
 
 const BUNDLED_ASSETS: BundledAsset[] = [
   { sourcePath: 'eslint.config.mjs', outputPath: 'eslint.config.mjs', kind: 'file' },
-  { sourcePath: '.remarkrc.mjs', outputPath: '.remarkrc.mjs', kind: 'file' },
+  { sourcePath: 'eslint-length.config.mjs', outputPath: 'eslint-length.config.mjs', kind: 'file' },
   { sourcePath: 'tsconfig.verify.json', outputPath: 'tsconfig.verify.json', kind: 'file' },
   { sourcePath: 'knip.json', outputPath: 'knip.json', kind: 'file' },
   { sourcePath: '.jscpd.json', outputPath: '.jscpd.json', kind: 'file' },
@@ -59,9 +59,16 @@ function hashContent(content: string): string {
   return createHash('sha256').update(content).digest('hex');
 }
 
+function isPackageJsonShape(value: unknown): value is PackageJsonShape {
+  return typeof value === 'object' && value !== null && (!('version' in value) || typeof value.version === 'string');
+}
+
 async function readVersion(): Promise<string> {
   const raw = await readFile(PACKAGE_JSON_PATH, 'utf-8');
-  const parsed = JSON.parse(raw) as PackageJsonShape;
+  const parsed: unknown = JSON.parse(raw);
+  if (!isPackageJsonShape(parsed)) {
+    return '0.0.0-local';
+  }
   if (typeof parsed.version === 'string' && parsed.version.trim().length > 0) {
     return parsed.version;
   }
@@ -73,6 +80,7 @@ async function buildRuntime(): Promise<void> {
     'build',
     './bin/verify.ts',
     './bin/verify-protected-coverage.ts',
+    './bin/verify-markdown-headings.ts',
     './src/verify/index.ts',
     '--target',
     'bun',

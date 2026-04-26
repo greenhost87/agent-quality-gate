@@ -20,14 +20,16 @@ const JSCPD_ALLOWED_PREFIXES = ['src/', 'extensions/', 'bin/', 'reports/', 'spec
 const STEP_ORDER: BuiltinVerifyStepName[] = [
   'eslint',
   'ast-grep',
-  'remark',
+  'markdown-headings',
   'tsc',
   'duplicate-shapes',
   'depcruise',
   'knip',
   'jscpd',
+  'eslint-length',
 ];
 const PROTECTED_COVERAGE_SCRIPT_PATH = resolveProtectedScriptPath('verify-protected-coverage');
+const MARKDOWN_HEADINGS_SCRIPT_PATH = resolveProtectedScriptPath('verify-markdown-headings');
 
 function hasTargetInRoot(targets: readonly string[], rootDir: string): boolean {
   const normalizedRoot = rootDir.endsWith('/') ? rootDir : `${rootDir}/`;
@@ -47,6 +49,11 @@ function toAbsolutePath(cwd: string, filePath: string): string {
 }
 
 function resolveProtectedScriptPath(fileName: string): string {
+  const bundledEntrypointSiblingPath = fileURLToPath(new URL(`./${fileName}.js`, import.meta.url));
+  if (existsSync(bundledEntrypointSiblingPath)) {
+    return bundledEntrypointSiblingPath;
+  }
+
   const jsPath = fileURLToPath(new URL(`../../bin/${fileName}.js`, import.meta.url));
   if (existsSync(jsPath)) {
     return jsPath;
@@ -81,11 +88,11 @@ function createLockedTscProjectFile(cwd: string, bundledConfigPath: string, file
 
 function createBuiltInStep(
   stepName: BuiltinVerifyStepName,
-  configPath: string,
+  configPath: string | null,
   override: StepOverride | undefined,
   cwd: string,
   eslintTargets: readonly string[],
-  remarkTargets: readonly string[],
+  markdownTargets: readonly string[],
   tscTargets: readonly string[],
   jscpdTargets: readonly string[]
 ): VerifyStep | null {
@@ -95,11 +102,15 @@ function createBuiltInStep(
 
   switch (stepName) {
     case 'eslint':
+    case 'eslint-length':
       if (eslintTargets.length === 0) {
         return null;
       }
+      if (!overrideConfigPath) {
+        throw new Error(`verify: missing ${stepName} config path`);
+      }
       return {
-        name: 'eslint',
+        name: stepName,
         command: 'bun',
         args: toStepArgs(['eslint', '--no-ignore', '--config', overrideConfigPath, ...eslintTargets, ...appendedArgs]),
       };
@@ -107,32 +118,32 @@ function createBuiltInStep(
       if (eslintTargets.length === 0) {
         return null;
       }
+      if (!overrideConfigPath) {
+        throw new Error('verify: missing ast-grep config path');
+      }
       return {
         name: 'ast-grep',
         command: 'bun',
         args: toStepArgs(['ast-grep', 'scan', '--config', overrideConfigPath, ...appendedArgs]),
       };
-    case 'remark': {
-      const targets = override?.targets ?? remarkTargets;
+    case 'markdown-headings': {
+      if (override?.configPath) {
+        throw new Error('verify: markdown-headings does not accept a config path');
+      }
+      const targets = override?.targets ?? markdownTargets;
       if (targets.length === 0) {
         return null;
       }
       return {
-        name: 'remark',
+        name: 'markdown-headings',
         command: 'bun',
-        args: toStepArgs([
-          'remark',
-          '--quiet',
-          '--frail',
-          '--no-stdout',
-          '--rc-path',
-          overrideConfigPath,
-          ...targets,
-          ...appendedArgs,
-        ]),
+        args: [MARKDOWN_HEADINGS_SCRIPT_PATH, ...targets, ...appendedArgs],
       };
     }
     case 'tsc': {
+      if (!overrideConfigPath) {
+        throw new Error('verify: missing tsc config path');
+      }
       const tscProjectPath = createLockedTscProjectFile(cwd, overrideConfigPath, tscTargets);
       if (!tscProjectPath) {
         return null;
@@ -154,6 +165,9 @@ function createBuiltInStep(
       if (!hasSrcTypeScriptTargets) {
         return null;
       }
+      if (!overrideConfigPath) {
+        throw new Error('verify: missing duplicate-shapes config path');
+      }
       return {
         name: 'duplicate-shapes',
         command: 'bun',
@@ -167,12 +181,18 @@ function createBuiltInStep(
       if (!hasSrcTypeScriptTargets) {
         return null;
       }
+      if (!overrideConfigPath) {
+        throw new Error('verify: missing depcruise config path');
+      }
       return {
         name: 'depcruise',
         command: 'bun',
         args: toStepArgs(['depcruise', '--config', overrideConfigPath, 'src', ...appendedArgs]),
       };
     case 'knip':
+      if (!overrideConfigPath) {
+        throw new Error('verify: missing knip config path');
+      }
       return {
         name: 'knip',
         command: 'bun',
@@ -182,6 +202,9 @@ function createBuiltInStep(
       const targets = override?.targets ?? toDefaultJscpdTargets(jscpdTargets);
       if (targets.length === 0) {
         return null;
+      }
+      if (!overrideConfigPath) {
+        throw new Error('verify: missing jscpd config path');
       }
       return {
         name: 'jscpd',
@@ -212,17 +235,18 @@ export function createDefaultVerifyStepsResult(options: DefaultVerifyStepsOption
       continue;
     }
 
+    const defaultConfig = stepName === 'markdown-headings' ? undefined : resolvedConfigs[stepName];
     const configPath = override?.configPath
       ? toAbsolutePath(cwd, override.configPath)
-      : resolvedConfigs[stepName].configPath;
-    const source = override?.configPath ? 'override' : resolvedConfigs[stepName].source;
+      : (defaultConfig?.configPath ?? null);
+    const source = override?.configPath ? 'override' : (defaultConfig?.source ?? 'bundled');
     const step = createBuiltInStep(
       stepName,
       configPath,
       override,
       cwd,
       resolvedTargets.eslint,
-      resolvedTargets.remark,
+      resolvedTargets.markdown,
       resolvedTargets.tsc,
       resolvedTargets.jscpd
     );
@@ -232,7 +256,7 @@ export function createDefaultVerifyStepsResult(options: DefaultVerifyStepsOption
     steps.push(step);
     stepDebugInfo.push({
       name: step.name,
-      configPath,
+      ...(configPath ? { configPath } : {}),
       source,
     });
   }
@@ -243,5 +267,3 @@ export function createDefaultVerifyStepsResult(options: DefaultVerifyStepsOption
 export function createDefaultVerifySteps(options: DefaultVerifyStepsOptions = {}): VerifyStep[] {
   return createDefaultVerifyStepsResult(options).steps;
 }
-
-export const VERIFY_STEPS: VerifyStep[] = createDefaultVerifySteps();

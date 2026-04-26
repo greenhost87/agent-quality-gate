@@ -1,12 +1,15 @@
 export type BuiltinVerifyStepName =
   | 'eslint'
-  | 'remark'
+  | 'eslint-length'
+  | 'markdown-headings'
   | 'tsc'
   | 'knip'
   | 'jscpd'
   | 'ast-grep'
   | 'duplicate-shapes'
   | 'depcruise';
+
+export type ConfigBackedVerifyStepName = Exclude<BuiltinVerifyStepName, 'markdown-headings'>;
 
 export interface VerifyStep {
   name: string;
@@ -59,7 +62,8 @@ export type VerifyStepOverride = false | StepOverride;
 
 export interface VerifyOverrides {
   eslint?: VerifyStepOverride;
-  remark?: VerifyStepOverride;
+  'eslint-length'?: VerifyStepOverride;
+  'markdown-headings'?: VerifyStepOverride;
   tsc?: VerifyStepOverride;
   knip?: VerifyStepOverride;
   jscpd?: VerifyStepOverride;
@@ -105,12 +109,12 @@ export interface DefaultVerifyStepsResult {
 export type DefaultConfigSource = 'bundled';
 
 export interface ResolvedDefaultConfig {
-  stepName: BuiltinVerifyStepName;
+  stepName: ConfigBackedVerifyStepName;
   source: DefaultConfigSource;
   configPath: string;
 }
 
-export type ResolvedDefaultConfigMap = Record<BuiltinVerifyStepName, ResolvedDefaultConfig>;
+export type ResolvedDefaultConfigMap = Record<ConfigBackedVerifyStepName, ResolvedDefaultConfig>;
 
 export interface ResolveDefaultConfigOptions {
   cwd?: string;

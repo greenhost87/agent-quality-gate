@@ -40,14 +40,16 @@ const FAILURE_FIXTURES: FailureFixture[] = [
     unexpectedDiagnostic: 'src/runtime.ts:22:5 error[no-useless-exported-type-alias] Export original type directly.',
   },
   {
-    stepName: 'remark',
+    stepName: 'markdown-headings',
     output: [
-      '\u001B[4m\u001B[33mdocs/usage.md\u001B[39m\u001B[24m',
-      '4:1-4:5  \u001B[33mwarning\u001B[39m  Unexpected duplicate heading',
-      '8:1-8:5  warning  Another markdown warning',
+      'docs/usage.md',
+      '4:3 error Duplicate markdown heading "Usage" (first defined at 1:3)',
+      '8:3 error Duplicate markdown heading "Usage" (first defined at 1:3)',
     ].join('\n'),
-    expectedDiagnostic: ['docs/usage.md', '4:1-4:5  warning  Unexpected duplicate heading'].join('\n'),
-    unexpectedDiagnostic: '8:1-8:5  warning  Another markdown warning',
+    expectedDiagnostic: ['docs/usage.md', '4:3 error Duplicate markdown heading "Usage" (first defined at 1:3)'].join(
+      '\n'
+    ),
+    unexpectedDiagnostic: '8:3 error Duplicate markdown heading "Usage" (first defined at 1:3)',
   },
   {
     stepName: 'tsc',
@@ -95,6 +97,19 @@ const FAILURE_FIXTURES: FailureFixture[] = [
     expectedDiagnostic: 'Clone found (typescript):',
     unexpectedDiagnostic: ' - extensions/a.ts [10:2 - 20:5] (11 lines, 92 tokens)',
   },
+  {
+    stepName: 'eslint-length',
+    output: [
+      '/repo/src/too-long.ts',
+      '1:121  error  This line has a length of 121. Maximum allowed is 120  max-len',
+      '401:1  error  File has too many lines (401). Maximum allowed is 400  max-lines',
+    ].join('\n'),
+    expectedDiagnostic: [
+      '/repo/src/too-long.ts',
+      '1:121  error  This line has a length of 121. Maximum allowed is 120  max-len',
+    ].join('\n'),
+    unexpectedDiagnostic: '401:1  error  File has too many lines (401). Maximum allowed is 400  max-lines',
+  },
 ];
 
 interface MockExecaResult {
@@ -120,7 +135,8 @@ const execaMock = mock(
 
 mock.module('execa', () => ({ execa: execaMock }));
 
-const { VERIFY_STEPS, runVerify } = await import('../../src/verify/index.ts');
+const { createDefaultVerifySteps, runVerify } = await import('../../src/verify/index.ts');
+const DEFAULT_VERIFY_STEPS = createDefaultVerifySteps();
 
 function okResult(): MockExecaResult {
   return {
@@ -148,8 +164,8 @@ describe('verify script', () => {
     const result = await runVerify();
 
     expect(result).toEqual({ code: 0, stdout: 'verify: ok' });
-    expect(execaMock.mock.calls.length).toBe(VERIFY_STEPS.length);
-    for (const [index, step] of VERIFY_STEPS.entries()) {
+    expect(execaMock.mock.calls.length).toBe(DEFAULT_VERIFY_STEPS.length);
+    for (const [index, step] of DEFAULT_VERIFY_STEPS.entries()) {
       const call = execaMock.mock.calls[index];
       expect(call?.[0]).toBe(step.command);
       expect(call?.[1]).toEqual(step.args);
@@ -162,13 +178,13 @@ describe('verify script', () => {
   });
 
   it('has fixtures for every verify stage in order', () => {
-    expect(FAILURE_FIXTURES.map((fixture) => fixture.stepName)).toEqual(VERIFY_STEPS.map((step) => step.name));
+    expect(FAILURE_FIXTURES.map((fixture) => fixture.stepName)).toEqual(DEFAULT_VERIFY_STEPS.map((step) => step.name));
   });
 
   for (const fixture of FAILURE_FIXTURES) {
     it(`fails at "${fixture.stepName}" with only the first diagnostic in stderr`, async () => {
       execaMock.mockReset();
-      const failureIndex = VERIFY_STEPS.findIndex((step) => step.name === fixture.stepName);
+      const failureIndex = DEFAULT_VERIFY_STEPS.findIndex((step) => step.name === fixture.stepName);
       expect(failureIndex).toBeGreaterThanOrEqual(0);
 
       let callIndex = 0;
@@ -197,8 +213,8 @@ describe('verify script', () => {
 
   it('in all mode runs all stages and aggregates full diagnostics for every failed stage', async () => {
     execaMock.mockReset();
-    const firstFixture = FAILURE_FIXTURES[0] as FailureFixture;
-    const secondFixture = FAILURE_FIXTURES[1] as FailureFixture;
+    const firstFixture = FAILURE_FIXTURES[0];
+    const secondFixture = FAILURE_FIXTURES[1];
 
     let callIndex = 0;
     execaMock.mockImplementation(async () => {
@@ -213,7 +229,7 @@ describe('verify script', () => {
       return okResult();
     });
 
-    const result = await runVerify(VERIFY_STEPS, { errorMode: 'all' });
+    const result = await runVerify(DEFAULT_VERIFY_STEPS, { errorMode: 'all' });
 
     expect(result.code).toBe(17);
     expect(result.stdout).toBeUndefined();
@@ -223,27 +239,26 @@ describe('verify script', () => {
     expect(result.stderr).toContain(firstFixture.unexpectedDiagnostic);
     expect(result.stderr).toContain(secondFixture.expectedDiagnostic);
     expect(result.stderr).toContain(secondFixture.unexpectedDiagnostic);
-    expect(execaMock.mock.calls.length).toBe(VERIFY_STEPS.length);
+    expect(execaMock.mock.calls.length).toBe(DEFAULT_VERIFY_STEPS.length);
   });
 
   it('collects per-step timings and total duration when requested', async () => {
     execaMock.mockReset();
     execaMock.mockImplementation(async () => okResult());
 
-    const result = await runVerify(VERIFY_STEPS, { collectTimings: true });
+    const result = await runVerify(DEFAULT_VERIFY_STEPS, { collectTimings: true });
 
     expect(result.code).toBe(0);
     expect(result.stdout).toBe('verify: ok');
     expect(result.timings).toBeDefined();
-    expect(result.timings?.steps.map((step) => step.name)).toEqual(VERIFY_STEPS.map((step) => step.name));
+    expect(result.timings?.steps.map((step) => step.name)).toEqual(DEFAULT_VERIFY_STEPS.map((step) => step.name));
     expect(result.timings?.steps.every((step) => step.code === 0)).toBe(true);
     expect(result.timings?.steps.every((step) => step.durationMs >= 0)).toBe(true);
     expect((result.timings?.totalMs ?? -1) >= 0).toBe(true);
   });
 
   it('throws on unknown error mode', async () => {
-    await expect(runVerify([], { errorMode: 'unexpected-mode' as unknown as 'first' | 'all' })).rejects.toThrow(
-      'verify: unknown error mode "unexpected-mode"'
-    );
+    // @ts-expect-error Covers runtime validation for callers outside TypeScript.
+    await expect(runVerify([], { errorMode: 'unexpected-mode' })).rejects.toThrow('verify: unknown error mode "unexpected-mode"');
   });
 });
