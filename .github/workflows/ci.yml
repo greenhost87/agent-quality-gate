@@ -22,11 +22,11 @@ jobs:
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Verify
+      - name: Verify release binary
         run: bun run --silent verify
 
       - name: Test
         run: bun test
 
-      - name: Build release package
+      - name: Build platform release package
         run: bun run build:release

@@ -12,7 +12,6 @@ interface PackageJsonShape {
   author?: unknown;
   bugs?: unknown;
   description?: unknown;
-  engines?: unknown;
   homepage?: unknown;
   keywords?: unknown;
   license?: unknown;
@@ -72,7 +71,6 @@ async function writeReleasePackageJson(sourcePackageJson: PackageJsonShape): Pro
     homepage: sourcePackageJson.homepage,
     bugs: sourcePackageJson.bugs,
     keywords: sourcePackageJson.keywords,
-    engines: sourcePackageJson.engines,
     bin: {
       verify: `./dist/bin/${VERIFY_BINARY_NAME}`,
     },

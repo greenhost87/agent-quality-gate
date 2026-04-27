@@ -1,4 +1,5 @@
 import { spawnSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -7,6 +8,7 @@ import { beforeAll, describe, expect, it } from 'bun:test';
 import { executableExtension } from '../../src/runtime/paths.js';
 
 const REPO_ROOT = fileURLToPath(new URL('../../', import.meta.url));
+const RELEASE_PACKAGE_JSON_PATH = join(REPO_ROOT, '.tmp', 'release-package', 'package.json');
 const VERIFY_BIN_PATH = join(REPO_ROOT, '.tmp', 'release-package', 'dist', 'bin', `verify${executableExtension()}`);
 const SLOW_BINARY_TIMEOUT_MS = 30_000;
 
@@ -14,6 +16,10 @@ interface CommandResult {
   code: number;
   stderr: string;
   stdout: string;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
 }
 
 function runVerifyBinary(args: string[]): CommandResult {
@@ -55,6 +61,20 @@ describe('verify release binary e2e', () => {
     expect(result.stdout).toContain('verify --timings');
     expect(result.stdout).toContain('verify --all-errors --timings');
     expect(result.stderr).toBe('');
+  });
+
+  it('packages the standalone binary without runtime engine metadata', () => {
+    const packageJson: unknown = JSON.parse(readFileSync(RELEASE_PACKAGE_JSON_PATH, 'utf-8'));
+
+    expect(isRecord(packageJson)).toBe(true);
+    if (!isRecord(packageJson)) {
+      throw new Error('release package.json must be an object');
+    }
+
+    expect(packageJson.bin).toEqual({ verify: `./dist/bin/verify${executableExtension()}` });
+    expect(packageJson).not.toHaveProperty('dependencies');
+    expect(packageJson).not.toHaveProperty('devDependencies');
+    expect(packageJson).not.toHaveProperty('engines');
   });
 
   it(

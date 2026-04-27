@@ -1,6 +1,6 @@
 # agent-quality-gate
 
-`agent-quality-gate` is a Bun-first CLI quality gate for AI-assisted TypeScript workflows.
+`agent-quality-gate` is a Bun-built standalone quality gate for AI-assisted TypeScript workflows.
 
 ## Status
 
@@ -11,7 +11,7 @@
 
 ## Install
 
-- Bun `>=1.3`.
+Target projects do not need Bun or the external toolchain at runtime.
 
 Install the platform-specific package tarball from a GitHub Release:
 
@@ -20,7 +20,7 @@ bun add -d \
   https://github.com/greenhost87/agent-quality-gate/releases/download/v0.2.1/agent-quality-gate-0.2.1-darwin-arm64.tgz
 ```
 
-The package contains the standalone `verify` binary and no runtime dependencies. Target projects get one lockfile entry, not the quality-gate toolchain dependency graph.
+GitHub Release package tarballs contain the standalone `verify` binary and no runtime dependency graph for the bundled checks. Target projects get one lockfile entry, not the quality-gate toolchain dependency graph.
 
 Use the package bin from a script:
 
@@ -38,7 +38,7 @@ The binary lives under `node_modules`:
 node_modules/agent-quality-gate/dist/bin/verify
 ```
 
-For local development or release validation, build and install the local package artifact:
+For local package validation, build and install the release artifact:
 
 ```bash
 bun run build:release
@@ -46,10 +46,10 @@ bun add -d ./artifacts/agent-quality-gate-0.2.1-darwin-arm64.tgz
 ```
 
 ```bash
-bun run verify
+bun run --silent verify
 ```
 
-For repository development, `bun run verify` builds the local release package and runs the compiled `verify` binary.
+For repository development, `bun run verify` builds the local release package and runs `.tmp/release-package/dist/bin/verify`.
 
 ## Usage
 
@@ -77,18 +77,31 @@ VERIFY_DEBUG=1 verify
 ## Verification Stack
 
 - `protected-coverage`: internal preflight step that ensures protected paths are still covered before the other checks run.
-- `eslint`: uses `eslint`, `@eslint/js`, `typescript-eslint`, and `eslint-plugin-check-file` to validate JavaScript and TypeScript code style, correctness, and file naming rules.
-- `eslint-length`: uses a separate late ESLint pass for `max-len` and `max-lines`, after semantic and structure checks.
-- `markdown-headings`: uses the bundled Bun checker to reject duplicate Markdown headings.
-- `tsc`: uses `typescript` to run type-checking with the bundled `tsconfig.verify.json`, including unused locals and unused parameters checks.
+- `eslint`: runs the bundled ESLint runner with embedded `eslint`, `@eslint/js`, `typescript-eslint`, and `eslint-plugin-check-file` configuration to validate JavaScript and TypeScript code style, correctness, and file naming rules.
+- `markdown-headings`: runs the bundled Markdown heading checker to reject duplicate Markdown headings.
+- `tsc`: runs the bundled TypeScript checker with `tsconfig.verify.json`, including unused locals and unused parameters checks.
 - `duplicate-shapes`: uses the internal TypeScript analyzer to detect duplicate exported TypeScript shapes in `src/`.
-- `depcruise`: uses `dependency-cruiser` to validate module dependency structure in `src/`.
-- `knip`: uses `knip` to find unused exports.
-- `jscpd`: uses the bundled duplicate detector runner to detect copy-pasted code in the allowed source directories.
+- `depcruise`: runs the bundled dependency-cruiser runner to validate module dependency structure in `src/`.
+- `knip`: runs the bundled Knip runner to find unused exports.
+- `jscpd`: runs the bundled duplicate detector runner to detect copy-pasted code in the allowed source directories.
+- `eslint-length`: runs the bundled late ESLint pass for `max-len` and `max-lines`, after semantic and structure checks.
+
+## Development
+
+Development, tests, and release builds use Bun:
+
+```bash
+bun install --frozen-lockfile
+bun test
+bun run --silent verify
+bun run build:release
+```
+
+`bun run verify` is a repository script: it builds the release package and runs the compiled standalone binary from `.tmp/release-package/dist/bin/verify`.
 
 ## Release
 
-Release tag must match `vX.Y.Z` and `package.json.version`.
+Release tag must match `vX.Y.Z` and `package.json.version`. Releases build platform-specific package tarballs and attach them to GitHub Releases. Registry publication remains disabled.
 
 ```bash
 bun install --frozen-lockfile

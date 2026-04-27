@@ -3,7 +3,7 @@
   "version": "0.2.1",
   "private": true,
   "type": "module",
-  "description": "agent-quality-gate: Bun-first CLI quality gate for AI-assisted TypeScript workflows",
+  "description": "agent-quality-gate: Bun-built standalone quality gate for AI-assisted TypeScript workflows",
   "license": "MIT",
   "author": "greenhost87",
   "repository": {
@@ -21,7 +21,7 @@
     "verify",
     "bun",
     "typescript",
-    "cli",
+    "standalone",
     "vibe-coding"
   ],
   "scripts": {
