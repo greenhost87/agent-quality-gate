@@ -4,11 +4,8 @@ import globals from 'globals';
 import checkFile from 'eslint-plugin-check-file';
 import { existsSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
-import { fileURLToPath } from 'node:url';
 
 import quality from './tools/eslint-plugin-quality/index.mjs';
-
-const ESLINT_CONFIG_DIR = fileURLToPath(new URL('.', import.meta.url));
 
 function resolveExtensionNames(cwd = process.cwd()) {
   const extensionsDir = join(cwd, 'extensions');
@@ -178,7 +175,7 @@ export default [
     languageOptions: {
       parserOptions: {
         projectService: true,
-        tsconfigRootDir: ESLINT_CONFIG_DIR,
+        tsconfigRootDir: process.cwd(),
       },
     },
     rules: {

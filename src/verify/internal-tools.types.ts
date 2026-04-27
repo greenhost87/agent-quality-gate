@@ -10,6 +10,12 @@ export interface ParsedKnipArgs {
   include: string[];
 }
 
+export interface ParsedEslintArgs {
+  configPath: string;
+  projectPath: string | null;
+  rest: string[];
+}
+
 export interface ParsedConfigArgs {
   configPath: string;
   rest: string[];

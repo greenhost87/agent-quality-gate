@@ -89,18 +89,37 @@ function createProtectedCoverageStep(): VerifyStep {
   };
 }
 
-function createLockedTscProjectFile(cwd: string, bundledConfigPath: string, files: readonly string[]): string | null {
+function resolveTypeScriptBaseConfigPath(cwd: string, bundledConfigPath: string): string {
+  const projectConfigPath = join(cwd, 'tsconfig.json');
+  if (existsSync(projectConfigPath)) {
+    return projectConfigPath;
+  }
+  return bundledConfigPath;
+}
+
+function createLockedTypeScriptProjectFile(
+  cwd: string,
+  baseConfigPath: string,
+  files: readonly string[]
+): string | null {
   if (files.length === 0) {
     return null;
   }
   const tscTempDir = join(cwd, '.tmp', 'verify-locked-tsconfig');
   mkdirSync(tscTempDir, { recursive: true });
-  const fileHash = createHash('sha256').update(`${cwd}\n${bundledConfigPath}`).digest('hex').slice(0, 16);
+  const fileHash = createHash('sha256').update(`${cwd}\n${baseConfigPath}`).digest('hex').slice(0, 16);
   const filePath = join(tscTempDir, `${fileHash}.json`);
   const absoluteFiles = files.map((filePath) => join(cwd, filePath));
+  const config = {
+    extends: baseConfigPath,
+    files: absoluteFiles,
+    compilerOptions: {
+      noEmit: true,
+    },
+  };
   writeFileSync(
     filePath,
-    `${JSON.stringify({ extends: bundledConfigPath, files: absoluteFiles }, null, 2)}\n`,
+    `${JSON.stringify(config, null, 2)}\n`,
     'utf-8'
   );
   return filePath;
@@ -111,6 +130,7 @@ function createBuiltInStep(
   configPath: string | null,
   override: StepOverride | undefined,
   cwd: string,
+  typeScriptBaseConfigPath: string,
   eslintTargets: readonly string[],
   markdownTargets: readonly string[],
   tscTargets: readonly string[],
@@ -122,13 +142,15 @@ function createBuiltInStep(
 
   switch (stepName) {
     case 'eslint':
-    case 'eslint-length':
+    case 'eslint-length': {
       if (eslintTargets.length === 0) {
         return null;
       }
       if (!overrideConfigPath) {
         throw new Error(`verify: missing ${stepName} config path`);
       }
+      const eslintProjectPath =
+        stepName === 'eslint' ? createLockedTypeScriptProjectFile(cwd, typeScriptBaseConfigPath, tscTargets) : null;
       return {
         name: stepName,
         ...toToolStep(stepName, [
@@ -137,10 +159,12 @@ function createBuiltInStep(
           '--no-warn-ignored',
           '--config',
           overrideConfigPath,
+          ...(eslintProjectPath ? ['--project', eslintProjectPath] : []),
           ...eslintTargets,
           ...appendedArgs,
         ]),
       };
+    }
     case 'markdown-headings': {
       if (override?.configPath) {
         throw new Error('verify: markdown-headings does not accept a config path');
@@ -160,7 +184,8 @@ function createBuiltInStep(
       if (!overrideConfigPath) {
         throw new Error('verify: missing tsc config path');
       }
-      const tscProjectPath = createLockedTscProjectFile(cwd, overrideConfigPath, tscTargets);
+      const tscBaseConfigPath = override?.configPath ? overrideConfigPath : typeScriptBaseConfigPath;
+      const tscProjectPath = createLockedTypeScriptProjectFile(cwd, tscBaseConfigPath, tscTargets);
       if (!tscProjectPath) {
         return null;
       }
@@ -236,6 +261,7 @@ function createBuiltInStep(
 export function createDefaultVerifyStepsResult(options: DefaultVerifyStepsOptions = {}): DefaultVerifyStepsResult {
   const cwd = options.cwd ?? process.cwd();
   const resolvedConfigs = resolveDefaultConfigMap({ cwd });
+  const typeScriptBaseConfigPath = resolveTypeScriptBaseConfigPath(cwd, resolvedConfigs.tsc.configPath);
   const resolvedTargets = resolveVerifyTargets(cwd);
   const steps: VerifyStep[] = [createProtectedCoverageStep()];
   const stepDebugInfo: VerifyStepDebugInfo[] = [
@@ -261,6 +287,7 @@ export function createDefaultVerifyStepsResult(options: DefaultVerifyStepsOption
       configPath,
       override,
       cwd,
+      typeScriptBaseConfigPath,
       resolvedTargets.eslint,
       resolvedTargets.markdown,
       resolvedTargets.tsc,

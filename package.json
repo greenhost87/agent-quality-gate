@@ -1,6 +1,6 @@
 {
   "name": "agent-quality-gate",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "private": true,
   "type": "module",
   "description": "agent-quality-gate: Bun-built standalone quality gate for AI-assisted TypeScript workflows",

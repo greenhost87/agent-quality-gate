@@ -1,4 +1,4 @@
-import { mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -12,6 +12,14 @@ async function makeTempDir(): Promise<string> {
   const dir = await mkdtemp(join(tmpdir(), 'verify-config-'));
   createdTempDirs.push(dir);
   return dir;
+}
+
+function readArgAfter(args: readonly string[], optionName: string): string {
+  const optionIndex = args.indexOf(optionName);
+  expect(optionIndex).toBeGreaterThanOrEqual(0);
+  const value = args[optionIndex + 1];
+  expect(value).toBeDefined();
+  return value ?? '';
 }
 
 describe('verify config loading', () => {
@@ -74,6 +82,50 @@ describe('verify config loading', () => {
     expect(eslintStep?.args).toContain('--agent-quality-gate-internal');
     expect(eslintStep?.args).toContain('tool');
     expect(eslintStep?.args).toContain('eslint');
+  });
+
+  it('uses project tsconfig for type resolution while keeping explicit verify files', async () => {
+    const cwd = await makeTempDir();
+    await mkdir(join(cwd, 'src'), { recursive: true });
+    await writeFile(
+      join(cwd, 'tsconfig.json'),
+      JSON.stringify(
+        {
+          compilerOptions: {
+            baseUrl: '.',
+            paths: {
+              '@app/*': ['src/*'],
+            },
+          },
+          exclude: ['src/excluded.ts'],
+        },
+        null,
+        2
+      ),
+      'utf-8'
+    );
+    await writeFile(join(cwd, 'src', 'index.ts'), "import { value } from '@app/excluded';\nexport { value };\n", 'utf-8');
+    await writeFile(join(cwd, 'src', 'excluded.ts'), 'export const value = 1;\n', 'utf-8');
+
+    const resolved = createDefaultVerifyStepsResult({ cwd });
+    const eslintStep = resolved.steps.find((step) => step.name === 'eslint');
+    const tscStep = resolved.steps.find((step) => step.name === 'tsc');
+
+    expect(eslintStep).toBeDefined();
+    expect(tscStep).toBeDefined();
+
+    const eslintProjectPath = readArgAfter(eslintStep?.args ?? [], '--project');
+    const tscProjectPath = readArgAfter(tscStep?.args ?? [], '--project');
+    expect(eslintProjectPath).toBe(tscProjectPath);
+
+    const generatedConfig: unknown = JSON.parse(await readFile(eslintProjectPath, 'utf-8'));
+    expect(generatedConfig).toEqual({
+      extends: join(cwd, 'tsconfig.json'),
+      files: [join(cwd, 'src', 'excluded.ts'), join(cwd, 'src', 'index.ts')],
+      compilerOptions: {
+        noEmit: true,
+      },
+    });
   });
 
   it('rejects local verify config file in locked mode', async () => {

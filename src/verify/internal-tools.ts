@@ -17,7 +17,7 @@ import { parseRequiredConfigArgs, readRequiredNextArg } from './internal-args.js
 import { runJscpd } from './internal-jscpd.js';
 import { runMarkdownHeadingsStep } from './internal-steps.js';
 import type { EslintConfigModule } from './internal-steps.types.js';
-import type { ParsedKnipArgs, ParsedTscArgs } from './internal-tools.types.js';
+import type { ParsedEslintArgs, ParsedKnipArgs, ParsedTscArgs } from './internal-tools.types.js';
 import type { InternalVerifyToolOptions } from './types.js';
 
 function isEslintConfigModule(value: unknown): value is EslintConfigModule<Linter.Config> {
@@ -29,6 +29,10 @@ function isEslintConfigModule(value: unknown): value is EslintConfigModule<Linte
   );
 }
 
+function isLinterConfigArray(value: unknown): value is Linter.Config[] {
+  return Array.isArray(value);
+}
+
 async function loadBundledEslintConfig(configPath: string): Promise<Linter.Config[]> {
   const configModule: unknown = await import(pathToFileURL(configPath).href);
   if (!isEslintConfigModule(configModule)) {
@@ -37,16 +41,46 @@ async function loadBundledEslintConfig(configPath: string): Promise<Linter.Confi
   return configModule.default;
 }
 
-async function runEslint(configPath: string, args: readonly string[]): Promise<number> {
+function withTypeScriptProject(overrideConfig: Linter.Config[], projectPath: string | null): Linter.Config[] {
+  if (!projectPath) {
+    return overrideConfig;
+  }
+  return overrideConfig.map((config) => {
+    const parserOptions = config.languageOptions?.parserOptions;
+    if (
+      typeof parserOptions !== 'object' ||
+      parserOptions === null ||
+      (!('project' in parserOptions) && !('projectService' in parserOptions))
+    ) {
+      return config;
+    }
+    return {
+      ...config,
+      languageOptions: {
+        ...config.languageOptions,
+        parserOptions: {
+          ...parserOptions,
+          project: [projectPath],
+          projectService: false,
+          tsconfigRootDir: process.cwd(),
+        },
+      },
+    };
+  });
+}
+
+async function runEslint(configPath: string, projectPath: string | null, args: readonly string[]): Promise<number> {
   const importedConfig: unknown = configPath.endsWith('eslint-length.config.mjs')
     ? bundledEslintLengthConfig
     : bundledEslintConfig;
-  const overrideConfig = Array.isArray(importedConfig) ? importedConfig : await loadBundledEslintConfig(configPath);
+  const loadedConfig = isLinterConfigArray(importedConfig) ? importedConfig : await loadBundledEslintConfig(configPath);
+  const overrideConfig = withTypeScriptProject(loadedConfig, projectPath);
   const eslint = new ESLint({
     cwd: process.cwd(),
     overrideConfig,
     overrideConfigFile: true,
     ignore: false,
+    warnIgnored: false,
   });
   const results = await eslint.lintFiles([...args]);
   const formatter = await eslint.loadFormatter('stylish');
@@ -57,15 +91,23 @@ async function runEslint(configPath: string, args: readonly string[]): Promise<n
   return results.some((result) => result.errorCount > 0 || result.fatalErrorCount > 0) ? 1 : 0;
 }
 
-function parseConfigBackedArgs(args: readonly string[]): { configPath: string; rest: string[] } {
-  const configIndex = args.findIndex((arg) => arg === '--config' || arg === '-c');
-  const configPath = configIndex >= 0 ? (args[configIndex + 1] ?? '') : '';
-  if (!configPath) {
-    throw new Error('verify: internal tool args are missing --config value');
+function parseEslintArgs(args: readonly string[]): ParsedEslintArgs {
+  const parsedConfig = parseRequiredConfigArgs(args, 'eslint');
+  let projectPath: string | null = null;
+  const rest: string[] = [];
+  for (let index = 0; index < parsedConfig.rest.length; index += 1) {
+    const arg = parsedConfig.rest[index] ?? '';
+    if (arg === '--project') {
+      projectPath = readRequiredNextArg(parsedConfig.rest, index);
+      index += 1;
+      continue;
+    }
+    rest.push(arg);
   }
   return {
-    configPath,
-    rest: args.filter((_, index) => index !== configIndex && index !== configIndex + 1),
+    configPath: parsedConfig.configPath,
+    projectPath,
+    rest,
   };
 }
 
@@ -223,9 +265,10 @@ export async function runInternalVerifyTool(options: InternalVerifyToolOptions):
 
   switch (toolName) {
     case 'eslint': {
-      const parsed = parseConfigBackedArgs(toolArgs);
+      const parsed = parseEslintArgs(toolArgs);
       return runEslint(
         parsed.configPath,
+        parsed.projectPath,
         parsed.rest.filter((arg) => arg !== '--no-ignore' && arg !== '--no-warn-ignored')
       );
     }

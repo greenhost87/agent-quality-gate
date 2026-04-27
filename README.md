@@ -17,7 +17,7 @@ Install the platform-specific package tarball from a GitHub Release:
 
 ```bash
 bun add -d \
-  https://github.com/greenhost87/agent-quality-gate/releases/download/v0.2.1/agent-quality-gate-0.2.1-darwin-arm64.tgz
+  https://github.com/greenhost87/agent-quality-gate/releases/download/v0.3.0/agent-quality-gate-0.3.0-darwin-arm64.tgz
 ```
 
 GitHub Release package tarballs contain the standalone `verify` binary and no runtime dependency graph for the bundled checks. Target projects get one lockfile entry, not the quality-gate toolchain dependency graph.
@@ -42,7 +42,7 @@ For local package validation, build and install the release artifact:
 
 ```bash
 bun run build:release
-bun add -d ./artifacts/agent-quality-gate-0.2.1-darwin-arm64.tgz
+bun add -d ./artifacts/agent-quality-gate-0.3.0-darwin-arm64.tgz
 ```
 
 ```bash
