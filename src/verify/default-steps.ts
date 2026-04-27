@@ -27,8 +27,6 @@ const STEP_ORDER: BuiltinVerifyStepName[] = [
   'jscpd',
   'eslint-length',
 ];
-const PROTECTED_COVERAGE_SCRIPT_PATH = resolveProtectedScriptPath('verify-protected-coverage');
-const MARKDOWN_HEADINGS_SCRIPT_PATH = resolveProtectedScriptPath('verify-markdown-headings');
 const VERIFY_SCRIPT_PATH = resolveProtectedScriptPath('verify');
 
 function isCompiledExecutable(): boolean {
@@ -44,20 +42,17 @@ function toDefaultJscpdTargets(targets: readonly string[]): string[] {
   return targets.filter((filePath) => JSCPD_ALLOWED_PREFIXES.some((prefix) => filePath.startsWith(prefix)));
 }
 
-function toStepArgs(commandArgs: string[]): string[] {
-  return ['x', ...commandArgs];
-}
-
 function toToolStep(stepName: string, commandArgs: string[]): Pick<VerifyStep, 'command' | 'args'> {
+  const internalArgs = ['--agent-quality-gate-internal', 'tool', stepName, ...commandArgs];
   if (!isCompiledExecutable()) {
     return {
       command: 'bun',
-      args: toStepArgs(commandArgs),
+      args: [VERIFY_SCRIPT_PATH, ...internalArgs],
     };
   }
   return {
     command: process.execPath,
-    args: ['--agent-quality-gate-internal', 'tool', stepName, ...commandArgs],
+    args: internalArgs,
   };
 }
 
@@ -79,17 +74,18 @@ function resolveProtectedScriptPath(fileName: string): string {
 }
 
 function createProtectedCoverageStep(): VerifyStep {
+  const internalArgs = ['--agent-quality-gate-internal', PROTECTED_COVERAGE_STEP_NAME];
   if (isCompiledExecutable()) {
     return {
       name: PROTECTED_COVERAGE_STEP_NAME,
       command: process.execPath,
-      args: ['--agent-quality-gate-internal', PROTECTED_COVERAGE_STEP_NAME],
+      args: internalArgs,
     };
   }
   return {
     name: PROTECTED_COVERAGE_STEP_NAME,
     command: 'bun',
-    args: [PROTECTED_COVERAGE_SCRIPT_PATH],
+    args: [VERIFY_SCRIPT_PATH, ...internalArgs],
   };
 }
 
@@ -153,12 +149,11 @@ function createBuiltInStep(
       if (targets.length === 0) {
         return null;
       }
+      const internalArgs = ['--agent-quality-gate-internal', 'markdown-headings', ...targets, ...appendedArgs];
       return {
         name: 'markdown-headings',
         command: isCompiledExecutable() ? process.execPath : 'bun',
-        args: isCompiledExecutable()
-          ? ['--agent-quality-gate-internal', 'markdown-headings', ...targets, ...appendedArgs]
-          : [MARKDOWN_HEADINGS_SCRIPT_PATH, ...targets, ...appendedArgs],
+        args: isCompiledExecutable() ? internalArgs : [VERIFY_SCRIPT_PATH, ...internalArgs],
       };
     }
     case 'tsc': {

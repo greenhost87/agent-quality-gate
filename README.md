@@ -49,6 +49,8 @@ bun add -d ./artifacts/agent-quality-gate-0.2.1-darwin-arm64.tgz
 bun run verify
 ```
 
+For repository development, `bun run verify` builds the local release package and runs the compiled `verify` binary.
+
 ## Usage
 
 ```bash
@@ -74,7 +76,7 @@ VERIFY_DEBUG=1 verify
 
 ## Verification Stack
 
-- `protected-coverage`: internal preflight step that ensures protected paths are still covered before the external tools run.
+- `protected-coverage`: internal preflight step that ensures protected paths are still covered before the other checks run.
 - `eslint`: uses `eslint`, `@eslint/js`, `typescript-eslint`, and `eslint-plugin-check-file` to validate JavaScript and TypeScript code style, correctness, and file naming rules.
 - `eslint-length`: uses a separate late ESLint pass for `max-len` and `max-lines`, after semantic and structure checks.
 - `markdown-headings`: uses the bundled Bun checker to reject duplicate Markdown headings.
@@ -82,7 +84,7 @@ VERIFY_DEBUG=1 verify
 - `duplicate-shapes`: uses the internal TypeScript analyzer to detect duplicate exported TypeScript shapes in `src/`.
 - `depcruise`: uses `dependency-cruiser` to validate module dependency structure in `src/`.
 - `knip`: uses `knip` to find unused exports.
-- `jscpd`: uses `jscpd` to detect copy-pasted code in the allowed source directories.
+- `jscpd`: uses the bundled duplicate detector runner to detect copy-pasted code in the allowed source directories.
 
 ## Release
 

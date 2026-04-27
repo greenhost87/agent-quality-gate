@@ -46,7 +46,9 @@ describe('verify config loading', () => {
     expect(resolved.stepDebugInfo[0]).toEqual({ name: 'protected-coverage', source: 'bundled' });
     const markdownHeadingsStep = resolved.steps.find((step) => step.name === 'markdown-headings');
     expect(markdownHeadingsStep).toBeDefined();
-    expect(markdownHeadingsStep?.args[0]).toContain('verify-markdown-headings');
+    expect(markdownHeadingsStep?.args[0]).toContain('verify');
+    expect(markdownHeadingsStep?.args).toContain('--agent-quality-gate-internal');
+    expect(markdownHeadingsStep?.args).toContain('markdown-headings');
     for (const info of resolved.stepDebugInfo.slice(1)) {
       expect(info.source).toBe('bundled');
       if (info.name === 'markdown-headings') {
@@ -68,8 +70,10 @@ describe('verify config loading', () => {
     expect(eslintStep).toBeDefined();
     expect(eslintStep?.args).toContain('--config');
     expect(eslintStep?.args).not.toContain(join(cwd, 'eslint.config.mjs'));
-    expect(eslintStep?.args[0]).toBe('x');
-    expect(eslintStep?.args[1]).toBe('eslint');
+    expect(eslintStep?.args[0]).toContain('verify');
+    expect(eslintStep?.args).toContain('--agent-quality-gate-internal');
+    expect(eslintStep?.args).toContain('tool');
+    expect(eslintStep?.args).toContain('eslint');
   });
 
   it('rejects local verify config file in locked mode', async () => {

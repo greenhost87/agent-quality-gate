@@ -1,11 +1,14 @@
 import { spawnSync } from 'node:child_process';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { describe, expect, it } from 'bun:test';
+import { beforeAll, describe, expect, it } from 'bun:test';
+
+import { executableExtension } from '../../src/runtime/paths.js';
 
 const REPO_ROOT = fileURLToPath(new URL('../../', import.meta.url));
-const VERIFY_BIN_PATH = fileURLToPath(new URL('../../bin/verify.ts', import.meta.url));
-const SLOW_CLI_TIMEOUT_MS = 20_000;
+const VERIFY_BIN_PATH = join(REPO_ROOT, '.tmp', 'release-package', 'dist', 'bin', `verify${executableExtension()}`);
+const SLOW_BINARY_TIMEOUT_MS = 30_000;
 
 interface CommandResult {
   code: number;
@@ -13,8 +16,8 @@ interface CommandResult {
   stdout: string;
 }
 
-function runVerifyCli(args: string[]): CommandResult {
-  const result = spawnSync('bun', [VERIFY_BIN_PATH, ...args], {
+function runVerifyBinary(args: string[]): CommandResult {
+  const result = spawnSync(VERIFY_BIN_PATH, args, {
     cwd: REPO_ROOT,
     encoding: 'utf-8',
     env: { ...process.env, FORCE_COLOR: '0' },
@@ -27,9 +30,26 @@ function runVerifyCli(args: string[]): CommandResult {
   };
 }
 
-describe('verify cli e2e', () => {
+describe('verify release binary e2e', () => {
+  beforeAll(() => {
+    const result = spawnSync('bun', ['run', 'build:release'], {
+      cwd: REPO_ROOT,
+      encoding: 'utf-8',
+      env: { ...process.env, FORCE_COLOR: '0' },
+    });
+    if ((result.status ?? 1) !== 0) {
+      throw new Error(
+        [
+          `release build failed with status ${result.status ?? 'null'}`,
+          `stdout:\n${result.stdout ?? ''}`,
+          `stderr:\n${result.stderr ?? ''}`,
+        ].join('\n')
+      );
+    }
+  }, SLOW_BINARY_TIMEOUT_MS);
+
   it('prints help that includes the timings flag', () => {
-    const result = runVerifyCli(['--help']);
+    const result = runVerifyBinary(['--help']);
 
     expect(result.code).toBe(0);
     expect(result.stdout).toContain('verify --timings');
@@ -40,7 +60,7 @@ describe('verify cli e2e', () => {
   it(
     'prints per-step timings when the timings flag is enabled',
     () => {
-      const result = runVerifyCli(['--timings']);
+      const result = runVerifyBinary(['--timings']);
 
       expect(result.code).toBe(0);
       expect(result.stdout).toContain('verify: ok');
@@ -50,6 +70,6 @@ describe('verify cli e2e', () => {
       expect(result.stdout).toContain('Total ');
       expect(result.stderr).toBe('');
     },
-    SLOW_CLI_TIMEOUT_MS
+    SLOW_BINARY_TIMEOUT_MS
   );
 });

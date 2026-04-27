@@ -27,7 +27,7 @@
   "scripts": {
     "build:release": "bun ./bin/build-release-package.ts",
     "check:release-tag": "bun ./bin/check-release-tag.ts",
-    "verify": "bun ./bin/verify.ts",
+    "verify": "bun ./bin/run-release-verify.ts",
     "test": "bun test"
   },
   "engines": {
