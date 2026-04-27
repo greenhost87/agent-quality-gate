@@ -1,19 +1,14 @@
 import { readFileSync } from 'node:fs';
 import { relative, resolve } from 'node:path';
 
-import { Node, Project, TypeFormatFlags } from 'ts-morph';
-import type {
-  InterfaceDeclaration,
-  Node as TsMorphNode,
-  Symbol as TsMorphSymbol,
-  Type as TsMorphType,
-  TypeAliasDeclaration,
-} from 'ts-morph';
+import ts from 'typescript';
 
 import type { DuplicateShapesConfig, ShapeDeclaration, ShapeFinding } from './duplicate-shapes.types.js';
 
 const FORMAT_FLAGS =
-  TypeFormatFlags.NoTruncation | TypeFormatFlags.UseAliasDefinedOutsideCurrentScope | TypeFormatFlags.InTypeAlias;
+  ts.TypeFormatFlags.NoTruncation |
+  ts.TypeFormatFlags.UseAliasDefinedOutsideCurrentScope |
+  ts.TypeFormatFlags.InTypeAlias;
 
 function normalizePath(value = ''): string {
   return value.replace(/\\/g, '/');
@@ -48,26 +43,48 @@ function normalizeTypeText(typeText: string): string {
   return typeText.replace(/\s+/g, ' ').trim();
 }
 
-function propertyEntry(symbol: TsMorphSymbol, referenceNode: TsMorphNode): string {
-  const declaration = symbol.getDeclarations()[0];
+function hasReadonlyModifier(node: ts.Node): boolean {
+  return (
+    ts.canHaveModifiers(node) &&
+    Boolean(ts.getModifiers(node)?.some((modifier) => modifier.kind === ts.SyntaxKind.ReadonlyKeyword))
+  );
+}
+
+function propertyNameText(symbol: ts.Symbol, declaration: ts.Declaration | undefined): string {
+  if (
+    declaration &&
+    (ts.isPropertySignature(declaration) ||
+      ts.isPropertyDeclaration(declaration) ||
+      ts.isMethodSignature(declaration) ||
+      ts.isMethodDeclaration(declaration))
+  ) {
+    return declaration.name.getText();
+  }
+  return symbol.getName();
+}
+
+function propertyEntry(checker: ts.TypeChecker, symbol: ts.Symbol, referenceNode: ts.Node): string {
+  const declaration = symbol.getDeclarations()?.[0];
   const name = symbol.getName();
   if (!declaration) {
-    const fallbackType = symbol.getTypeAtLocation(referenceNode);
-    return `${name}: ${normalizeTypeText(fallbackType.getText(referenceNode, FORMAT_FLAGS))}`;
+    const fallbackType = checker.getTypeOfSymbolAtLocation(symbol, referenceNode);
+    return `${name}: ${normalizeTypeText(checker.typeToString(fallbackType, referenceNode, FORMAT_FLAGS))}`;
   }
-  if (Node.isPropertySignature(declaration) || Node.isPropertyDeclaration(declaration)) {
+  if (ts.isPropertySignature(declaration) || ts.isPropertyDeclaration(declaration)) {
+    const propertyType = checker.getTypeOfSymbolAtLocation(symbol, declaration);
     return [
-      declaration.isReadonly() ? 'readonly ' : '',
-      name,
-      declaration.hasQuestionToken() ? '?' : '',
+      hasReadonlyModifier(declaration) ? 'readonly ' : '',
+      propertyNameText(symbol, declaration),
+      declaration.questionToken ? '?' : '',
       ': ',
-      normalizeTypeText(declaration.getType().getText(referenceNode, FORMAT_FLAGS)),
+      normalizeTypeText(checker.typeToString(propertyType, referenceNode, FORMAT_FLAGS)),
     ].join('');
   }
-  if (Node.isMethodSignature(declaration) || Node.isMethodDeclaration(declaration)) {
-    return `${name}: ${normalizeTypeText(declaration.getText())}`;
+  if (ts.isMethodSignature(declaration) || ts.isMethodDeclaration(declaration)) {
+    return `${propertyNameText(symbol, declaration)}: ${normalizeTypeText(declaration.getText())}`;
   }
-  return `${name}: ${normalizeTypeText(symbol.getTypeAtLocation(referenceNode).getText(referenceNode, FORMAT_FLAGS))}`;
+  const fallbackType = checker.getTypeOfSymbolAtLocation(symbol, referenceNode);
+  return `${name}: ${normalizeTypeText(checker.typeToString(fallbackType, referenceNode, FORMAT_FLAGS))}`;
 }
 
 function compareSimilarity(leftDeclaration: ShapeDeclaration, rightDeclaration: ShapeDeclaration): number {
@@ -81,15 +98,17 @@ function pairKey(left: string, right: string): string {
   return [left, right].sort().join('::');
 }
 
-function isObjectLikeType(type: TsMorphType): boolean {
-  return type.isObject();
+function isObjectLikeType(type: ts.Type): boolean {
+  return Boolean(type.flags & ts.TypeFlags.Object);
 }
 
-function collectProperties(declaration: InterfaceDeclaration | TypeAliasDeclaration): string[] {
-  return declaration
-    .getType()
-    .getProperties()
-    .map((symbol) => propertyEntry(symbol, declaration))
+function collectProperties(
+  checker: ts.TypeChecker,
+  declaration: ts.InterfaceDeclaration | ts.TypeAliasDeclaration
+): string[] {
+  return checker
+    .getPropertiesOfType(checker.getTypeAtLocation(declaration))
+    .map((symbol) => propertyEntry(checker, symbol, declaration))
     .sort();
 }
 
@@ -152,38 +171,89 @@ function readDuplicateShapesConfig(configPath: string): DuplicateShapesConfig {
   };
 }
 
+function isExportedDeclaration(declaration: ts.Declaration): boolean {
+  return (
+    ts.canHaveModifiers(declaration) &&
+    Boolean(ts.getModifiers(declaration)?.some((modifier) => modifier.kind === ts.SyntaxKind.ExportKeyword))
+  );
+}
+
+function readProgram(cwd: string, config: DuplicateShapesConfig): ts.Program {
+  const tsconfigPath = resolve(cwd, config.tsconfig ?? 'tsconfig.json');
+  const configFile = ts.readConfigFile(tsconfigPath, ts.sys.readFile);
+  if (configFile.error) {
+    throw new Error(ts.flattenDiagnosticMessageText(configFile.error.messageText, '\n'));
+  }
+  const parsedConfig = ts.parseJsonConfigFileContent(configFile.config, ts.sys, cwd, undefined, tsconfigPath);
+  if (parsedConfig.errors.length > 0) {
+    throw new Error(ts.flattenDiagnosticMessageText(parsedConfig.errors[0]?.messageText ?? 'invalid tsconfig', '\n'));
+  }
+  return ts.createProgram({
+    rootNames: parsedConfig.fileNames,
+    options: parsedConfig.options,
+    projectReferences: parsedConfig.projectReferences,
+  });
+}
+
+function isIncludedSourceFile(cwd: string, sourceFile: ts.SourceFile, config: DuplicateShapesConfig): boolean {
+  if (sourceFile.isDeclarationFile) {
+    return false;
+  }
+  const relativePath = normalizePath(relative(cwd, sourceFile.fileName));
+  return (
+    matchesAny(relativePath, config.include ?? ['src/**/*.ts', 'src/**/*.tsx']) &&
+    !matchesAny(relativePath, config.exclude ?? [])
+  );
+}
+
 function collectShapeDeclarations(cwd: string, config: DuplicateShapesConfig): ShapeDeclaration[] {
-  const project = new Project({ tsConfigFilePath: resolve(cwd, config.tsconfig ?? 'tsconfig.json') });
+  const program = readProgram(cwd, config);
+  const checker = program.getTypeChecker();
   const allowNames = new Set(config.allowNames ?? []);
   const minProperties = Number(config.minProperties ?? 3);
   const declarations: ShapeDeclaration[] = [];
-  const sourceFiles = project.getSourceFiles(config.include ?? ['src/**/*.ts', 'src/**/*.tsx']).filter((sourceFile) => {
-    const relativePath = normalizePath(relative(cwd, sourceFile.getFilePath()));
-    return !matchesAny(relativePath, config.exclude ?? []);
-  });
+  const sourceFiles = program.getSourceFiles().filter((sourceFile) => isIncludedSourceFile(cwd, sourceFile, config));
 
   for (const sourceFile of sourceFiles) {
-    const relativePath = normalizePath(relative(cwd, sourceFile.getFilePath()));
-    for (const declaration of sourceFile.getInterfaces()) {
-      const name = declaration.getName();
-      if (!declaration.isExported() || allowNames.has(name) || !isObjectLikeType(declaration.getType())) {
-        continue;
+    const relativePath = normalizePath(relative(cwd, sourceFile.fileName));
+    ts.forEachChild(sourceFile, (node) => {
+      if (ts.isInterfaceDeclaration(node)) {
+        const name = node.name.text;
+        const type = checker.getTypeAtLocation(node);
+        if (!isExportedDeclaration(node) || allowNames.has(name) || !isObjectLikeType(type)) {
+          return;
+        }
+        appendShapeDeclaration(
+          declarations,
+          'interface',
+          name,
+          relativePath,
+          collectProperties(checker, node),
+          minProperties
+        );
+        return;
       }
-      appendShapeDeclaration(declarations, 'interface', name, relativePath, collectProperties(declaration), minProperties);
-    }
-    for (const declaration of sourceFile.getTypeAliases()) {
-      const name = declaration.getName();
-      const typeNode = declaration.getTypeNode();
-      if (
-        !declaration.isExported() ||
-        allowNames.has(name) ||
-        (typeNode && Node.isTypeReference(typeNode) && !typeNode.getTypeArguments().length) ||
-        !isObjectLikeType(declaration.getType())
-      ) {
-        continue;
+      if (ts.isTypeAliasDeclaration(node)) {
+        const name = node.name.text;
+        const type = checker.getTypeAtLocation(node);
+        if (
+          !isExportedDeclaration(node) ||
+          allowNames.has(name) ||
+          (ts.isTypeReferenceNode(node.type) && node.type.typeArguments === undefined) ||
+          !isObjectLikeType(type)
+        ) {
+          return;
+        }
+        appendShapeDeclaration(
+          declarations,
+          'type',
+          name,
+          relativePath,
+          collectProperties(checker, node),
+          minProperties
+        );
       }
-      appendShapeDeclaration(declarations, 'type', name, relativePath, collectProperties(declaration), minProperties);
-    }
+    });
   }
   return declarations;
 }
@@ -219,10 +289,15 @@ function renderDuplicateShapes(findings: readonly ShapeFinding[]): string {
   }
   const lines = ['Duplicate or near-duplicate exported object shapes detected:', ''];
   for (const finding of findings) {
+    const leftShape = `${finding.left.name} (${finding.left.file})`;
+    const rightShape = `${finding.right.name} (${finding.right.file})`;
+    const comparedShapes = `${leftShape} <-> ${rightShape}`;
     lines.push(
-      `- similarity=${finding.similarity.toFixed(2)} | ${finding.left.name} (${finding.left.file}) <-> ${finding.right.name} (${finding.right.file})`
+      `- similarity=${finding.similarity.toFixed(2)} | ${comparedShapes}`
     );
-    lines.push(`  shared=${finding.shared.length}/${Math.max(finding.left.properties.length, finding.right.properties.length)}`);
+    lines.push(
+      `  shared=${finding.shared.length}/${Math.max(finding.left.properties.length, finding.right.properties.length)}`
+    );
     const preview = finding.shared.slice(0, 6);
     if (preview.length) {
       lines.push(`  preview=${preview.join(' | ')}`);

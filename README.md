@@ -5,59 +5,48 @@
 ## Status
 
 - This repository is not published to a package registry.
-- Official install channels are Git tags and GitHub Release tarballs.
+- Official install channels are Git tags and GitHub Release package tarballs.
 - External pull requests are currently not accepted.
 - Bug reports, documentation problems, and feature ideas should go through issues.
 
 ## Install
 
 - Bun `>=1.3`.
-- Git.
 
-Install from a GitHub Release tarball:
+Install the platform-specific package tarball from a GitHub Release:
 
 ```bash
-bunx --package https://github.com/greenhost87/agent-quality-gate/releases/download/v0.0.1/agent-quality-gate-init-0.0.1.tgz agent-quality-gate-init
+bun add -d \
+  https://github.com/greenhost87/agent-quality-gate/releases/download/v0.2.1/agent-quality-gate-0.2.1-darwin-arm64.tgz
 ```
 
-`agent-quality-gate-init` installs the heavy runtime into the user cache and writes a small project launcher. The runtime is not added to the consumer project dependencies, so the consumer project lockfile does not receive the quality-gate toolchain dependency graph.
+The package contains the standalone `verify` binary and no runtime dependencies. Target projects get one lockfile entry, not the quality-gate toolchain dependency graph.
 
-The generated project shape is:
+Use the package bin from a script:
 
 ```json
 {
   "scripts": {
-    "verify": "bun .agent-quality-gate/agent-quality-gate.mjs verify"
-  },
-  "agentQualityGate": {
-    "version": "0.0.1"
+    "verify": "verify"
   }
 }
 ```
 
-The runtime cache lives under:
+The binary lives under `node_modules`:
 
 ```text
-~/.cache/agent-quality-gate/runtimes/v0.0.1
+node_modules/agent-quality-gate/dist/bin/verify
 ```
 
-For local development or release validation, run the local init tarball and pass the local runtime tarball as the explicit runtime source:
+For local development or release validation, build and install the local package artifact:
 
 ```bash
-bunx --package file:/path/to/agent-quality-gate/artifacts/agent-quality-gate-init-0.0.1.tgz agent-quality-gate-init --runtime-source file:/path/to/agent-quality-gate/artifacts/agent-quality-gate-0.0.1.tgz
+bun run build:release
+bun add -d ./artifacts/agent-quality-gate-0.2.1-darwin-arm64.tgz
 ```
-
-If the runtime is already installed, `verify` uses it. If it is missing, `verify` fails and prints the init command to run; it does not install dependencies silently.
 
 ```bash
 bun run verify
-```
-
-Direct runtime package installation is still supported for release smoke tests:
-
-```bash
-bun add -d git+https://github.com/greenhost87/agent-quality-gate.git#v0.0.1
-bun add -d https://github.com/greenhost87/agent-quality-gate/releases/download/v0.0.1/agent-quality-gate-0.0.1.tgz
 ```
 
 ## Usage
@@ -81,7 +70,7 @@ VERIFY_DEBUG=1 verify
 
 - `verify` runs fixed steps in this order: `protected-coverage`, `eslint`, `markdown-headings`, `tsc`, `duplicate-shapes`, `depcruise`, `knip`, `jscpd`, `eslint-length`.
 - Locked mode rejects local `verify.config.*` files and local `--config` paths.
-- Bundled configs from `dist/default-configs` are used.
+- Bundled configs are embedded into the standalone `verify` binary.
 
 ## Verification Stack
 
@@ -90,7 +79,7 @@ VERIFY_DEBUG=1 verify
 - `eslint-length`: uses a separate late ESLint pass for `max-len` and `max-lines`, after semantic and structure checks.
 - `markdown-headings`: uses the bundled Bun checker to reject duplicate Markdown headings.
 - `tsc`: uses `typescript` to run type-checking with the bundled `tsconfig.verify.json`, including unused locals and unused parameters checks.
-- `duplicate-shapes`: uses the internal `ts-morph`-based analyzer to detect duplicate exported TypeScript shapes in `src/`.
+- `duplicate-shapes`: uses the internal TypeScript analyzer to detect duplicate exported TypeScript shapes in `src/`.
 - `depcruise`: uses `dependency-cruiser` to validate module dependency structure in `src/`.
 - `knip`: uses `knip` to find unused exports.
 - `jscpd`: uses `jscpd` to detect copy-pasted code in the allowed source directories.
@@ -107,12 +96,12 @@ bun install --frozen-lockfile
 bun run --silent verify
 bun test
 bun run check:release-tag -- vX.Y.Z
-bun run pack:release
+bun run build:release
 ```
 
 1. Push tag `vX.Y.Z`.
-2. `release.yml` validates tag/version parity, runs checks, and builds tarballs.
-3. GitHub Release attaches `artifacts/*.tgz`.
+2. `release.yml` validates tag/version parity, runs checks, and builds package tarballs.
+3. GitHub Release attaches `artifacts/*`.
 4. Registry publication remains disabled.
 
 ## License

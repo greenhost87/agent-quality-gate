@@ -15,8 +15,7 @@
     "specs/**/*.ts"
   ],
   "ignoreDependencies": [
-    "prettier",
-    "ts-morph"
+    "prettier"
   ],
   "include": [
     "exports",

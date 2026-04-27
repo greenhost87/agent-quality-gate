@@ -6,7 +6,6 @@ import { extractEmbeddedDefaultConfigs } from './embedded-default-configs.js';
 import type { ConfigBackedVerifyStepName, ResolvedDefaultConfigMap, ResolveDefaultConfigOptions } from './types.js';
 
 const VERIFY_PACKAGE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
-const DIST_DEFAULT_CONFIGS_DIR = join(VERIFY_PACKAGE_ROOT, 'dist', 'default-configs');
 
 const BUNDLED_CONFIG_FILES: Record<ConfigBackedVerifyStepName, string> = {
   eslint: 'eslint.config.mjs',
@@ -21,9 +20,6 @@ const BUNDLED_CONFIG_FILES: Record<ConfigBackedVerifyStepName, string> = {
 function resolveBundledConfigDir(candidateDir?: string): string {
   if (candidateDir) {
     return isAbsolute(candidateDir) ? candidateDir : join(process.cwd(), candidateDir);
-  }
-  if (existsSync(DIST_DEFAULT_CONFIGS_DIR)) {
-    return DIST_DEFAULT_CONFIGS_DIR;
   }
   const embeddedDefaultConfigDir = extractEmbeddedDefaultConfigs();
   if (existsSync(embeddedDefaultConfigDir)) {

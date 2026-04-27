@@ -1,26 +1,18 @@
-import { homedir } from 'node:os';
-import { join } from 'node:path';
-
-export const RUNTIME_PACKAGE_NAME = 'agent-quality-gate';
-
-export function resolveCacheRoot(explicitCacheDir?: string): string {
-  if (explicitCacheDir) {
-    return explicitCacheDir;
+export function runtimePlatform(): string {
+  const platform = process.platform;
+  const arch = process.arch;
+  if (platform === 'darwin' && (arch === 'arm64' || arch === 'x64')) {
+    return `darwin-${arch}`;
   }
-  if (process.env.AGENT_QUALITY_GATE_CACHE_DIR) {
-    return process.env.AGENT_QUALITY_GATE_CACHE_DIR;
+  if (platform === 'linux' && (arch === 'arm64' || arch === 'x64')) {
+    return `linux-${arch}`;
   }
-  const xdgCacheHome = process.env.XDG_CACHE_HOME;
-  if (xdgCacheHome) {
-    return join(xdgCacheHome, RUNTIME_PACKAGE_NAME);
+  if (platform === 'win32' && (arch === 'arm64' || arch === 'x64')) {
+    return `windows-${arch}`;
   }
-  return join(homedir(), '.cache', RUNTIME_PACKAGE_NAME);
+  throw new Error(`agent-quality-gate: unsupported platform ${platform}-${arch}`);
 }
 
-export function toRuntimeDir(cacheRoot: string, version: string): string {
-  return join(cacheRoot, 'runtimes', `v${version}`);
-}
-
-export function toRuntimeVerifyBin(runtimeDir: string): string {
-  return join(runtimeDir, 'node_modules', RUNTIME_PACKAGE_NAME, 'dist', 'bin', 'verify.js');
+export function executableExtension(): string {
+  return process.platform === 'win32' ? '.exe' : '';
 }

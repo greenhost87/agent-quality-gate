@@ -10,7 +10,6 @@ interface PackageJsonShape {
 
 const REPO_ROOT = fileURLToPath(new URL('../', import.meta.url));
 const PACKAGE_JSON_PATH = join(REPO_ROOT, 'package.json');
-const INIT_PACKAGE_JSON_PATH = join(REPO_ROOT, 'packages', 'agent-quality-gate-init', 'package.json');
 const VERSION_PATTERN = /^\d+\.\d+\.\d+$/;
 const TAG_PATTERN = /^v\d+\.\d+\.\d+$/;
 
@@ -50,11 +49,6 @@ async function main(): Promise<void> {
   }
 
   const version = await readPackageVersion(PACKAGE_JSON_PATH);
-  const initVersion = await readPackageVersion(INIT_PACKAGE_JSON_PATH);
-  if (initVersion !== version) {
-    throw new Error(`release: package version mismatch (runtime=${version}, init=${initVersion}); keep them identical`);
-  }
-
   const expectedTag = `v${version}`;
   if (tag !== expectedTag) {
     throw new Error(`release: tag/version mismatch (tag=${tag}, package.json=${expectedTag}); keep them identical`);
