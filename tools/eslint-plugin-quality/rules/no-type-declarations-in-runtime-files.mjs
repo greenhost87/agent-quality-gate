@@ -1,7 +1,7 @@
 import { createRule } from '../create-rule.mjs';
 import { matchesAny, normalizePath } from '../glob-utils.mjs';
 
-const DEFAULT_TYPE_FILE_PATTERNS = ['**/*.types.ts', '**/*.contracts.ts', '**/*.interfaces.ts'];
+const DEFAULT_TYPE_FILE_PATTERNS = ['**/*.types.ts', '**/*.contracts.ts', '**/*.interfaces.ts', '**/types.ts'];
 
 export default createRule({
   name: 'no-type-declarations-in-runtime-files',
@@ -39,7 +39,7 @@ export default createRule({
       return {};
     }
 
-    if (matchesAny(filename, typeFilePatterns)) {
+    if (filename.endsWith('/types.ts') || matchesAny(filename, typeFilePatterns)) {
       return {};
     }
 

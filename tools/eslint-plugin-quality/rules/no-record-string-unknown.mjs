@@ -1,5 +1,3 @@
-import { AST_NODE_TYPES } from '@typescript-eslint/utils';
-
 import { createRule } from '../create-rule.mjs';
 import { matchesAny, normalizePath } from '../glob-utils.mjs';
 
@@ -41,7 +39,7 @@ export default createRule({
 
     return {
       TSTypeReference(node) {
-        if (node.typeName.type !== AST_NODE_TYPES.Identifier || node.typeName.name !== 'Record') {
+        if (node.typeName.type !== 'Identifier' || node.typeName.name !== 'Record') {
           return;
         }
 
@@ -52,7 +50,7 @@ export default createRule({
 
         const [keyType, valueType] = typeArguments.params;
 
-        if (keyType.type === AST_NODE_TYPES.TSStringKeyword && valueType.type === AST_NODE_TYPES.TSUnknownKeyword) {
+        if (keyType.type === 'TSStringKeyword' && valueType.type === 'TSUnknownKeyword') {
           context.report({
             node,
             messageId: 'noOpenPayload',

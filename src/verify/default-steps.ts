@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { mkdirSync, writeFileSync } from 'node:fs';
-import { dirname, isAbsolute, join } from 'node:path';
+import { isAbsolute, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { resolveDefaultConfigMap } from './default-config-resolver.js';
@@ -19,7 +19,6 @@ const PROTECTED_COVERAGE_STEP_NAME = 'protected-coverage';
 const JSCPD_ALLOWED_PREFIXES = ['src/', 'extensions/', 'bin/', 'reports/', 'specs/'] as const;
 const STEP_ORDER: BuiltinVerifyStepName[] = [
   'eslint',
-  'ast-grep',
   'markdown-headings',
   'tsc',
   'duplicate-shapes',
@@ -30,6 +29,11 @@ const STEP_ORDER: BuiltinVerifyStepName[] = [
 ];
 const PROTECTED_COVERAGE_SCRIPT_PATH = resolveProtectedScriptPath('verify-protected-coverage');
 const MARKDOWN_HEADINGS_SCRIPT_PATH = resolveProtectedScriptPath('verify-markdown-headings');
+const VERIFY_SCRIPT_PATH = resolveProtectedScriptPath('verify');
+
+function isCompiledExecutable(): boolean {
+  return import.meta.url.includes('/$bunfs/');
+}
 
 function hasTargetInRoot(targets: readonly string[], rootDir: string): boolean {
   const normalizedRoot = rootDir.endsWith('/') ? rootDir : `${rootDir}/`;
@@ -42,6 +46,19 @@ function toDefaultJscpdTargets(targets: readonly string[]): string[] {
 
 function toStepArgs(commandArgs: string[]): string[] {
   return ['x', ...commandArgs];
+}
+
+function toToolStep(stepName: string, commandArgs: string[]): Pick<VerifyStep, 'command' | 'args'> {
+  if (!isCompiledExecutable()) {
+    return {
+      command: 'bun',
+      args: toStepArgs(commandArgs),
+    };
+  }
+  return {
+    command: process.execPath,
+    args: ['--agent-quality-gate-internal', 'tool', stepName, ...commandArgs],
+  };
 }
 
 function toAbsolutePath(cwd: string, filePath: string): string {
@@ -62,6 +79,13 @@ function resolveProtectedScriptPath(fileName: string): string {
 }
 
 function createProtectedCoverageStep(): VerifyStep {
+  if (isCompiledExecutable()) {
+    return {
+      name: PROTECTED_COVERAGE_STEP_NAME,
+      command: process.execPath,
+      args: ['--agent-quality-gate-internal', PROTECTED_COVERAGE_STEP_NAME],
+    };
+  }
   return {
     name: PROTECTED_COVERAGE_STEP_NAME,
     command: 'bun',
@@ -111,20 +135,15 @@ function createBuiltInStep(
       }
       return {
         name: stepName,
-        command: 'bun',
-        args: toStepArgs(['eslint', '--no-ignore', '--config', overrideConfigPath, ...eslintTargets, ...appendedArgs]),
-      };
-    case 'ast-grep':
-      if (eslintTargets.length === 0) {
-        return null;
-      }
-      if (!overrideConfigPath) {
-        throw new Error('verify: missing ast-grep config path');
-      }
-      return {
-        name: 'ast-grep',
-        command: 'bun',
-        args: toStepArgs(['ast-grep', 'scan', '--config', overrideConfigPath, ...appendedArgs]),
+        ...toToolStep(stepName, [
+          'eslint',
+          '--no-ignore',
+          '--no-warn-ignored',
+          '--config',
+          overrideConfigPath,
+          ...eslintTargets,
+          ...appendedArgs,
+        ]),
       };
     case 'markdown-headings': {
       if (override?.configPath) {
@@ -136,8 +155,10 @@ function createBuiltInStep(
       }
       return {
         name: 'markdown-headings',
-        command: 'bun',
-        args: [MARKDOWN_HEADINGS_SCRIPT_PATH, ...targets, ...appendedArgs],
+        command: isCompiledExecutable() ? process.execPath : 'bun',
+        args: isCompiledExecutable()
+          ? ['--agent-quality-gate-internal', 'markdown-headings', ...targets, ...appendedArgs]
+          : [MARKDOWN_HEADINGS_SCRIPT_PATH, ...targets, ...appendedArgs],
       };
     }
     case 'tsc': {
@@ -150,8 +171,7 @@ function createBuiltInStep(
       }
       return {
         name: 'tsc',
-        command: 'bun',
-        args: toStepArgs([
+        ...toToolStep('tsc', [
           'tsc',
           '--project',
           tscProjectPath,
@@ -170,9 +190,13 @@ function createBuiltInStep(
       }
       return {
         name: 'duplicate-shapes',
-        command: 'bun',
+        command: isCompiledExecutable() ? process.execPath : 'bun',
         args: [
-          join(dirname(overrideConfigPath), 'detect-duplicate-exported-shapes.mjs'),
+          ...(isCompiledExecutable() ? [] : [VERIFY_SCRIPT_PATH]),
+          '--agent-quality-gate-internal',
+          'tool',
+          'duplicate-shapes',
+          'duplicate-shapes',
           overrideConfigPath,
           ...appendedArgs,
         ],
@@ -186,8 +210,7 @@ function createBuiltInStep(
       }
       return {
         name: 'depcruise',
-        command: 'bun',
-        args: toStepArgs(['depcruise', '--config', overrideConfigPath, 'src', ...appendedArgs]),
+        ...toToolStep('depcruise', ['depcruise', '--config', overrideConfigPath, 'src', ...appendedArgs]),
       };
     case 'knip':
       if (!overrideConfigPath) {
@@ -195,8 +218,7 @@ function createBuiltInStep(
       }
       return {
         name: 'knip',
-        command: 'bun',
-        args: toStepArgs(['knip', '--config', overrideConfigPath, '--include', 'exports', ...appendedArgs]),
+        ...toToolStep('knip', ['knip', '--config', overrideConfigPath, '--include', 'exports', ...appendedArgs]),
       };
     case 'jscpd': {
       const targets = override?.targets ?? toDefaultJscpdTargets(jscpdTargets);
@@ -208,8 +230,7 @@ function createBuiltInStep(
       }
       return {
         name: 'jscpd',
-        command: 'bun',
-        args: toStepArgs(['jscpd', '--config', overrideConfigPath, ...targets, ...appendedArgs]),
+        ...toToolStep('jscpd', ['jscpd', '--config', overrideConfigPath, ...targets, ...appendedArgs]),
       };
     }
     default:

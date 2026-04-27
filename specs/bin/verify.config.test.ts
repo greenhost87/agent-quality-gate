@@ -35,7 +35,6 @@ describe('verify config loading', () => {
     expect(resolved.steps.map((step) => step.name)).toEqual([
       'protected-coverage',
       'eslint',
-      'ast-grep',
       'markdown-headings',
       'tsc',
       'duplicate-shapes',

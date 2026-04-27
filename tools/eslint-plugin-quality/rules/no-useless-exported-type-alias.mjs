@@ -1,5 +1,3 @@
-import { AST_NODE_TYPES } from '@typescript-eslint/utils';
-
 import { createRule } from '../create-rule.mjs';
 
 export default createRule({
@@ -48,7 +46,7 @@ export default createRule({
 
         const annotation = node.typeAnnotation;
 
-        if (annotation.type !== AST_NODE_TYPES.TSTypeReference) {
+        if (annotation.type !== 'TSTypeReference') {
           return;
         }
 
@@ -57,7 +55,7 @@ export default createRule({
           return;
         }
 
-        if (annotation.typeName.type !== AST_NODE_TYPES.Identifier) {
+        if (annotation.typeName.type !== 'Identifier') {
           return;
         }
 

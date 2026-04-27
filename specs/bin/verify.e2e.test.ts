@@ -78,7 +78,16 @@ const STAGE_CASES: StageCase[] = [
     step: {
       name: 'jscpd',
       command: 'bun',
-      args: ['x', 'jscpd', '--config', fixturePath('jscpd', '.jscpd.json'), fixturePath('jscpd')],
+      args: [
+        join(REPO_ROOT, 'bin', 'verify.ts'),
+        '--agent-quality-gate-internal',
+        'tool',
+        'jscpd',
+        'jscpd',
+        '--config',
+        fixturePath('jscpd', '.jscpd.json'),
+        fixturePath('jscpd'),
+      ],
     },
     expectedExitCode: 1,
     firstDiagnosticMarker: 'Clone found (typescript):',

@@ -1,3 +1,8 @@
-import { ESLintUtils } from '@typescript-eslint/utils';
-
-export const createRule = ESLintUtils.RuleCreator((name) => `https://quality-rules.invalid/rules/${name}`);
+export function createRule(rule) {
+  return {
+    ...rule,
+    create(context) {
+      return rule.create(context, context.options.length > 0 ? context.options : (rule.defaultOptions ?? []));
+    },
+  };
+}

@@ -1,9 +1,0 @@
-id: no-useless-exported-type-alias
-language: TypeScript
-rule:
-  pattern: export type $NAME = $TARGET
-constraints:
-  TARGET:
-    regex: '^[A-Z_$][A-Za-z0-9_$]*$'
-message: Avoid exported aliases that only rename another type. Export the original type directly or add real semantics.
-severity: error

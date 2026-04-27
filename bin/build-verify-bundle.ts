@@ -40,9 +40,7 @@ const BUNDLED_ASSETS: BundledAsset[] = [
   { sourcePath: 'tsconfig.verify.json', outputPath: 'tsconfig.verify.json', kind: 'file' },
   { sourcePath: 'knip.json', outputPath: 'knip.json', kind: 'file' },
   { sourcePath: '.jscpd.json', outputPath: '.jscpd.json', kind: 'file' },
-  { sourcePath: 'sgconfig.yml', outputPath: 'sgconfig.yml', kind: 'file' },
   { sourcePath: '.dependency-cruiser.cjs', outputPath: '.dependency-cruiser.cjs', kind: 'file' },
-  { sourcePath: 'rules', outputPath: 'rules', kind: 'directory' },
   {
     sourcePath: 'tools/eslint-plugin-quality',
     outputPath: 'tools/eslint-plugin-quality',

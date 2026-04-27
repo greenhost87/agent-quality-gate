@@ -5,7 +5,6 @@ export type BuiltinVerifyStepName =
   | 'tsc'
   | 'knip'
   | 'jscpd'
-  | 'ast-grep'
   | 'duplicate-shapes'
   | 'depcruise';
 
@@ -14,6 +13,11 @@ export type ConfigBackedVerifyStepName = Exclude<BuiltinVerifyStepName, 'markdow
 export interface VerifyStep {
   name: string;
   command: string;
+  args: string[];
+}
+
+export interface InternalVerifyToolOptions {
+  stepName: string;
   args: string[];
 }
 
@@ -67,7 +71,6 @@ export interface VerifyOverrides {
   tsc?: VerifyStepOverride;
   knip?: VerifyStepOverride;
   jscpd?: VerifyStepOverride;
-  'ast-grep'?: VerifyStepOverride;
   'duplicate-shapes'?: VerifyStepOverride;
   depcruise?: VerifyStepOverride;
 }

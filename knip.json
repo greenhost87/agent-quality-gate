@@ -15,9 +15,6 @@
     "specs/**/*.ts"
   ],
   "ignoreDependencies": [
-    "@ast-grep/cli",
-    "@typescript-eslint/utils",
-    "jscpd",
     "prettier",
     "ts-morph"
   ],

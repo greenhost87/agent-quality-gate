@@ -200,7 +200,7 @@ async function installRuntime(options: {
         dependencies: {
           [RUNTIME_PACKAGE_NAME]: options.runtimeSource,
         },
-        trustedDependencies: ['@ast-grep/cli'],
+        trustedDependencies: [],
       },
       null,
       2

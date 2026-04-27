@@ -2,6 +2,7 @@ import { existsSync } from 'node:fs';
 import { dirname, isAbsolute, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { extractEmbeddedDefaultConfigs } from './embedded-default-configs.js';
 import type { ConfigBackedVerifyStepName, ResolvedDefaultConfigMap, ResolveDefaultConfigOptions } from './types.js';
 
 const VERIFY_PACKAGE_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -13,7 +14,6 @@ const BUNDLED_CONFIG_FILES: Record<ConfigBackedVerifyStepName, string> = {
   tsc: 'tsconfig.verify.json',
   knip: 'knip.json',
   jscpd: '.jscpd.json',
-  'ast-grep': 'sgconfig.yml',
   'duplicate-shapes': 'tools/analyze/duplicate-shapes.config.json',
   depcruise: '.dependency-cruiser.cjs',
 };
@@ -25,6 +25,10 @@ function resolveBundledConfigDir(candidateDir?: string): string {
   if (existsSync(DIST_DEFAULT_CONFIGS_DIR)) {
     return DIST_DEFAULT_CONFIGS_DIR;
   }
+  const embeddedDefaultConfigDir = extractEmbeddedDefaultConfigs();
+  if (existsSync(embeddedDefaultConfigDir)) {
+    return embeddedDefaultConfigDir;
+  }
   return VERIFY_PACKAGE_ROOT;
 }
 
@@ -32,6 +36,9 @@ function resolveBundledConfigPath(bundledDir: string, stepName: ConfigBackedVeri
   const fileName = BUNDLED_CONFIG_FILES[stepName];
   const primaryPath = join(bundledDir, fileName);
   if (existsSync(primaryPath)) {
+    return primaryPath;
+  }
+  if (import.meta.url.includes('/$bunfs/') && (stepName === 'eslint' || stepName === 'eslint-length')) {
     return primaryPath;
   }
 
@@ -71,11 +78,6 @@ export function resolveDefaultConfigMap(options: ResolveDefaultConfigOptions = {
       stepName: 'jscpd',
       source: 'bundled',
       configPath: resolveBundledConfigPath(bundledDir, 'jscpd'),
-    },
-    'ast-grep': {
-      stepName: 'ast-grep',
-      source: 'bundled',
-      configPath: resolveBundledConfigPath(bundledDir, 'ast-grep'),
     },
     'duplicate-shapes': {
       stepName: 'duplicate-shapes',

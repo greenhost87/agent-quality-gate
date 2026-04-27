@@ -31,15 +31,6 @@ const FAILURE_FIXTURES: FailureFixture[] = [
     unexpectedDiagnostic: '12:3  error  Another lint failure',
   },
   {
-    stepName: 'ast-grep',
-    output: [
-      'src/runtime.ts:11:3 error[no-record-string-unknown] Avoid Record<string, unknown>.',
-      'src/runtime.ts:22:5 error[no-useless-exported-type-alias] Export original type directly.',
-    ].join('\n'),
-    expectedDiagnostic: 'src/runtime.ts:11:3 error[no-record-string-unknown] Avoid Record<string, unknown>.',
-    unexpectedDiagnostic: 'src/runtime.ts:22:5 error[no-useless-exported-type-alias] Export original type directly.',
-  },
-  {
     stepName: 'markdown-headings',
     output: [
       'docs/usage.md',

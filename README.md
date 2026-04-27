@@ -79,7 +79,7 @@ VERIFY_DEBUG=1 verify
 
 ## Configuration
 
-- `verify` runs fixed steps in this order: `protected-coverage`, `eslint`, `ast-grep`, `markdown-headings`, `tsc`, `duplicate-shapes`, `depcruise`, `knip`, `jscpd`, `eslint-length`.
+- `verify` runs fixed steps in this order: `protected-coverage`, `eslint`, `markdown-headings`, `tsc`, `duplicate-shapes`, `depcruise`, `knip`, `jscpd`, `eslint-length`.
 - Locked mode rejects local `verify.config.*` files and local `--config` paths.
 - Bundled configs from `dist/default-configs` are used.
 
@@ -88,7 +88,6 @@ VERIFY_DEBUG=1 verify
 - `protected-coverage`: internal preflight step that ensures protected paths are still covered before the external tools run.
 - `eslint`: uses `eslint`, `@eslint/js`, `typescript-eslint`, and `eslint-plugin-check-file` to validate JavaScript and TypeScript code style, correctness, and file naming rules.
 - `eslint-length`: uses a separate late ESLint pass for `max-len` and `max-lines`, after semantic and structure checks.
-- `ast-grep`: uses `@ast-grep/cli` with the bundled `sgconfig.yml` rules to catch forbidden code patterns by syntax tree matching.
 - `markdown-headings`: uses the bundled Bun checker to reject duplicate Markdown headings.
 - `tsc`: uses `typescript` to run type-checking with the bundled `tsconfig.verify.json`, including unused locals and unused parameters checks.
 - `duplicate-shapes`: uses the internal `ts-morph`-based analyzer to detect duplicate exported TypeScript shapes in `src/`.
