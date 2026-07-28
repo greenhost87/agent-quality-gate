@@ -1,29 +1,17 @@
-#!/usr/bin/env bun
+#!/usr/bin/env node
 
-import { runVerifyCli } from '../src/verify/index.js';
-import { runMarkdownHeadingsStep, runProtectedCoverageStep } from '../src/verify/internal-steps.js';
+import { runVerifyCli } from '../src/verify/cli.js';
+import { runLintDirectiveCheck } from '../src/verify/lint-directives.js';
 
 async function runInternalStep(argv: readonly string[]): Promise<number | null> {
   if (argv[0] !== '--agent-quality-gate-internal') {
     return null;
   }
-  const stepName = argv[1];
-  if (stepName === 'protected-coverage') {
-    return runProtectedCoverageStep();
+  if (argv[1] === 'lint-directives') {
+    return runLintDirectiveCheck(process.cwd());
   }
-  if (stepName === 'markdown-headings') {
-    return runMarkdownHeadingsStep(argv.slice(2));
-  }
-  if (stepName === 'tool') {
-    const { runInternalVerifyTool } = await import('../src/verify/internal-tools.js');
-    return runInternalVerifyTool({ stepName: argv[2] ?? '<unknown>', args: argv.slice(3) });
-  }
-  process.stderr.write(`verify: unknown internal step "${String(stepName)}"\n`);
+  process.stderr.write(`verify: unknown internal step "${String(argv[1])}"\n`);
   return 2;
 }
 
-const shouldRunAsCli = (import.meta as ImportMeta & { main?: boolean }).main === true;
-
-if (shouldRunAsCli) {
-  process.exitCode = (await runInternalStep(process.argv.slice(2))) ?? (await runVerifyCli());
-}
+process.exitCode = (await runInternalStep(process.argv.slice(2))) ?? (await runVerifyCli());

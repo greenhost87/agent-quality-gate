@@ -1,0 +1,53 @@
+{
+  "$schema": "https://raw.githubusercontent.com/fallow-rs/fallow/main/schema.json",
+  "entry": ["bin/*.ts"],
+  "ignorePatterns": [
+    "node_modules/**",
+    "coverage/**",
+    ".codex/**",
+    ".claude/**",
+    ".fallow/**",
+    ".idea/**",
+    ".tmp/**",
+    "artifacts/**",
+    "specs/bin/fixtures/**",
+    "tmp/**"
+  ],
+  "ignoreDependencies": ["react"],
+  "duplicates": {
+    "mode": "mild",
+    "minTokens": 30,
+    "minLines": 3,
+    "threshold": 0.1,
+    "ignore": ["**/*.lock", "**/*.min.js", "specs/bin/fixtures/**"]
+  },
+  "health": {
+    "maxCyclomatic": 20,
+    "maxCognitive": 15,
+    "maxCrap": 999
+  },
+  "rules": {
+    "unused-files": "error",
+    "unused-exports": "error",
+    "unused-types": "error",
+    "unused-dependencies": "error",
+    "unused-dev-dependencies": "error",
+    "unused-optional-dependencies": "error",
+    "unused-enum-members": "error",
+    "unused-class-members": "error",
+    "unresolved-imports": "error",
+    "unlisted-dependencies": "error",
+    "duplicate-exports": "error",
+    "type-only-dependencies": "error",
+    "test-only-dependencies": "error",
+    "circular-dependencies": "error",
+    "re-export-cycle": "error",
+    "boundary-violation": "error",
+    "stale-suppressions": "error",
+    "require-suppression-reason": "error",
+    "prop-drilling": "error",
+    "thin-wrapper": "error",
+    "duplicate-prop-shape": "error"
+  },
+  "production": true
+}

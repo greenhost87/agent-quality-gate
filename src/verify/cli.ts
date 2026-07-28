@@ -1,92 +1,46 @@
-import { resolveVerifyPlan } from './config.js';
+import { createDefaultVerifyStepsResult } from './default-steps.js';
 import { runVerify } from './run-verify.js';
-import type { ResolvedVerifyPlan, VerifyTimings } from './types.js';
+import type { CliOptions, ParsedCliArgs, VerifyStepDebugInfo, VerifyTimings } from './types.js';
 
 function helpText(): string {
-  return [
-    'Usage:',
-    '  verify',
-    '  verify --config <path>',
-    '  verify --all-errors',
-    '  verify --timings',
-    '  verify --all-errors --timings',
-    '',
-    'Config module format:',
-    '  export default [{ name, command, args }]',
-    '  // or',
-    '  export default { steps: [{ name, command, args }] }',
-  ].join('\n');
+  return ['Usage:', '  verify', '  verify --timings'].join('\n');
 }
 
-function parseCliArgs(argv: readonly string[]): {
-  configPath?: string;
-  help: boolean;
-  allErrors: boolean;
-  timings: boolean;
-  error?: string;
-} {
-  let configPath: string | undefined;
-  let allErrors = false;
+function parseCliArgs(argv: readonly string[]): ParsedCliArgs {
   let timings = false;
-  for (let index = 0; index < argv.length; index += 1) {
-    const value = argv[index] ?? '';
+  for (const value of argv) {
     if (value === '--help' || value === '-h') {
-      return { help: true, allErrors, timings };
-    }
-    if (value === '--config' || value === '-c') {
-      const nextValue = argv[index + 1];
-      if (!nextValue || nextValue.startsWith('-')) {
-        return { help: false, allErrors, timings, error: `verify: missing value for "${value}"` };
-      }
-      configPath = nextValue;
-      index += 1;
-      continue;
-    }
-    if (value === '--all-errors') {
-      allErrors = true;
-      continue;
+      return { help: true, timings };
     }
     if (value === '--timings') {
       timings = true;
       continue;
     }
-    return { help: false, allErrors, timings, error: `verify: unknown option "${value}"` };
+    return { help: false, timings, error: `verify: unknown option "${value}"` };
   }
-  return { configPath, help: false, allErrors, timings };
+  return { help: false, timings };
 }
 
-function isDebugEnabled(): boolean {
-  const value = process.env.VERIFY_DEBUG;
-  return value === '1' || value === 'true';
-}
-
-function printDebugInfo(plan: ResolvedVerifyPlan): void {
-  if (!isDebugEnabled()) {
+function printDebugInfo(stepDebugInfo: readonly VerifyStepDebugInfo[]): void {
+  if (process.env.VERIFY_DEBUG !== '1' && process.env.VERIFY_DEBUG !== 'true') {
     return;
   }
-
-  const configPathLabel = plan.configFilePath ?? '<none>';
-  process.stderr.write(`verify: debug config-file=${configPathLabel}\n`);
-  for (const info of plan.stepDebugInfo) {
-    const configLabel = info.configPath ?? '<none>';
-    process.stderr.write(`verify: debug step=${info.name} source=${info.source} config=${configLabel}\n`);
+  for (const info of stepDebugInfo) {
+    process.stderr.write(
+      `verify: debug step=${info.name} source=${info.source} config=${info.configPath ?? '<none>'}\n`
+    );
   }
-}
-
-function formatDuration(durationMs: number): string {
-  return `${durationMs.toFixed(2)}ms`;
 }
 
 function printTimings(timings: VerifyTimings): void {
   for (const step of timings.steps) {
-    process.stdout.write(`${step.name} take ${formatDuration(step.durationMs)}\n`);
+    process.stdout.write(`${step.name} take ${step.durationMs.toFixed(2)}ms\n`);
   }
-  process.stdout.write(`Total ${formatDuration(timings.totalMs)}\n`);
+  process.stdout.write(`Total ${timings.totalMs.toFixed(2)}ms\n`);
 }
 
-export async function runVerifyCli(options: { argv?: readonly string[]; cwd?: string } = {}): Promise<number> {
-  const argv = options.argv ?? process.argv.slice(2);
-  const parsed = parseCliArgs(argv);
+export async function runVerifyCli(options: CliOptions = {}): Promise<number> {
+  const parsed = parseCliArgs(options.argv ?? process.argv.slice(2));
   if (parsed.help) {
     process.stdout.write(`${helpText()}\n`);
     return 0;
@@ -96,27 +50,14 @@ export async function runVerifyCli(options: { argv?: readonly string[]; cwd?: st
     return 2;
   }
 
-  let plan: ResolvedVerifyPlan;
-  try {
-    plan = await resolveVerifyPlan({
-      cwd: options.cwd,
-      configPath: parsed.configPath,
-    });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    process.stderr.write(`${message}\n`);
-    return 1;
-  }
-  printDebugInfo(plan);
+  const plan = createDefaultVerifyStepsResult();
+  printDebugInfo(plan.stepDebugInfo);
   const result = await runVerify(plan.steps, {
-    errorMode: parsed.allErrors ? 'all' : 'first',
     collectTimings: parsed.timings,
+    cwd: options.cwd,
   });
-  if (result.stdout) {
-    process.stdout.write(`${result.stdout}\n`);
-  }
-  if (result.stderr) {
-    process.stderr.write(`${result.stderr}\n`);
+  if (result.code === 0) {
+    process.stdout.write('verify: ok\n');
   }
   if (parsed.timings && result.timings) {
     printTimings(result.timings);

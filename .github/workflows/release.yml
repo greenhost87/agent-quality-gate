@@ -18,10 +18,15 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.12.0
+
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
-          bun-version: 1.3.11
+          bun-version: 1.3.14
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
@@ -37,34 +42,32 @@ jobs:
 
   build:
     needs: validate
-    strategy:
-      fail-fast: false
-      matrix:
-        os:
-          - ubuntu-latest
-          - macos-latest
-          - windows-latest
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.12.0
+
       - name: Setup Bun
         uses: oven-sh/setup-bun@v2
         with:
-          bun-version: 1.3.11
+          bun-version: 1.3.14
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
 
-      - name: Build platform release package
+      - name: Build release package
         run: bun run build:release
 
-      - name: Upload platform release package
+      - name: Upload release package
         uses: actions/upload-artifact@v4
         with:
-          name: release-package-${{ matrix.os }}
+          name: release-package
           path: artifacts/*
           if-no-files-found: error
 
@@ -73,12 +76,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - name: Download platform release packages
+      - name: Download release package
         uses: actions/download-artifact@v4
         with:
-          pattern: release-package-*
+          name: release-package
           path: artifacts
-          merge-multiple: true
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2

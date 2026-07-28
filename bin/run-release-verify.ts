@@ -3,32 +3,20 @@
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { execa } from 'execa';
-
-import { executableExtension } from '../src/runtime/paths.js';
+import { spawnCommand } from '../src/verify/spawn.js';
 
 const REPO_ROOT = fileURLToPath(new URL('../', import.meta.url));
-const VERIFY_BINARY_PATH = join(REPO_ROOT, '.tmp', 'release-package', 'dist', 'bin', `verify${executableExtension()}`);
+const VERIFY_LAUNCHER_PATH = join(REPO_ROOT, '.tmp', 'release-package', 'dist', 'bin', 'verify.js');
 
 async function main(): Promise<number> {
-  await execa('bun', ['./bin/build-release-package.ts'], {
-    cwd: REPO_ROOT,
-    stdout: 'inherit',
-    stderr: 'inherit',
-  });
-
-  const result = await execa(VERIFY_BINARY_PATH, process.argv.slice(2), {
-    cwd: REPO_ROOT,
-    env: { ...process.env, FORCE_COLOR: '0' },
-    reject: false,
-    stderr: 'inherit',
-    stdout: 'inherit',
-  });
-  return result.exitCode ?? 1;
+  const build = await spawnCommand('bun', ['./bin/build-release-package.ts'], REPO_ROOT, true);
+  if (build.exitCode !== 0) {
+    return build.exitCode;
+  }
+  const verify = await spawnCommand('node', [VERIFY_LAUNCHER_PATH, ...process.argv.slice(2)], REPO_ROOT, true);
+  return verify.exitCode;
 }
 
-const shouldRunAsCli = (import.meta as ImportMeta & { main?: boolean }).main === true;
-
-if (shouldRunAsCli) {
+if (import.meta.main) {
   process.exitCode = await main();
 }

@@ -1,86 +1,25 @@
 import { performance } from 'node:perf_hooks';
 
-import { execa } from 'execa';
-
-import { extractFirstDiagnostic, mergeOutput } from './diagnostics.js';
 import { createDefaultVerifySteps } from './default-steps.js';
-import type {
-  RunVerifyOptions,
-  VerifyErrorMode,
-  VerifyResult,
-  VerifyStep,
-  VerifyStepFailure,
-  VerifyStepRunResult,
-  VerifyStepTiming,
-} from './types.js';
+import { spawnCommand } from './spawn.js';
+import type { RunVerifyOptions, VerifyResult, VerifyStep, VerifyStepTiming } from './types.js';
 
-function resolveErrorMode(options: RunVerifyOptions): VerifyErrorMode {
-  const { errorMode = 'first' } = options;
-  if (errorMode === 'first' || errorMode === 'all') {
-    return errorMode;
-  }
-  throw new Error(`verify: unknown error mode "${String(errorMode)}"`);
-}
-
-function renderStepFailure(
-  step: VerifyStep,
-  output: string,
-  code: number,
-  errorMode: VerifyErrorMode
-): VerifyStepFailure {
-  const errorLines = [`verify: failed at step "${step.name}"`];
-  if (output) {
-    const renderedOutput = errorMode === 'all' ? output : extractFirstDiagnostic(output);
-    if (renderedOutput) {
-      errorLines.push(renderedOutput);
-    }
-  }
-  return {
-    code,
-    stderr: errorLines.join('\n'),
-  };
-}
-
-async function runStep(step: VerifyStep, errorMode: VerifyErrorMode): Promise<VerifyStepRunResult> {
+async function runStep(step: VerifyStep, cwd: string): Promise<VerifyStepTiming> {
   const startedAt = performance.now();
   try {
-    const result = await execa(step.command, step.args, {
-      reject: false,
-      all: true,
-      stdout: 'pipe',
-      stderr: 'pipe',
-      env: { ...process.env, FORCE_COLOR: '0' },
-    });
-    const code = result.exitCode || 0;
-    const timing: VerifyStepTiming = {
-      name: step.name,
-      code,
-      durationMs: performance.now() - startedAt,
-    };
-    if (code === 0) {
-      return {
-        failure: null,
-        timing,
-      };
-    }
-
-    const output = mergeOutput(result.stdout, result.stderr, result.all || undefined);
+    const result = await spawnCommand(step.command, step.args, cwd, true, step.environment);
     return {
-      failure: renderStepFailure(step, output, code, errorMode),
-      timing,
+      name: step.name,
+      code: result.exitCode,
+      durationMs: performance.now() - startedAt,
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
+    process.stderr.write(`verify: failed to start step "${step.name}": ${message}\n`);
     return {
-      failure: {
-        code: 1,
-        stderr: `verify: failed to start step "${step.name}": ${message}`,
-      },
-      timing: {
-        name: step.name,
-        code: 1,
-        durationMs: performance.now() - startedAt,
-      },
+      name: step.name,
+      code: 1,
+      durationMs: performance.now() - startedAt,
     };
   }
 }
@@ -89,11 +28,11 @@ export async function runVerify(
   steps: readonly VerifyStep[] = createDefaultVerifySteps(),
   options: RunVerifyOptions = {}
 ): Promise<VerifyResult> {
-  const errorMode = resolveErrorMode(options);
+  const cwd = options.cwd ?? process.cwd();
   const collectTimings = options.collectTimings === true;
-  const failures: VerifyStepFailure[] = [];
   const stepTimings: VerifyStepTiming[] = [];
   const startedAt = performance.now();
+  let firstFailureCode = 0;
 
   function withOptionalTimings(result: VerifyResult): VerifyResult {
     if (!collectTimings) {
@@ -109,24 +48,14 @@ export async function runVerify(
   }
 
   for (const step of steps) {
-    const { failure, timing } = await runStep(step, errorMode);
+    const timing = await runStep(step, cwd);
     if (collectTimings) {
       stepTimings.push(timing);
     }
-    if (failure) {
-      failures.push(failure);
-      if (errorMode === 'first') {
-        return withOptionalTimings(failure);
-      }
+    if (firstFailureCode === 0 && timing.code !== 0) {
+      firstFailureCode = timing.code;
     }
   }
 
-  if (failures.length > 0) {
-    return withOptionalTimings({
-      code: failures[0]?.code ?? 1,
-      stderr: failures.map((failure) => failure.stderr).join('\n\n'),
-    });
-  }
-
-  return withOptionalTimings({ code: 0, stdout: 'verify: ok' });
+  return withOptionalTimings({ code: firstFailureCode });
 }

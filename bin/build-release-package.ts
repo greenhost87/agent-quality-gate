@@ -1,135 +1,100 @@
 #!/usr/bin/env bun
 
-import { cp, mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
+import { cp, mkdir, rename, rm, writeFile } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { execa } from 'execa';
-
-import { executableExtension, runtimePlatform } from '../src/runtime/paths.js';
-
-interface PackageJsonShape {
-  author?: unknown;
-  bugs?: unknown;
-  description?: unknown;
-  homepage?: unknown;
-  keywords?: unknown;
-  license?: unknown;
-  name?: unknown;
-  repository?: unknown;
-  type?: unknown;
-  version?: unknown;
-}
-
-interface NpmPackResult {
-  filename?: string;
-}
+import packageJson from '../package.json' with { type: 'json' };
+import { spawnCommand } from '../src/verify/spawn.js';
 
 const REPO_ROOT = fileURLToPath(new URL('../', import.meta.url));
 const ARTIFACTS_DIR = join(REPO_ROOT, 'artifacts');
 const RELEASE_PACKAGE_DIR = join(REPO_ROOT, '.tmp', 'release-package');
 const RELEASE_DIST_BIN_DIR = join(RELEASE_PACKAGE_DIR, 'dist', 'bin');
-const VERIFY_BINARY_NAME = `verify${executableExtension()}`;
+const VERIFY_LAUNCHER_NAME = 'verify.js';
 
-function isPackageJsonShape(value: unknown): value is PackageJsonShape {
-  return typeof value === 'object' && value !== null;
-}
-
-function isNpmPackResultArray(value: unknown): value is NpmPackResult[] {
-  return Array.isArray(value) && value.every((entry) => typeof entry === 'object' && entry !== null);
-}
-
-async function readPackageJson(): Promise<PackageJsonShape> {
-  const parsed: unknown = JSON.parse(await readFile(join(REPO_ROOT, 'package.json'), 'utf-8'));
-  if (!isPackageJsonShape(parsed)) {
-    throw new Error('release: package.json must be an object');
+async function runRequired(
+  command: string,
+  args: readonly string[],
+  cwd: string,
+  inheritOutput: boolean
+): Promise<string> {
+  const result = await spawnCommand(command, args, cwd, inheritOutput);
+  if (result.exitCode !== 0) {
+    throw new Error(result.stderr || result.stdout || `${command} exited with code ${result.exitCode}`);
   }
-  return parsed;
+  return result.stdout.trim();
 }
 
-async function buildVerifyBinary(): Promise<void> {
-  await execa(
+async function buildVerifyLauncher(): Promise<void> {
+  await runRequired(
     'bun',
-    ['build', '--compile', './bin/verify.ts', '--outfile', join(RELEASE_DIST_BIN_DIR, VERIFY_BINARY_NAME)],
-    {
-      cwd: REPO_ROOT,
-      stdout: 'inherit',
-      stderr: 'inherit',
-    }
+    ['build', '--target', 'node', './bin/verify.ts', '--outfile', join(RELEASE_DIST_BIN_DIR, VERIFY_LAUNCHER_NAME)],
+    REPO_ROOT,
+    true
   );
 }
 
-async function writeReleasePackageJson(sourcePackageJson: PackageJsonShape): Promise<void> {
-  const packageJson = {
-    name: sourcePackageJson.name,
-    version: sourcePackageJson.version,
-    type: sourcePackageJson.type,
-    description: sourcePackageJson.description,
-    license: sourcePackageJson.license,
-    author: sourcePackageJson.author,
-    repository: sourcePackageJson.repository,
-    homepage: sourcePackageJson.homepage,
-    bugs: sourcePackageJson.bugs,
-    keywords: sourcePackageJson.keywords,
-    bin: {
-      verify: `./dist/bin/${VERIFY_BINARY_NAME}`,
+async function writeReleasePackageJson(): Promise<void> {
+  const releasePackageJson = {
+    name: packageJson.name,
+    version: packageJson.version,
+    type: packageJson.type,
+    description: packageJson.description,
+    license: packageJson.license,
+    author: packageJson.author,
+    repository: packageJson.repository,
+    homepage: packageJson.homepage,
+    bugs: packageJson.bugs,
+    keywords: packageJson.keywords,
+    engines: {
+      node: packageJson.engines.node,
     },
-    files: ['dist', 'README.md', 'LICENSE'],
+    os: ['darwin', 'linux'],
+    cpu: ['arm64', 'x64'],
+    dependencies: {
+      fallow: packageJson.devDependencies.fallow,
+      oxlint: packageJson.devDependencies.oxlint,
+      'oxlint-plugin-eslint': packageJson.devDependencies['oxlint-plugin-eslint'],
+      'oxlint-tsgolint': packageJson.devDependencies['oxlint-tsgolint'],
+    },
+    bin: {
+      verify: `./dist/bin/${VERIFY_LAUNCHER_NAME}`,
+    },
+    files: ['dist', 'README.md', 'LICENSE', 'THIRD_PARTY_NOTICES.md'],
   };
-  await writeFile(join(RELEASE_PACKAGE_DIR, 'package.json'), `${JSON.stringify(packageJson, null, 2)}\n`, 'utf-8');
+  await writeFile(
+    join(RELEASE_PACKAGE_DIR, 'package.json'),
+    `${JSON.stringify(releasePackageJson, null, 2)}\n`,
+    'utf8'
+  );
 }
 
 async function packReleasePackage(): Promise<void> {
-  const result = await execa(
+  const filename = await runRequired(
     'npm',
-    [
-      'pack',
-      '--ignore-scripts',
-      '--json',
-      '--cache',
-      join(REPO_ROOT, '.npm-cache'),
-      '--pack-destination',
-      ARTIFACTS_DIR,
-    ],
-    {
-      cwd: RELEASE_PACKAGE_DIR,
-      stdout: 'pipe',
-      stderr: 'inherit',
-    }
+    ['pack', '--ignore-scripts', '--cache', join(REPO_ROOT, '.npm-cache'), '--pack-destination', ARTIFACTS_DIR],
+    RELEASE_PACKAGE_DIR,
+    false
   );
-  const parsed: unknown = JSON.parse(result.stdout);
-  if (!isNpmPackResultArray(parsed) || typeof parsed[0]?.filename !== 'string') {
-    throw new Error('release: npm pack returned an unexpected result');
-  }
-  const packedPath = join(ARTIFACTS_DIR, basename(parsed[0].filename));
-  const releaseFileName = `agent-quality-gate-${sourceVersion(parsed[0].filename)}-${runtimePlatform()}.tgz`;
-  const platformPath = join(ARTIFACTS_DIR, releaseFileName);
-  await rename(packedPath, platformPath);
-}
-
-function sourceVersion(filename: string): string {
-  const match = /^agent-quality-gate-(.+)\.tgz$/.exec(filename);
-  if (!match?.[1]) {
-    throw new Error(`release: unable to parse package version from "${filename}"`);
-  }
-  return match[1];
+  const packedPath = join(ARTIFACTS_DIR, basename(filename));
+  const releasePath = join(ARTIFACTS_DIR, `agent-quality-gate-${packageJson.version}.tgz`);
+  await rename(packedPath, releasePath);
 }
 
 async function main(): Promise<void> {
-  const packageJson = await readPackageJson();
   await rm(ARTIFACTS_DIR, { recursive: true, force: true });
   await rm(RELEASE_PACKAGE_DIR, { recursive: true, force: true });
   await mkdir(ARTIFACTS_DIR, { recursive: true });
   await mkdir(RELEASE_DIST_BIN_DIR, { recursive: true });
-  await buildVerifyBinary();
+  await buildVerifyLauncher();
   await cp(join(REPO_ROOT, 'README.md'), join(RELEASE_PACKAGE_DIR, 'README.md'));
   await cp(join(REPO_ROOT, 'LICENSE'), join(RELEASE_PACKAGE_DIR, 'LICENSE'));
-  await writeReleasePackageJson(packageJson);
+  await cp(join(REPO_ROOT, 'THIRD_PARTY_NOTICES.md'), join(RELEASE_PACKAGE_DIR, 'THIRD_PARTY_NOTICES.md'));
+  await writeReleasePackageJson();
   await packReleasePackage();
 }
 
-const shouldRunAsCli = (import.meta as ImportMeta & { main?: boolean }).main === true;
-
-if (shouldRunAsCli) {
+if (import.meta.main) {
   await main();
 }

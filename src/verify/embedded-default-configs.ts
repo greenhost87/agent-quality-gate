@@ -1,58 +1,34 @@
-import { createHash } from 'node:crypto';
-import { existsSync } from 'node:fs';
-import { mkdirSync, symlinkSync, writeFileSync } from 'node:fs';
+import { createHash, randomUUID } from 'node:crypto';
+import { mkdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
-import dependencyCruiserConfig from '../../.dependency-cruiser.cjs' with { type: 'text' };
-import jscpdConfig from '../../.jscpd.json' with { type: 'json' };
-import knipConfig from '../../knip.json' with { type: 'json' };
-import duplicateShapesScript from '../../tools/analyze/detect-duplicate-exported-shapes.mjs' with { type: 'text' };
-import duplicateShapesConfig from '../../tools/analyze/duplicate-shapes.config.json' with { type: 'json' };
-import tsconfigVerify from '../../tsconfig.verify.json' with { type: 'json' };
+import fallowConfig from '../../.fallowrc.json' with { type: 'json' };
+import oxlintConfig from '../../.oxlintrc.jsonc' with { type: 'text' };
+import qualityPlugin from '../../oxlint-quality-plugin.mjs' with { type: 'text' };
+import uiPlugin from '../../oxlint-ui-plugin.mjs' with { type: 'text' };
+import type { EmbeddedConfigPaths } from './types.js';
 
-function asEmbeddedText(value: unknown, filePath: string): string {
-  if (typeof value !== 'string') {
-    throw new TypeError(`verify: embedded config "${filePath}" was not loaded as text`);
-  }
-  return value;
-}
-
-function asEmbeddedJsonText(value: unknown): string {
+function toJsonText(value: object): string {
   return `${JSON.stringify(value, null, 2)}\n`;
 }
 
-function toStandaloneTsconfigText(value: unknown): string {
-  if (!import.meta.url.includes('/$bunfs/') || existsSync(join(process.cwd(), 'node_modules', 'bun-types'))) {
-    return asEmbeddedJsonText(value);
-  }
-  const config = structuredClone(value);
-  if (typeof config === 'object' && config !== null && 'compilerOptions' in config) {
-    const compilerOptions = config.compilerOptions;
-    if (typeof compilerOptions === 'object' && compilerOptions !== null && 'types' in compilerOptions) {
-      delete compilerOptions.types;
-    }
-  }
-  return asEmbeddedJsonText(config);
+function embeddedFiles(eslintPluginPath: string): Record<string, string> {
+  const renderedOxlintConfig = String(oxlintConfig).replace(
+    '"specifier": "oxlint-plugin-eslint"',
+    `"specifier": ${JSON.stringify(eslintPluginPath)}`
+  );
+  return {
+    '.fallowrc.json': toJsonText(fallowConfig),
+    '.oxlintrc.jsonc': renderedOxlintConfig,
+    'oxlint-quality-plugin.mjs': qualityPlugin,
+    'oxlint-ui-plugin.mjs': uiPlugin,
+  };
 }
 
-const EMBEDDED_DEFAULT_CONFIG_FILES: Record<string, string> = {
-  '.dependency-cruiser.cjs': asEmbeddedText(dependencyCruiserConfig, '.dependency-cruiser.cjs'),
-  '.jscpd.json': asEmbeddedJsonText(jscpdConfig),
-  'knip.json': asEmbeddedJsonText(knipConfig),
-  'tools/analyze/detect-duplicate-exported-shapes.mjs': asEmbeddedText(
-    duplicateShapesScript,
-    'tools/analyze/detect-duplicate-exported-shapes.mjs'
-  ),
-  'tools/analyze/duplicate-shapes.config.json': asEmbeddedJsonText(duplicateShapesConfig),
-  'tsconfig.verify.json': toStandaloneTsconfigText(tsconfigVerify),
-};
-
-function hashEmbeddedFiles(): string {
+function embeddedFilesHash(files: Record<string, string>): string {
   const hash = createHash('sha256');
-  for (const [filePath, content] of Object.entries(EMBEDDED_DEFAULT_CONFIG_FILES).sort(([left], [right]) =>
-    left.localeCompare(right)
-  )) {
-    hash.update(filePath);
+  for (const [path, content] of Object.entries(files).sort(([left], [right]) => left.localeCompare(right))) {
+    hash.update(path);
     hash.update('\0');
     hash.update(content);
     hash.update('\0');
@@ -60,20 +36,22 @@ function hashEmbeddedFiles(): string {
   return hash.digest('hex').slice(0, 16);
 }
 
-export function extractEmbeddedDefaultConfigs(): string {
-  const outputDir = join(process.cwd(), '.tmp', 'agent-quality-gate', 'embedded-default-configs', hashEmbeddedFiles());
-  for (const [filePath, content] of Object.entries(EMBEDDED_DEFAULT_CONFIG_FILES)) {
-    const outputPath = join(outputDir, filePath);
-    if (existsSync(outputPath)) {
-      continue;
-    }
+export function extractEmbeddedDefaultConfigs(eslintPluginPath: string): EmbeddedConfigPaths {
+  const files = embeddedFiles(eslintPluginPath);
+  const outputDir = join(process.cwd(), '.tmp', 'agent-quality-gate', 'configs', embeddedFilesHash(files));
+  for (const [path, content] of Object.entries(files)) {
+    const outputPath = join(outputDir, path);
+    const temporaryPath = `${outputPath}.${process.pid}.${randomUUID()}.tmp`;
     mkdirSync(dirname(outputPath), { recursive: true });
-    writeFileSync(outputPath, content, 'utf-8');
+    try {
+      writeFileSync(temporaryPath, content, 'utf8');
+      renameSync(temporaryPath, outputPath);
+    } finally {
+      rmSync(temporaryPath, { force: true });
+    }
   }
-  const projectNodeModulesPath = join(process.cwd(), 'node_modules');
-  const runtimeNodeModulesPath = join(outputDir, 'node_modules');
-  if (existsSync(projectNodeModulesPath) && !existsSync(runtimeNodeModulesPath)) {
-    symlinkSync(projectNodeModulesPath, runtimeNodeModulesPath, 'dir');
-  }
-  return outputDir;
+  return {
+    fallow: join(outputDir, '.fallowrc.json'),
+    oxlint: join(outputDir, '.oxlintrc.jsonc'),
+  };
 }
