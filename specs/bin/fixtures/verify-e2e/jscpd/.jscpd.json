@@ -1,8 +1,0 @@
-{
-  "threshold": 0,
-  "minLines": 3,
-  "minTokens": 20,
-  "format": "typescript",
-  "pattern": "src/**/*.ts",
-  "reporters": ["console"]
-}

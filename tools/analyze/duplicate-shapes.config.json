@@ -1,9 +1,0 @@
-{
-  "tsconfig": "tsconfig.json",
-  "include": ["src/**/*.ts", "src/**/*.tsx"],
-  "exclude": ["**/*.d.ts", "**/*.test.ts", "**/*.spec.ts", "**/*.generated.*"],
-  "similarityThreshold": 0.9,
-  "minProperties": 3,
-  "allowNames": [],
-  "allowPairs": []
-}

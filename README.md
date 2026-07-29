@@ -1,32 +1,22 @@
 # agent-quality-gate
 
-`agent-quality-gate` is a Bun-first CLI quality gate for AI-assisted TypeScript workflows.
+`agent-quality-gate` is a locked Oxlint and Fallow quality gate for AI-assisted TypeScript and JavaScript projects.
 
-## Status
+## Requirements
 
-- This repository is not published to a package registry.
-- Official install channels are Git tags and GitHub Release tarballs.
-- External pull requests are currently not accepted.
-- Bug reports, documentation problems, and feature ideas should go through issues.
+- macOS or Linux on ARM64 or x64. Windows is not supported.
+- Node.js 22.12.0 or newer.
+- Bun 1.3.14 or newer for the commands below.
 
 ## Install
 
-- Bun `>=1.3`.
-- Git.
-
-Install from a Git tag:
+Download the package archive from the [latest GitHub Release](https://github.com/greenhost87/agent-quality-gate/releases/latest), then install it:
 
 ```bash
-bun add -d git+https://github.com/greenhost87/agent-quality-gate.git#v0.0.1
+bun add -d ./agent-quality-gate-*.tgz
 ```
 
-Install from a GitHub Release tarball:
-
-```bash
-bun add -d https://github.com/greenhost87/agent-quality-gate/releases/download/v0.0.1/agent-quality-gate-0.0.1.tgz
-```
-
-Add a script:
+Add the package binary to a script:
 
 ```json
 {
@@ -36,76 +26,65 @@ Add a script:
 }
 ```
 
-```bash
-bun run verify
+## Configure
+
+Create `agent-quality-gate.config.json` in the project root. The file is required.
+
+```json
+{
+  "entries": ["src/index.ts", "bin/*.ts"]
+}
 ```
+
+- `entries` is a required non-empty list of project-relative Fallow entry globs.
+
+To add project-specific Oxlint JS rules:
+
+```json
+{
+  "entries": ["src/index.ts"],
+  "plugins": [
+    {
+      "name": "project",
+      "specifier": "./tools/oxlint-project-plugin.mjs",
+      "rules": {
+        "project/no-custom-pattern": "error"
+      }
+    }
+  ]
+}
+```
+
+Plugin specifiers are resolved from the project root and may reference local files or installed packages. Local plugin files are added to the Fallow entries automatically. Every configured rule must use the declared plugin name as its prefix. Project plugins cannot replace or disable locked rules.
 
 ## Usage
 
 ```bash
-verify
-verify --all-errors
-verify --help
+bun run verify
 ```
 
-- Default mode stops at the first failure.
-- `--all-errors` keeps running and aggregates failures.
-- Exit code mirrors the failing tool exit code.
-- `VERIFY_DEBUG=1` prints resolved config and step sources.
+For token-efficient agent output, use [RTK](https://github.com/rtk-ai/rtk):
 
 ```bash
-VERIFY_DEBUG=1 verify
+rtk bun run verify
 ```
 
-## Configuration
+## Checks
 
-- `verify` runs fixed steps in this order: `protected-coverage`, `eslint`,
-  `ast-grep`, `remark`, `tsc`, `duplicate-shapes`, `depcruise`, `knip`,
-  `jscpd`.
-- Locked mode rejects local `verify.config.*` files and local `--config` paths.
-- Bundled configs from `dist/default-configs` are used.
+Checks run in order and stop at the first failure:
 
-## Verification Stack
+1. Reject `oxlint-disable` directives and prevent ESLint disable directives from suppressing locked rules.
+2. `oxlint` runs type-aware linting and type checking with warnings denied.
+3. `fallow` checks unused code and dependencies, cycles, duplication, complexity, and suppressions.
 
-- `protected-coverage`: internal preflight step that ensures protected paths are still covered before the external tools run.
-- `eslint`: uses `eslint`, `@eslint/js`, `typescript-eslint`, and
-  `eslint-plugin-check-file` to validate JavaScript and TypeScript code style,
-  correctness, and file naming rules.
-- `ast-grep`: uses `@ast-grep/cli` with the bundled `sgconfig.yml` rules to catch forbidden code patterns by syntax tree matching.
-- `remark`: uses `remark-cli`, `remark-lint`,
-  `remark-preset-lint-recommended`, `remark-lint-maximum-line-length`, and
-  `remark-lint-no-duplicate-headings` to lint Markdown files.
-- `tsc`: uses `typescript` to run type-checking with the bundled
-  `tsconfig.verify.json`, including unused locals and unused parameters checks.
-- `duplicate-shapes`: uses the internal `ts-morph`-based analyzer to detect duplicate exported TypeScript shapes in `src/`.
-- `depcruise`: uses `dependency-cruiser` to validate module dependency structure in `src/`.
-- `knip`: uses `knip` to find unused exports.
-- `jscpd`: uses `jscpd` to detect copy-pasted code in the allowed source directories.
+Local Oxlint and Fallow configuration files do not replace the embedded locked policy.
 
-## Release
-
-Release tag must match `vX.Y.Z` and `package.json.version`.
+## Development
 
 ```bash
 bun install --frozen-lockfile
-```
-
-```bash
 bun run --silent verify
-bun test
-bun run check:release-tag -- vX.Y.Z
-bun run pack:verify
-```
-
-1. Push tag `vX.Y.Z`.
-2. `release.yml` validates tag/version parity, runs checks, and builds the tarball.
-3. GitHub Release attaches `artifacts/*.tgz`.
-4. Registry publication remains disabled.
-
-Run install checks explicitly when validating release installs:
-
-```bash
-bun run test:e2e:install
+bun run test
 ```
 
 ## License

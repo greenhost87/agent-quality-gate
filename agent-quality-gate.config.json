@@ -1,0 +1,8 @@
+{
+  "entries": [
+    "bin/*.ts",
+    "plugins/quality/*.mjs",
+    "plugins/quality/rules/*.mjs",
+    "scripts/*.ts"
+  ]
+}
