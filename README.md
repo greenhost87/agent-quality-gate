@@ -2,31 +2,21 @@
 
 `agent-quality-gate` is a locked Oxlint and Fallow quality gate for AI-assisted TypeScript and JavaScript projects.
 
-## Status
-
-- The repository is not published to a package registry.
-- Official install channels are Git tags and GitHub Release package tarballs.
-- External pull requests are currently not accepted.
-- Bug reports, documentation problems, and feature ideas should go through issues.
-
 ## Requirements
 
-- macOS or Linux on ARM64 or x64 is required. Windows is not supported.
-- Node.js 22.12.0 or newer is required to run the packaged Oxlint and Fallow launchers.
-- Bun 1.3.14 or newer is required only for repository development and release builds.
+- macOS or Linux on ARM64 or x64. Windows is not supported.
+- Node.js 22.12.0 or newer.
+- Bun 1.3.14 or newer for the commands below.
 
 ## Install
 
-Install the release package:
+Download the package archive from the [latest GitHub Release](https://github.com/greenhost87/agent-quality-gate/releases/latest), then install it:
 
 ```bash
-bun add -d \
-  https://github.com/greenhost87/agent-quality-gate/releases/download/v0.3.0/agent-quality-gate-0.3.0.tgz
+bun add -d ./agent-quality-gate-*.tgz
 ```
 
-The package contains the `verify` launcher and locked policies. Its pinned Oxlint, TypeScript-Go, and Fallow dependencies are installed normally, including only the binaries required by the current platform.
-
-Use the package binary from a script:
+Add the package binary to a script:
 
 ```json
 {
@@ -36,70 +26,67 @@ Use the package binary from a script:
 }
 ```
 
+## Configure
+
+Create `agent-quality-gate.config.json` in the project root. The file is required.
+
+```json
+{
+  "entries": ["src/index.ts", "bin/*.ts"]
+}
+```
+
+- `entries` is a required non-empty list of project-relative Fallow entry globs.
+
+To add project-specific Oxlint JS rules:
+
+```json
+{
+  "entries": ["src/index.ts"],
+  "plugins": [
+    {
+      "name": "project",
+      "specifier": "./tools/oxlint-project-plugin.mjs",
+      "rules": {
+        "project/no-custom-pattern": "error"
+      }
+    }
+  ]
+}
+```
+
+Plugin specifiers are resolved from the project root and may reference local files or installed packages. Local plugin files are added to the Fallow entries automatically. Every configured rule must use the declared plugin name as its prefix. Project plugins cannot replace or disable locked rules.
+
 ## Usage
 
 ```bash
-verify
-verify --timings
-verify --help
+bun run verify
 ```
 
-- Every stage runs and streams its output directly without filtering or buffering.
-- `--timings` prints stage and total durations.
-- The process exit code follows the first failed stage.
-- `VERIFY_DEBUG=1` prints the resolved embedded configuration paths.
-
-## Token-efficient output
-
-When verification output is consumed by an AI agent, run it through [RTK](https://github.com/rtk-ai/rtk) to reduce token usage:
+For token-efficient agent output, use [RTK](https://github.com/rtk-ai/rtk):
 
 ```bash
 rtk bun run verify
 ```
 
-## Verification stack
+## Checks
 
-The fixed stages run in this order:
+Checks run in order and stop at the first failure:
 
-1. `lint-directives` rejects `eslint-disable`, `eslint-enable`, `oxlint-disable`, and `oxlint-enable` directives.
+1. Reject `oxlint-disable` directives and prevent ESLint disable directives from suppressing locked rules.
 2. `oxlint` runs type-aware linting and type checking with warnings denied.
-3. `fallow` checks dead code, dependencies, cycles, duplication, complexity, suppressions, and React structure.
+3. `fallow` checks unused code and dependencies, cycles, duplication, complexity, and suppressions.
 
-The embedded policies use the current quality stack:
-
-- Oxlint 1.75.0 with `oxlint-tsgolint` 7.0.2001;
-- official ESLint rules through `oxlint-plugin-eslint`;
-- local quality and UI boundary plugins;
-- Fallow 3.9.1;
-- no Next.js plugin, route, server-action, or App Router checks.
-
-Local Oxlint, Fallow, and `verify.config.*` files do not replace the embedded locked configuration.
+Local Oxlint and Fallow configuration files do not replace the embedded locked policy.
 
 ## Development
 
 ```bash
 bun install --frozen-lockfile
 bun run --silent verify
-bun test
-bun run build:release
+bun run test
 ```
-
-`bun run verify` builds the release package and runs its packaged launcher against this repository.
-
-## Release
-
-The release tag must match `vX.Y.Z` and `package.json.version`.
-
-```bash
-bun install --frozen-lockfile
-bun run --silent verify
-bun test
-bun run check:release-tag -- vX.Y.Z
-bun run build:release
-```
-
-GitHub Actions builds one package tarball and attaches it to the corresponding GitHub Release.
 
 ## License
 
-MIT. See [LICENSE](LICENSE) and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+MIT. See [LICENSE](LICENSE).

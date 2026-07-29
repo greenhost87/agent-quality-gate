@@ -5,11 +5,9 @@ node_modules/
 .env*
 .claude/
 .codex/
-.fallow/
 .idea/
 tmp/
 .tmp/
-.npm-cache/
 coverage/
 dist/
 artifacts/

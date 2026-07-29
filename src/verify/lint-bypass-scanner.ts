@@ -1,20 +1,10 @@
 import { readdir, readFile } from 'node:fs/promises';
 import { extname, join } from 'node:path';
 
-const IGNORED_DIRECTORIES = new Set([
-  '.claude',
-  '.codex',
-  '.fallow',
-  '.git',
-  '.idea',
-  '.tmp',
-  'artifacts',
-  'coverage',
-  'node_modules',
-]);
-const IGNORED_PATHS = new Set(['build', 'dist', 'tmp', join('specs', 'bin', 'fixtures')]);
-const LINTABLE_EXTENSIONS = new Set(['.cjs', '.cts', '.js', '.jsx', '.mjs', '.mts', '.ts', '.tsx']);
-const DIRECTIVE_PATTERN = /\b(?:eslint|oxlint)-(?:disable|enable)\b/u;
+import { resolveLintableExtensions } from './config/policy.js';
+
+const LINTABLE_EXTENSIONS = new Set(resolveLintableExtensions());
+const DIRECTIVE_PATTERN = /\boxlint-disable\b/u;
 
 function collectLineViolations(relativePath: string, content: string, violations: string[]): void {
   for (const [index, line] of content.split('\n').entries()) {
@@ -28,12 +18,13 @@ async function collectDirectoryViolations(
   cwd: string,
   directory: string,
   directories: string[],
+  ignoredRootPaths: Set<string>,
   violations: string[]
 ): Promise<void> {
   for (const entry of await readdir(join(cwd, directory), { withFileTypes: true })) {
     const relativePath = join(directory, entry.name);
     if (entry.isDirectory()) {
-      if (!IGNORED_DIRECTORIES.has(entry.name) && !IGNORED_PATHS.has(relativePath)) {
+      if (!ignoredRootPaths.has(relativePath)) {
         directories.push(relativePath);
       }
       continue;
@@ -45,20 +36,21 @@ async function collectDirectoryViolations(
   }
 }
 
-async function findLintDirectiveViolations(cwd: string): Promise<string[]> {
+async function findLintDirectiveViolations(cwd: string, ignoredPaths: readonly string[]): Promise<string[]> {
   const directories = ['.'];
+  const ignoredRootPaths = new Set(ignoredPaths);
   const violations: string[] = [];
   while (directories.length > 0) {
     const directory = directories.pop();
     if (directory !== undefined) {
-      await collectDirectoryViolations(cwd, directory, directories, violations);
+      await collectDirectoryViolations(cwd, directory, directories, ignoredRootPaths, violations);
     }
   }
   return violations;
 }
 
-export async function runLintDirectiveCheck(cwd: string): Promise<number> {
-  const violations = await findLintDirectiveViolations(cwd);
+export async function rejectOxlintDisableDirectives(cwd: string, ignoredPaths: readonly string[]): Promise<number> {
+  const violations = await findLintDirectiveViolations(cwd, ignoredPaths);
   if (violations.length === 0) {
     return 0;
   }
