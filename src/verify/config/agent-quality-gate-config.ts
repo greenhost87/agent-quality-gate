@@ -71,27 +71,14 @@ export function readAgentQualityGateConfig(cwd: string) {
     }
     const projectRequire = createRequire(join(cwd, 'package.json'));
     const names = new Set<string>();
-    return plugins.map((plugin, index) => {
-      if (!isObject(plugin)) {
-        throw new Error(`${CONFIG_NAME}: plugins[${index}] must be an object`);
+
+    function resolvePluginSpecifier(plugin: object, index: number) {
+      if (!('specifier' in plugin)) {
+        return { entry: null, specifier: null };
       }
-      rejectUnknownKeys(plugin, PLUGIN_KEYS, `plugins[${index}]`);
-      const { name, rules, specifier } = plugin;
-      if (typeof name !== 'string' || !/^[a-z][a-z0-9-]*$/u.test(name)) {
-        throw new Error(`${CONFIG_NAME}: plugins[${index}].name must contain lowercase letters, digits, or hyphens`);
-      }
-      if (RESERVED_PLUGIN_NAMES.has(name) || names.has(name)) {
-        throw new Error(`${CONFIG_NAME}: plugin name "${name}" is reserved or duplicated`);
-      }
+      const specifier = plugin.specifier;
       if (typeof specifier !== 'string' || specifier.length === 0) {
         throw new Error(`${CONFIG_NAME}: plugins[${index}].specifier must be a non-empty string`);
-      }
-      if (!isObject(rules) || Object.keys(rules).length === 0) {
-        throw new Error(`${CONFIG_NAME}: plugins[${index}].rules must be a non-empty object`);
-      }
-      const invalidRule = Object.keys(rules).find((rule) => !rule.startsWith(`${name}/`));
-      if (invalidRule !== undefined) {
-        throw new Error(`${CONFIG_NAME}: rule "${invalidRule}" must start with "${name}/"`);
       }
       let resolvedSpecifier: string;
       try {
@@ -106,8 +93,31 @@ export function readAgentQualityGateConfig(cwd: string) {
         !isAbsolute(relativeSpecifier)
           ? relativeSpecifier.replaceAll(sep, '/')
           : null;
+      return { entry, specifier: resolvedSpecifier };
+    }
+
+    return plugins.map((plugin, index) => {
+      if (!isObject(plugin)) {
+        throw new Error(`${CONFIG_NAME}: plugins[${index}] must be an object`);
+      }
+      rejectUnknownKeys(plugin, PLUGIN_KEYS, `plugins[${index}]`);
+      const { name, rules } = plugin;
+      if (typeof name !== 'string' || !/^[a-z][a-z0-9-]*$/u.test(name)) {
+        throw new Error(`${CONFIG_NAME}: plugins[${index}].name must contain lowercase letters, digits, or hyphens`);
+      }
+      if (RESERVED_PLUGIN_NAMES.has(name) || names.has(name)) {
+        throw new Error(`${CONFIG_NAME}: plugin name "${name}" is reserved or duplicated`);
+      }
+      if (!isObject(rules) || Object.keys(rules).length === 0) {
+        throw new Error(`${CONFIG_NAME}: plugins[${index}].rules must be a non-empty object`);
+      }
+      const invalidRule = Object.keys(rules).find((rule) => !rule.startsWith(`${name}/`));
+      if (invalidRule !== undefined) {
+        throw new Error(`${CONFIG_NAME}: rule "${invalidRule}" must start with "${name}/"`);
+      }
+      const { entry, specifier } = resolvePluginSpecifier(plugin, index);
       names.add(name);
-      return { entry, name, rules, specifier: resolvedSpecifier };
+      return { entry, name, rules, specifier };
     });
   }
 

@@ -225,6 +225,45 @@ export default {
     expect(output).toContain('eslint(no-debugger)');
   });
 
+  it('runs configured native Oxlint plugins', async () => {
+    const cwd = await createProject(
+      'const module = 1;\n\nfunction useFeature(): number {\n  return 1;\n}\n\nexport function run(active: boolean): number {\n  return active ? useFeature() : module;\n}\n'
+    );
+    await writeFile(
+      join(cwd, 'agent-quality-gate.config.json'),
+      `${JSON.stringify(
+        {
+          entries: ['src/index.ts'],
+          plugins: [
+            {
+              name: 'nextjs',
+              rules: {
+                'nextjs/no-assign-module-variable': 'error',
+              },
+            },
+            {
+              name: 'react',
+              rules: {
+                'react/rules-of-hooks': 'error',
+              },
+            },
+          ],
+        },
+        null,
+        2
+      )}\n`,
+      'utf8'
+    );
+    await installReleasePackage(cwd);
+
+    const result = await runCommand('bun', ['run', '--silent', 'verify'], cwd);
+    const output = `${result.stdout}\n${result.stderr}`;
+
+    expect(result.exitCode).toBe(1);
+    expect(output).toContain('next(no-assign-module-variable)');
+    expect(output).toContain('react-hooks(rules-of-hooks)');
+  });
+
   it('reports unused code from installed Fallow', async () => {
     const cwd = await createProject('export const value = 1;\n');
     await writeFile(join(cwd, 'src', 'unused.ts'), 'export const unused = 2;\n', 'utf8');

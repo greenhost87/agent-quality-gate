@@ -59,6 +59,22 @@ To add project-specific Oxlint JS rules:
 
 Plugin specifiers are resolved from the project root and may reference local files or installed packages. Local plugin files are added to the Fallow entries automatically. Every configured rule must use the declared plugin name as its prefix. Project plugins cannot replace or disable locked rules.
 
+To enable native Oxlint plugins, omit `specifier`:
+
+```json
+{
+  "entries": ["src/index.ts"],
+  "plugins": [
+    {
+      "name": "react",
+      "rules": {
+        "react/rules-of-hooks": "error"
+      }
+    }
+  ]
+}
+```
+
 ## Usage
 
 ```bash

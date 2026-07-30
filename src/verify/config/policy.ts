@@ -38,7 +38,10 @@ export function renderOxlintConfig(
   const typescriptOnlyRules = Object.keys(typescriptRules).filter((name) => !(name in javascriptRules));
   const projectRules = Object.fromEntries(projectConfig.plugins.flatMap((plugin) => Object.entries(plugin.rules)));
   return {
-    plugins: lockedPolicy.oxlint.plugins,
+    plugins: [
+      ...lockedPolicy.oxlint.plugins,
+      ...projectConfig.plugins.flatMap((plugin) => (plugin.specifier === null ? [plugin.name] : [])),
+    ],
     categories: { correctness: 'off' },
     options: {
       respectEslintDisableDirectives: false,
@@ -47,7 +50,9 @@ export function renderOxlintConfig(
     jsPlugins: [
       { name: 'eslint-js', specifier: eslintPluginPath },
       { name: 'quality', specifier: qualityPluginPath },
-      ...projectConfig.plugins.map(({ name, specifier }) => ({ name, specifier })),
+      ...projectConfig.plugins.flatMap(({ name, specifier }) =>
+        specifier === null ? [] : [{ name, specifier }]
+      ),
     ],
     env: lockedPolicy.oxlint.environment,
     ignorePatterns: ignoredPatterns(),
