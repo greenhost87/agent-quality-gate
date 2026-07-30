@@ -3,7 +3,7 @@ import { createRequire } from 'node:module';
 import { isAbsolute, join, relative, sep } from 'node:path';
 
 const CONFIG_NAME = 'agent-quality-gate.config.json';
-const ROOT_KEYS = new Set(['entries', 'plugins']);
+const ROOT_KEYS = new Set(['entries', 'fallowIgnorePatterns', 'plugins']);
 const PLUGIN_KEYS = new Set(['name', 'specifier', 'rules']);
 const RESERVED_PLUGIN_NAMES = new Set(['eslint-js', 'quality', 'typescript']);
 
@@ -20,6 +20,29 @@ function rejectUnknownKeys(value: object, allowed: Set<string>, location: string
   if (unknownKey !== undefined) {
     throw new Error(`${CONFIG_NAME}: unknown ${location} key "${unknownKey}"`);
   }
+}
+
+function readFallowIgnorePatterns(config: object): string[] {
+  if (!('fallowIgnorePatterns' in config)) {
+    return [];
+  }
+  const patterns = config.fallowIgnorePatterns;
+  if (!isStringArray(patterns)) {
+    throw new Error(`${CONFIG_NAME}: fallowIgnorePatterns must be a string array`);
+  }
+  for (const pattern of patterns) {
+    if (
+      pattern.length === 0 ||
+      isAbsolute(pattern) ||
+      pattern.includes('\\') ||
+      pattern.split('/').includes('..')
+    ) {
+      throw new Error(
+        `${CONFIG_NAME}: fallowIgnorePatterns must contain root-relative globs, received "${pattern}"`
+      );
+    }
+  }
+  return patterns;
 }
 
 export function readAgentQualityGateConfig(cwd: string) {
@@ -104,6 +127,7 @@ export function readAgentQualityGateConfig(cwd: string) {
   }
   return {
     entries: config.entries,
+    fallowIgnorePatterns: readFallowIgnorePatterns(config),
     plugins: readPlugins(),
   };
 }

@@ -165,6 +165,35 @@ describe('verify', () => {
     expect(result.stderr).toContain('unknown root key "ignore"');
   });
 
+  it('rejects invalid Fallow ignore patterns', async () => {
+    const cwd = await createTypeScriptProject('export const value = 1;\n');
+    await writeProjectConfig(cwd, {
+      entries: ['src/index.ts'],
+      fallowIgnorePatterns: ['../migrations/**'],
+    });
+
+    const result = await runVerify(cwd);
+
+    expect(result.exitCode).toBe(2);
+    expect(result.stderr).toContain('fallowIgnorePatterns must contain root-relative globs');
+  });
+
+  it('keeps Fallow-ignored files covered by Oxlint', async () => {
+    const cwd = await createTypeScriptProject('export const value = 1;\n');
+    await mkdir(join(cwd, 'migrations'));
+    await writeFile(join(cwd, 'migrations', '001-invalid.ts'), 'const = ;\n', 'utf8');
+    await writeProjectConfig(cwd, {
+      entries: ['src/index.ts'],
+      fallowIgnorePatterns: ['migrations/**'],
+    });
+
+    const result = await runVerify(cwd);
+    const output = `${result.stdout}\n${result.stderr}`;
+
+    expect(result.exitCode).toBe(1);
+    expect(output).toContain('001-invalid.ts');
+  });
+
   it('checks configured root paths when nested under source', async () => {
     const cwd = await createTypeScriptProject('export const value = 1;\n');
     const directive = ['oxlint', 'disable'].join('-');

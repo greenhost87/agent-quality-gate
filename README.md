@@ -32,11 +32,13 @@ Create `agent-quality-gate.config.json` in the project root. The file is require
 
 ```json
 {
-  "entries": ["src/index.ts", "bin/*.ts"]
+  "entries": ["src/index.ts", "bin/*.ts"],
+  "fallowIgnorePatterns": ["migrations/**"]
 }
 ```
 
 - `entries` is a required non-empty list of project-relative Fallow entry globs.
+- `fallowIgnorePatterns` is an optional list of project-relative globs that Fallow must not analyze. These files remain covered by Oxlint.
 
 To add project-specific Oxlint JS rules:
 

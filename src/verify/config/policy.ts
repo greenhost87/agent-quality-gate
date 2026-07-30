@@ -82,7 +82,7 @@ export function renderFallowConfig(projectConfig: ReturnType<typeof readAgentQua
       ...projectConfig.entries,
       ...projectConfig.plugins.flatMap((plugin) => (plugin.entry ? [plugin.entry] : [])),
     ],
-    ignorePatterns: ignoredPatterns(),
+    ignorePatterns: [...ignoredPatterns(), ...projectConfig.fallowIgnorePatterns],
     ignoreDependencies: lockedPolicy.fallow.ignoreDependencies,
     duplicates: {
       ...lockedPolicy.fallow.duplicates,
