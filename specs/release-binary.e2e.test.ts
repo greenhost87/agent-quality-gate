@@ -275,4 +275,33 @@ export default {
     expect(result.exitCode).toBe(1);
     expect(output).toContain('Unused files');
   });
+
+  it('applies project health thresholds from the installed package', async () => {
+    const cwd = await createProject(
+      'export function select(value: boolean): number {\n  if (value) {\n    return 1;\n  }\n  return 0;\n}\n'
+    );
+    await writeFile(
+      join(cwd, 'agent-quality-gate.config.json'),
+      `${JSON.stringify(
+        {
+          entries: ['src/index.ts'],
+          health: {
+            maxCyclomatic: 1,
+            maxCognitive: 0,
+            maxCrap: 5,
+          },
+        },
+        null,
+        2
+      )}\n`,
+      'utf8'
+    );
+    await installReleasePackage(cwd);
+
+    const result = await runCommand('bun', ['run', '--silent', 'verify'], cwd);
+    const output = `${result.stdout}\n${result.stderr}`;
+
+    expect(result.exitCode).toBe(1);
+    expect(output).toContain('select');
+  });
 });

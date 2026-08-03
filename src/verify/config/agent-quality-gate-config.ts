@@ -3,7 +3,8 @@ import { createRequire } from 'node:module';
 import { isAbsolute, join, relative, sep } from 'node:path';
 
 const CONFIG_NAME = 'agent-quality-gate.config.json';
-const ROOT_KEYS = new Set(['entries', 'fallowIgnorePatterns', 'plugins']);
+const ROOT_KEYS = new Set(['entries', 'fallowIgnorePatterns', 'health', 'plugins']);
+const HEALTH_KEYS = new Set(['maxCyclomatic', 'maxCognitive', 'maxCrap']);
 const PLUGIN_KEYS = new Set(['name', 'specifier', 'rules']);
 const RESERVED_PLUGIN_NAMES = new Set(['eslint-js', 'quality', 'typescript']);
 
@@ -43,6 +44,43 @@ function readFallowIgnorePatterns(config: object): string[] {
     }
   }
   return patterns;
+}
+
+function readHealth(config: object) {
+  if (!('health' in config)) {
+    return {
+      maxCyclomatic: undefined,
+      maxCognitive: undefined,
+      maxCrap: undefined,
+    };
+  }
+  const health = config.health;
+  if (!isObject(health)) {
+    throw new Error(`${CONFIG_NAME}: health must be an object`);
+  }
+  rejectUnknownKeys(health, HEALTH_KEYS, 'health');
+  const healthConfig = health;
+
+  function readComplexityThreshold(name: 'maxCyclomatic' | 'maxCognitive'): number | undefined {
+    const value = healthConfig[name];
+    if (value === undefined) {
+      return undefined;
+    }
+    if (typeof value !== 'number' || !Number.isInteger(value) || value < 0 || value > 65535) {
+      throw new Error(`${CONFIG_NAME}: health.${name} must be an integer between 0 and 65535`);
+    }
+    return value;
+  }
+
+  const maxCrap = healthConfig.maxCrap;
+  if (maxCrap !== undefined && (typeof maxCrap !== 'number' || !Number.isFinite(maxCrap) || maxCrap < 0)) {
+    throw new Error(`${CONFIG_NAME}: health.maxCrap must be a non-negative number`);
+  }
+  return {
+    maxCyclomatic: readComplexityThreshold('maxCyclomatic'),
+    maxCognitive: readComplexityThreshold('maxCognitive'),
+    maxCrap,
+  };
 }
 
 export function readAgentQualityGateConfig(cwd: string) {
@@ -138,6 +176,7 @@ export function readAgentQualityGateConfig(cwd: string) {
   return {
     entries: config.entries,
     fallowIgnorePatterns: readFallowIgnorePatterns(config),
+    health: readHealth(config),
     plugins: readPlugins(),
   };
 }

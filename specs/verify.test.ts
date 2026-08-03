@@ -178,6 +178,60 @@ describe('verify', () => {
     expect(result.stderr).toContain('fallowIgnorePatterns must contain root-relative globs');
   });
 
+  it('rejects invalid health thresholds', async () => {
+    const cwd = await createTypeScriptProject('export const value = 1;\n');
+    const invalidConfigs = [
+      {
+        health: null,
+        expected: 'health must be an object',
+      },
+      {
+        health: { unknown: 1 },
+        expected: 'unknown health key "unknown"',
+      },
+      {
+        health: { maxCyclomatic: 1.5 },
+        expected: 'maxCyclomatic must be an integer between 0 and 65535',
+      },
+      {
+        health: { maxCognitive: -1 },
+        expected: 'maxCognitive must be an integer between 0 and 65535',
+      },
+      {
+        health: { maxCrap: -1 },
+        expected: 'maxCrap must be a non-negative number',
+      },
+    ];
+
+    for (const { expected, health } of invalidConfigs) {
+      await writeProjectConfig(cwd, { entries: ['src/index.ts'], health });
+      const result = await runVerify(cwd);
+
+      expect(result.exitCode).toBe(2);
+      expect(result.stderr).toContain(expected);
+    }
+  });
+
+  it('applies each configured health threshold', async () => {
+    const cwd = await createTypeScriptProject(
+      'export function select(value: boolean): number {\n  if (value) {\n    return 1;\n  }\n  return 0;\n}\n'
+    );
+    const healthConfigs = [
+      { maxCyclomatic: 1 },
+      { maxCognitive: 0 },
+      { maxCrap: 5 },
+    ];
+
+    for (const health of healthConfigs) {
+      await writeProjectConfig(cwd, { entries: ['src/index.ts'], health });
+      const result = await runVerify(cwd);
+      const output = `${result.stdout}\n${result.stderr}`;
+
+      expect(result.exitCode).toBe(1);
+      expect(output).toContain('select');
+    }
+  });
+
   it('keeps Fallow-ignored files covered by Oxlint', async () => {
     const cwd = await createTypeScriptProject('export const value = 1;\n');
     await mkdir(join(cwd, 'migrations'));

@@ -93,7 +93,11 @@ export function renderFallowConfig(projectConfig: ReturnType<typeof readAgentQua
       ...lockedPolicy.fallow.duplicates,
       ignore: lockedPolicy.fallow.duplicateFilePatterns,
     },
-    health: lockedPolicy.fallow.health,
+    health: {
+      maxCyclomatic: projectConfig.health.maxCyclomatic ?? lockedPolicy.fallow.health.maxCyclomatic,
+      maxCognitive: projectConfig.health.maxCognitive ?? lockedPolicy.fallow.health.maxCognitive,
+      maxCrap: projectConfig.health.maxCrap ?? lockedPolicy.fallow.health.maxCrap,
+    },
     rules: lockedPolicy.fallow.rules,
     production: lockedPolicy.fallow.production,
   };

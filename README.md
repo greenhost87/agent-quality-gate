@@ -33,12 +33,18 @@ Create `agent-quality-gate.config.json` in the project root. The file is require
 ```json
 {
   "entries": ["src/index.ts", "bin/*.ts"],
-  "fallowIgnorePatterns": ["migrations/**"]
+  "fallowIgnorePatterns": ["migrations/**"],
+  "health": {
+    "maxCyclomatic": 10,
+    "maxCognitive": 15,
+    "maxCrap": 999
+  }
 }
 ```
 
 - `entries` is a required non-empty list of project-relative Fallow entry globs.
 - `fallowIgnorePatterns` is an optional list of project-relative globs that Fallow must not analyze. These files remain covered by Oxlint.
+- `health` optionally overrides Fallow's per-function complexity thresholds. `maxCyclomatic` and `maxCognitive` must be integers from 0 through 65535. `maxCrap` must be a non-negative number. Omitted values retain the locked defaults of 20, 15, and 999 respectively.
 
 To add project-specific Oxlint JS rules:
 
