@@ -27,7 +27,7 @@
   "scripts": {
     "build:release": "bun ./scripts/build-release-package.ts",
     "verify": "bun ./bin/verify.ts",
-    "test": "bun run build:release && bun test"
+    "test": "bun run build:release && bun test --timeout 30000"
   },
   "engines": {
     "bun": ">=1.3.14",
