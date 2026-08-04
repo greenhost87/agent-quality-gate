@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { mkdtemp, mkdir, readdir, rm, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readdir, rm, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -142,7 +142,8 @@ describe('verify', () => {
   it('ignores every locked root path', async () => {
     const cwd = await createTypeScriptProject('export const value = 1;\n');
     const directive = ['eslint', 'disable'].join('-');
-    for (const directory of resolveIgnoredPaths()) {
+    const directories = resolveIgnoredPaths().map((path) => (path === '.*' ? '.metadata' : path));
+    for (const directory of directories) {
       await mkdir(join(cwd, directory), { recursive: true });
       await writeFile(join(cwd, directory, 'generated.ts'), `// ${directive} no-console\nconst = ;\n`, 'utf8');
     }
@@ -150,6 +151,90 @@ describe('verify', () => {
     const result = await runVerify(cwd);
 
     expect(result.exitCode).toBe(0);
+  });
+
+  it('ignores directives in arbitrary root dot directories', async () => {
+    const cwd = await createTypeScriptProject('export const value = 1;\n');
+    const checkout = join(cwd, '.worktrees', 'feature');
+    const directive = ['oxlint', 'disable'].join('-');
+    await mkdir(checkout, { recursive: true });
+    await writeFile(join(checkout, 'generated.ts'), `// ${directive}\nexport const generated = 1;\n`, 'utf8');
+
+    const result = await runVerify(cwd);
+
+    expect(result.exitCode).toBe(0);
+  });
+
+  it('ignores Oxlint issues in arbitrary root dot directories', async () => {
+    const cwd = await createTypeScriptProject('export const value = 1;\n');
+    const checkout = join(cwd, '.worktrees', 'feature');
+    await mkdir(checkout, { recursive: true });
+    await writeFile(join(checkout, 'generated.ts'), 'const = ;\n', 'utf8');
+
+    const result = await runVerify(cwd);
+
+    expect(result.exitCode).toBe(0);
+  });
+
+  it('ignores Fallow issues in arbitrary root dot directories', async () => {
+    const source =
+      'export function select(value: boolean): number {\n  if (value) {\n    return 1;\n  }\n  return 0;\n}\n';
+    for (const [directory, expectedExitCode] of [
+      ['worktrees', 1],
+      ['.worktrees', 0],
+    ] as const) {
+      const cwd = await createTypeScriptProject('export const value = 1;\n');
+      const checkout = join(cwd, directory, 'feature');
+      await mkdir(checkout, { recursive: true });
+      await writeFile(join(checkout, 'complex.ts'), source, 'utf8');
+      await writeProjectConfig(cwd, {
+        entries: ['src/index.ts', `${directory}/feature/complex.ts`],
+        health: { maxCyclomatic: 1 },
+      });
+
+      const result = await runVerify(cwd);
+
+      expect(result.exitCode).toBe(expectedExitCode);
+      if (expectedExitCode === 1) {
+        expect(`${result.stdout}\n${result.stderr}`).toContain('select');
+      }
+    }
+  });
+
+  it('ignores root dot-directory symlinks', async () => {
+    const cwd = await createTypeScriptProject('export const value = 1;\n');
+    const target = await makeTempDirectory('quality-gate-dot-directory-target-');
+    const directive = ['oxlint', 'disable'].join('-');
+    await writeFile(join(target, 'generated.ts'), `// ${directive}\nconst = ;\n`, 'utf8');
+    await symlink(target, join(cwd, '.worktree'), 'dir');
+
+    const result = await runVerify(cwd);
+
+    expect(result.exitCode).toBe(0);
+  });
+
+  it('checks root dot files', async () => {
+    const cwd = await createTypeScriptProject('export const value = 1;\n');
+    await writeFile(join(cwd, '.invalid.ts'), 'const = ;\n', 'utf8');
+
+    const result = await runVerify(cwd);
+    const output = `${result.stdout}\n${result.stderr}`;
+
+    expect(result.exitCode).toBe(1);
+    expect(output).toContain('.invalid.ts');
+  });
+
+  it('checks nested dot directories with Oxlint', async () => {
+    const cwd = await createTypeScriptProject('export const value = 1;\n');
+    const nestedDirectory = join(cwd, 'src', '.hidden');
+    await mkdir(nestedDirectory);
+    await writeFile(join(nestedDirectory, 'invalid.ts'), 'const = ;\n', 'utf8');
+
+    const result = await runVerify(cwd);
+    const output = `${result.stdout}\n${result.stderr}`;
+
+    expect(result.exitCode).toBe(1);
+    expect(output).toContain(join('src', '.hidden', 'invalid.ts'));
   });
 
   it('rejects project-defined ignore paths', async () => {
@@ -251,7 +336,8 @@ describe('verify', () => {
   it('checks configured root paths when nested under source', async () => {
     const cwd = await createTypeScriptProject('export const value = 1;\n');
     const directive = ['oxlint', 'disable'].join('-');
-    for (const directory of resolveIgnoredPaths()) {
+    const directories = resolveIgnoredPaths().map((path) => (path === '.*' ? '.hidden' : path));
+    for (const directory of directories) {
       await mkdir(join(cwd, 'src', directory), { recursive: true });
       await writeFile(
         join(cwd, 'src', directory, 'index.ts'),
@@ -263,7 +349,7 @@ describe('verify', () => {
     const result = await runVerify(cwd);
 
     expect(result.exitCode).toBe(1);
-    for (const directory of resolveIgnoredPaths()) {
+    for (const directory of directories) {
       expect(result.stderr).toContain(join('src', directory, 'index.ts'));
     }
   });

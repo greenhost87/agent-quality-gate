@@ -24,7 +24,9 @@ async function collectDirectoryViolations(
   for (const entry of await readdir(join(cwd, directory), { withFileTypes: true })) {
     const relativePath = join(directory, entry.name);
     if (entry.isDirectory()) {
-      if (!ignoredRootPaths.has(relativePath)) {
+      const isIgnoredRootDotDirectory =
+        directory === '.' && entry.name.startsWith('.') && ignoredRootPaths.has('.*');
+      if (!isIgnoredRootDotDirectory && !ignoredRootPaths.has(relativePath)) {
         directories.push(relativePath);
       }
       continue;

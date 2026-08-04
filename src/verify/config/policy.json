@@ -1,12 +1,7 @@
 {
   "files": {
     "ignoredPaths": [
-      ".claude",
-      ".codex",
-      ".fallow",
-      ".git",
-      ".idea",
-      ".tmp",
+      ".*",
       "artifacts",
       "build",
       "coverage",
