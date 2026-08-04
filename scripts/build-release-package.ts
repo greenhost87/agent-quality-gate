@@ -72,8 +72,8 @@ async function writeReleasePackageJson(releasePackageDir: string): Promise<void>
 
 function packReleasePackage(releasePackageDir: string): void {
   runRequired(
-    'npm',
-    ['pack', '--ignore-scripts', '--pack-destination', ARTIFACTS_DIR],
+    'bun',
+    ['pm', 'pack', '--ignore-scripts', '--destination', ARTIFACTS_DIR],
     releasePackageDir,
     false
   );
