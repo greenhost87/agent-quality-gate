@@ -26,6 +26,7 @@
   ],
   "scripts": {
     "build:release": "bun ./scripts/build-release-package.ts",
+    "generate-agent-guide": "bun ./bin/generate-agent-guide.ts",
     "verify": "bun ./bin/verify.ts",
     "test": "bun run build:release && bun test --timeout 30000"
   },

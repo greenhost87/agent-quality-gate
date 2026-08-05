@@ -6,6 +6,7 @@ import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { rejectUnexpectedArgument, reportCommandError } from '../src/command.js';
 import { readAgentQualityGateConfig } from '../src/verify/config/agent-quality-gate-config.js';
 import { createGeneratedConfigFiles } from '../src/verify/config/generated-configs.js';
 import { resolveIgnoredPaths } from '../src/verify/config/policy.js';
@@ -43,9 +44,7 @@ function run(name: string, args: string[], environment?: Record<string, string>)
 }
 
 async function main(): Promise<number> {
-  const argument = process.argv[2];
-  if (argument !== undefined) {
-    process.stderr.write(`verify: unexpected argument "${argument}"\n`);
+  if (rejectUnexpectedArgument('verify')) {
     return 2;
   }
 
@@ -54,8 +53,7 @@ async function main(): Promise<number> {
   try {
     projectConfig = readAgentQualityGateConfig(cwd);
   } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    process.stderr.write(`verify: ${message}\n`);
+    reportCommandError('verify', error instanceof Error ? error : String(error));
     return 2;
   }
   const ignoredPaths = resolveIgnoredPaths();

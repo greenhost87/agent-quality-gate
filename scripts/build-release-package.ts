@@ -10,6 +10,7 @@ import packageJson from '../package.json' with { type: 'json' };
 
 const REPO_ROOT = fileURLToPath(new URL('../', import.meta.url));
 const ARTIFACTS_DIR = join(REPO_ROOT, 'artifacts');
+const AGENT_GUIDE_LAUNCHER_NAME = 'generate-agent-guide.js';
 const VERIFY_LAUNCHER_NAME = 'verify.js';
 
 function runRequired(command: string, args: readonly string[], cwd: string, inheritOutput: boolean): void {
@@ -26,10 +27,10 @@ function runRequired(command: string, args: readonly string[], cwd: string, inhe
   }
 }
 
-function buildVerifyLauncher(releaseDistBinDir: string): void {
+function buildLauncher(entry: string, output: string): void {
   runRequired(
     'bun',
-    ['build', '--target', 'node', './bin/verify.ts', '--outfile', join(releaseDistBinDir, VERIFY_LAUNCHER_NAME)],
+    ['build', '--target', 'node', entry, '--outfile', output],
     REPO_ROOT,
     true
   );
@@ -59,6 +60,7 @@ async function writeReleasePackageJson(releasePackageDir: string): Promise<void>
       'oxlint-tsgolint': packageJson.devDependencies['oxlint-tsgolint'],
     },
     bin: {
+      'generate-agent-guide': `./dist/bin/${AGENT_GUIDE_LAUNCHER_NAME}`,
       verify: `./dist/bin/${VERIFY_LAUNCHER_NAME}`,
     },
     files: ['dist', 'README.md', 'LICENSE'],
@@ -89,7 +91,8 @@ async function main(): Promise<void> {
     await mkdir(ARTIFACTS_DIR, { recursive: true });
     await mkdir(releaseDistBinDir, { recursive: true });
     await mkdir(releaseDistPluginsDir, { recursive: true });
-    buildVerifyLauncher(releaseDistBinDir);
+    buildLauncher('./bin/generate-agent-guide.ts', join(releaseDistBinDir, AGENT_GUIDE_LAUNCHER_NAME));
+    buildLauncher('./bin/verify.ts', join(releaseDistBinDir, VERIFY_LAUNCHER_NAME));
     await cp(join(REPO_ROOT, 'plugins', 'quality'), join(releaseDistPluginsDir, 'quality'), { recursive: true });
     await cp(join(REPO_ROOT, 'README.md'), join(releasePackageDir, 'README.md'));
     await cp(join(REPO_ROOT, 'LICENSE'), join(releasePackageDir, 'LICENSE'));

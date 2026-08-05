@@ -11,6 +11,22 @@ export function resolveLintableExtensions(): string[] {
   );
 }
 
+export function resolveLockedQualityRuleNames(): string[] {
+  return [
+    ...Object.keys(lockedPolicy.oxlint.rules.common),
+    ...Object.keys(lockedPolicy.oxlint.rules.javascript),
+    ...Object.keys(lockedPolicy.oxlint.rules.typescript),
+  ].filter((name) => name.startsWith('quality/'));
+}
+
+export function resolveHealthThresholds(projectConfig: ReturnType<typeof readAgentQualityGateConfig>) {
+  return {
+    maxCyclomatic: projectConfig.health.maxCyclomatic ?? lockedPolicy.fallow.health.maxCyclomatic,
+    maxCognitive: projectConfig.health.maxCognitive ?? lockedPolicy.fallow.health.maxCognitive,
+    maxCrap: projectConfig.health.maxCrap ?? lockedPolicy.fallow.health.maxCrap,
+  };
+}
+
 function ignoredPatterns(): string[] {
   return resolveIgnoredPaths().map((path) => `${path}/**`);
 }
@@ -93,11 +109,7 @@ export function renderFallowConfig(projectConfig: ReturnType<typeof readAgentQua
       ...lockedPolicy.fallow.duplicates,
       ignore: lockedPolicy.fallow.duplicateFilePatterns,
     },
-    health: {
-      maxCyclomatic: projectConfig.health.maxCyclomatic ?? lockedPolicy.fallow.health.maxCyclomatic,
-      maxCognitive: projectConfig.health.maxCognitive ?? lockedPolicy.fallow.health.maxCognitive,
-      maxCrap: projectConfig.health.maxCrap ?? lockedPolicy.fallow.health.maxCrap,
-    },
+    health: resolveHealthThresholds(projectConfig),
     rules: lockedPolicy.fallow.rules,
     production: lockedPolicy.fallow.production,
   };

@@ -45,6 +45,7 @@ async function createProject(source: string): Promise<string> {
         type: 'module',
         main: 'src/index.ts',
         scripts: {
+          'generate-agent-guide': 'generate-agent-guide',
           verify: 'verify',
         },
       },
@@ -127,11 +128,16 @@ describe('release package', () => {
     expect(installedManifest).toContain('"oxlint-plugin-eslint": "1.75.0"');
     expect(installedManifest).toContain('"oxlint-tsgolint": "7.0.2001"');
 
+    const guideResult = await runCommand('bun', ['run', '--silent', 'generate-agent-guide'], cwd);
     const result = await runCommand('bun', ['run', '--silent', 'verify'], cwd);
     if (result.exitCode !== 0) {
       throw new Error(result.stderr || result.stdout);
     }
 
+    expect(guideResult.exitCode).toBe(0);
+    const agentGuide = await readFile(join(cwd, 'agent-quality-gate.md'), 'utf8');
+    expect(agentGuide).toContain('# Code validation rules');
+    expect(agentGuide).not.toContain('## Project-specific Oxlint rules');
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toContain('verify: ok');
     expect(existsSync(join(installedPackage, 'dist', 'plugins', 'quality', 'index.mjs'))).toBe(true);
