@@ -175,6 +175,7 @@ describe('release package', () => {
     const cwd = await createProject(
       'export function customViolation(value: any): number {\n  debugger;\n  return value;\n}\n'
     );
+    await writeFile(join(cwd, 'src', 'unused.ts'), 'export const unused = 1;\n', 'utf8');
     await mkdir(join(cwd, 'project-quality'));
     await writeFile(
       join(cwd, 'project-quality', 'plugin.mjs'),
@@ -230,6 +231,7 @@ export default {
     expect(result.exitCode).toBe(1);
     expect(output).toContain('project(no-custom-identifier)');
     expect(output).toContain('eslint(no-debugger)');
+    expect(output).toContain('unused-file:src/unused.ts');
   });
 
   it('runs configured native Oxlint plugins', async () => {
@@ -274,13 +276,15 @@ export default {
   it('reports unused code from installed Fallow', async () => {
     const cwd = await createProject('export const value = 1;\n');
     await writeFile(join(cwd, 'src', 'unused.ts'), 'export const unused = 2;\n', 'utf8');
+    await writeFile(join(cwd, 'src', 'also-unused.ts'), 'export const alsoUnused = 3;\n', 'utf8');
     await installReleasePackage(cwd);
 
     const result = await runCommand('bun', ['run', '--silent', 'verify'], cwd);
     const output = `${result.stdout}\n${result.stderr}`;
 
     expect(result.exitCode).toBe(1);
-    expect(output).toContain('Unused files');
+    expect(output).toContain('src/also-unused.ts');
+    expect(output).toContain('src/unused.ts');
   });
 
   it('applies project health thresholds from the installed package', async () => {

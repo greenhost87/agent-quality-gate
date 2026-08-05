@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { spawnSync } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { rmSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
@@ -31,16 +31,29 @@ function tsgolintPath(): string {
   return join(dirname(tsgolintRequire.resolve(`${nativePackage}/package.json`)), 'tsgolint');
 }
 
-function run(name: string, args: string[], environment?: Record<string, string>): number {
-  const result = spawnSync(process.execPath, args, {
-    env: { ...process.env, ...environment },
-    stdio: 'inherit',
+function run(
+  name: string,
+  args: string[],
+  environment?: Record<string, string>
+): Promise<{ exitCode: number; stdout: string }> {
+  return new Promise((resolve) => {
+    const child = spawn(process.execPath, args, {
+      env: { ...process.env, ...environment },
+      stdio: ['inherit', 'pipe', 'pipe'],
+    });
+    const stdout: Buffer[] = [];
+    child.stdout.on('data', (chunk: Buffer) => {
+      stdout.push(chunk);
+    });
+    child.stderr.on('data', (chunk: Buffer) => process.stderr.write(chunk));
+    child.once('error', (error) => {
+      process.stderr.write(`verify: failed to start ${name}: ${error.message}\n`);
+      resolve({ exitCode: 1, stdout: Buffer.concat(stdout).toString('utf8') });
+    });
+    child.once('close', (code) => {
+      resolve({ exitCode: code ?? 1, stdout: Buffer.concat(stdout).toString('utf8') });
+    });
   });
-  if (result.error) {
-    process.stderr.write(`verify: failed to start ${name}: ${result.error.message}\n`);
-    return 1;
-  }
-  return result.status ?? 1;
 }
 
 async function main(): Promise<number> {
@@ -68,36 +81,46 @@ async function main(): Promise<number> {
     projectConfig
   );
   try {
-    const oxlintCode = run(
-      'oxlint',
-      [
-        join(packageRoot('oxlint'), 'bin', 'oxlint'),
-        '--type-aware',
-        '--type-check',
-        '--deny-warnings',
-        '--config',
-        configs.oxlint,
-        ...ignoredPaths.flatMap((path) => ['--ignore-pattern', `${path}/**`]),
-        '.',
-      ],
-      { OXLINT_TSGOLINT_PATH: tsgolintPath() }
-    );
-    if (oxlintCode !== 0) {
-      return oxlintCode;
-    }
-
-    const fallowCode = run(
-      'fallow',
-      [
-        join(packageRoot('fallow'), 'bin', 'fallow'),
-        '--config',
-        configs.fallow,
-        '--fail-on-issues',
-      ],
-      { FALLOW_CACHE_DIR: join(cwd, 'node_modules', '.cache', 'agent-quality-gate', 'fallow') }
-    );
-    if (fallowCode !== 0) {
-      return fallowCode;
+    const oxlintEnvironment = { OXLINT_TSGOLINT_PATH: tsgolintPath() };
+    const oxlintExecutable = join(packageRoot('oxlint'), 'bin', 'oxlint');
+    const oxlintArgs = [
+      oxlintExecutable,
+      '--format',
+      'agent',
+      '--type-aware',
+      '--type-check',
+      '--deny-warnings',
+      '--config',
+      configs.oxlint,
+      ...ignoredPaths.flatMap((path) => ['--ignore-pattern', `${path}/**`]),
+      '.',
+    ];
+    const fallowEnvironment = {
+      FALLOW_CACHE_DIR: join(cwd, 'node_modules', '.cache', 'agent-quality-gate', 'fallow'),
+    };
+    const fallowExecutable = join(packageRoot('fallow'), 'bin', 'fallow');
+    const fallowArgs = [
+      fallowExecutable,
+      '--config',
+      configs.fallow,
+      '--format',
+      'compact',
+      '--quiet',
+      '--fail-on-issues',
+    ];
+    const [oxlint, fallow] = await Promise.all([
+      run('oxlint', oxlintArgs, oxlintEnvironment),
+      run('fallow', fallowArgs, fallowEnvironment),
+    ]);
+    const exitCode = Math.max(oxlint.exitCode, fallow.exitCode);
+    if (exitCode !== 0) {
+      const output = [oxlint.stdout.trimEnd(), fallow.stdout.trimEnd()]
+        .filter((value) => value.length > 0)
+        .join('\n\n');
+      if (output) {
+        process.stdout.write(`${output}\n`);
+      }
+      return exitCode;
     }
 
     process.stdout.write('verify: ok\n');

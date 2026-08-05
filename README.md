@@ -1,6 +1,6 @@
 # agent-quality-gate
 
-`agent-quality-gate` is a locked Oxlint and Fallow quality gate for AI-assisted TypeScript and JavaScript projects.
+`agent-quality-gate` provides a locked Oxlint and Fallow quality gate for AI-assisted TypeScript and JavaScript projects.
 
 ## Requirements
 
@@ -9,13 +9,13 @@
 
 ## Setup
 
-Download the package archive from the [latest release](https://github.com/greenhost87/agent-quality-gate/releases/latest) and install it:
+Install the release archive directly from GitHub:
 
 ```bash
-bun add -d ./agent-quality-gate-*.tgz
+bun add -d https://github.com/greenhost87/agent-quality-gate/releases/download/v0.2.0/agent-quality-gate-0.2.0.tgz
 ```
 
-Add the commands to `package.json`:
+Add the package commands to `package.json`:
 
 ```json
 {
@@ -26,7 +26,7 @@ Add the commands to `package.json`:
 }
 ```
 
-Create the required `agent-quality-gate.config.json` in the project root:
+Create `agent-quality-gate.config.json` in the project root with at least one project entry:
 
 ```json
 {
@@ -34,29 +34,33 @@ Create the required `agent-quality-gate.config.json` in the project root:
 }
 ```
 
-## Commands
+Generate the project-specific agent guide:
 
 ```bash
-bun run verify
 bun run generate-agent-guide
 ```
 
-- `verify` runs the locked quality gate and stops at the first failed stage.
-- `generate-agent-guide` writes a compact `agent-quality-gate.md` from the effective project policy.
-
-For token-efficient verification output, use [RTK](https://github.com/rtk-ai/rtk):
-
-```bash
-rtk bun run verify
-```
-
-Reference the generated guide from the root `AGENTS.md`:
+Reference the generated `agent-quality-gate.md` from the root `AGENTS.md`:
 
 ```md
 Before changing JavaScript or TypeScript, read `agent-quality-gate.md` and run `bun run --silent verify` after the change.
 ```
 
+## Usage
+
+```bash
+bun run --silent verify
+```
+
+`verify` first rejects invalid configuration and forbidden lint suppression directives. It then runs type-aware Oxlint with TypeScript type checking and Fallow checks for unused code and dependencies, cycles, duplication, complexity, and suppressions.
+
+Oxlint and Fallow run concurrently. If either fails, findings are printed in a stable order with Oxlint first and Fallow second. A successful run prints `verify: ok`.
+
+The embedded policy cannot be replaced or disabled by local Oxlint or Fallow configuration files.
+
 ## Configuration
+
+All supported options are shown below:
 
 ```json
 {
@@ -80,19 +84,9 @@ Before changing JavaScript or TypeScript, read `agent-quality-gate.md` and run `
 ```
 
 - `entries` is a required non-empty list of project-relative Fallow entry globs.
-- `fallowIgnorePatterns` optionally excludes project-relative globs from Fallow only. Oxlint still checks them.
-- `health` overrides per-function complexity limits. `maxCyclomatic` and `maxCognitive` accept integers from 0 through 65535. `maxCrap` accepts any non-negative number. Defaults are 20, 15, and 999.
-- `plugins` enables project-specific Oxlint rules. Omit `specifier` for native Oxlint plugins or set it to a local file or installed package for a JavaScript plugin. Rule names must start with the declared plugin name. Local plugin files become Fallow entries automatically. Plugins cannot replace or disable locked rules.
-
-## Validation
-
-Checks run in order and stop at the first failure:
-
-1. Reject `oxlint-disable` directives and prevent ESLint directives from suppressing locked rules.
-2. Run type-aware Oxlint and TypeScript type checking with warnings denied.
-3. Run Fallow checks for unused code and dependencies, cycles, duplication, complexity, and suppressions.
-
-Local Oxlint and Fallow configuration files do not replace the embedded locked policy.
+- `fallowIgnorePatterns` excludes project-relative globs from Fallow only. Oxlint still checks them.
+- `health` overrides per-function complexity limits. `maxCyclomatic` and `maxCognitive` accept integers from 0 through 65535, and `maxCrap` accepts any non-negative number. Defaults are 20, 15, and 999.
+- `plugins` adds project-specific Oxlint rules. Omit `specifier` for a native Oxlint plugin, or set it to a local file or installed package for a JavaScript plugin. Rule names must start with the declared plugin name. Local plugin files become Fallow entries automatically. Plugins cannot replace or disable locked rules.
 
 ## Development
 

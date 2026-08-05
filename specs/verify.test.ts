@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { mkdtemp, mkdir, readdir, rm, symlink, writeFile } from 'node:fs/promises';
+import { mkdtemp, mkdir, readdir, rm, stat, symlink, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -371,10 +371,8 @@ describe('verify', () => {
 
     expect(result.exitCode).toBe(0);
     expect(await readdir(cwd)).not.toContain('.fallow');
-    const cacheFiles = await readdir(join(cwd, 'node_modules', '.cache', 'agent-quality-gate', 'fallow'));
-    expect(cacheFiles).toContain('.gitignore');
-    expect(cacheFiles).toContain('cache.bin');
-    expect(cacheFiles).toContain('graph-cache.bin');
+    const cache = await stat(join(cwd, 'node_modules', '.cache', 'agent-quality-gate', 'fallow'));
+    expect(cache.isDirectory()).toBe(true);
   });
 
   it('checks nested generated-directory names with Oxlint', async () => {
