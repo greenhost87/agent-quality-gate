@@ -5,7 +5,7 @@
 ## Requirements
 
 - macOS or Linux on ARM64 or x64. Windows is not supported.
-- Node.js 22.12.0 or newer and Bun 1.3.14 or newer.
+- Node.js 24.19.0 or newer and Bun 1.3.14 or newer.
 
 ## Setup
 

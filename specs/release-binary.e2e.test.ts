@@ -123,6 +123,7 @@ describe('release package', () => {
       await writeFile(join(cwd, directory, 'generated.ts'), `// ${directive}\nconst = ;\n`, 'utf8');
     }
     const installedManifest = await readFile(join(installedPackage, 'package.json'), 'utf8');
+    expect(installedManifest).toContain('"node": ">=24.19.0"');
     expect(installedManifest).toContain('"fallow": "3.9.1"');
     expect(installedManifest).toContain('"oxlint": "1.75.0"');
     expect(installedManifest).toContain('"oxlint-plugin-eslint": "1.75.0"');
