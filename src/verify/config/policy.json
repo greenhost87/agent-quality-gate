@@ -223,6 +223,8 @@
         "prefer-rest-params": "error",
         "prefer-spread": "error",
         "quality/no-empty-extended-interfaces": "error",
+        "quality/no-indexed-access-types": "error",
+        "quality/no-manual-exported-string-literal-unions": "error",
         "quality/no-null-undefined-parameter-union": "error",
         "quality/no-runtime-in-types-files": "error",
         "quality/no-single-use-forwarders": "error",
@@ -230,6 +232,7 @@
         "quality/no-unknown-parameters": "error",
         "quality/no-useless-exported-type-aliases": "error",
         "quality/no-wide-parameter-unions": "error",
+        "quality/require-export-string-literal-catalogs-as-const": "error",
         "typescript/consistent-type-assertions": [
           "error",
           {
@@ -288,10 +291,6 @@
         {
           "selector": "TSIntersectionType",
           "message": "Do not use intersection types. Write one explicit named shape."
-        },
-        {
-          "selector": "TSIndexedAccessType",
-          "message": "Do not use indexed access types. Write an explicit named type."
         }
       ]
     }

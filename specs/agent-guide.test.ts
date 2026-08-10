@@ -54,6 +54,11 @@ describe('generate-agent-guide', () => {
     expect(result.stdout).toContain('generate-agent-guide: wrote agent-quality-gate.md');
     expect(guide).toContain('Lint suppression: Oxlint disable directives are forbidden');
     expect(guide).toContain('Functions: inline thin local forwarding functions that have only one caller.');
+    expect(guide).toContain('indexed access types are forbidden except for the exact form `(typeof identifier)[number]`');
+    expect(guide).toContain('declare exported non-empty catalogs as unannotated `as const` tuples');
+    expect(guide).toContain('derive their union types from the runtime tuple instead of duplicating them manually');
+    expect(guide).toContain('runtime files normally cannot contain top-level types');
+    expect(guide).toContain('`(typeof localExportedConst)[number]` derived from an exported `as const` string literal catalog in the same file');
     expect(guide).not.toContain('quality/no-single-use-forwarders');
     expect(guide).not.toContain('## Validation scope');
     expect(guide).toContain('cyclomatic `8`, cognitive `15`, and CRAP `999`');

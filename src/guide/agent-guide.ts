@@ -24,8 +24,16 @@ const QUALITY_CONSTRAINT_GROUPS = [
     text: 'Parameters: use precise implementation types; `unknown` is reserved for type predicates; never combine `null` with `undefined`; unions may exceed two alternatives only when every alternative is literal.',
   },
   {
+    rules: [
+      'quality/no-indexed-access-types',
+      'quality/no-manual-exported-string-literal-unions',
+      'quality/require-export-string-literal-catalogs-as-const',
+    ],
+    text: 'String literal catalogs: indexed access types are forbidden except for the exact form `(typeof identifier)[number]`; declare exported non-empty catalogs as unannotated `as const` tuples and derive their union types from the runtime tuple instead of duplicating them manually.',
+  },
+  {
     rules: ['quality/no-runtime-in-types-files', 'quality/no-types-in-runtime-files'],
-    text: 'Type organization: dedicated type files (`*.d.ts`, `*.d.mts`, `*.d.cts`, `*.types.ts(x)`, `*.contracts.ts(x)`, `*.interfaces.ts(x)`, and `types.ts(x)`) contain only type imports, exports, and declarations; runtime files keep top-level type declarations in those dedicated files.',
+    text: 'Type organization: dedicated type files (`*.d.ts`, `*.d.mts`, `*.d.cts`, `*.types.ts(x)`, `*.contracts.ts(x)`, `*.interfaces.ts(x)`, and `types.ts(x)`) contain only type imports, exports, and declarations; runtime files normally cannot contain top-level types, except for a directly exported companion union of the exact form `(typeof localExportedConst)[number]` derived from an exported `as const` string literal catalog in the same file.',
   },
   {
     rules: ['quality/no-single-use-forwarders'],
@@ -37,7 +45,7 @@ const SYNTAX_CONSTRAINTS = [
   'Lint suppression: Oxlint disable directives are forbidden, and ESLint directives cannot suppress locked rules.',
   'Modules: use static ESM imports and direct exports; `require()`, dynamic `import()`, re-exports, and export proxies are forbidden.',
   'Type assertions: casts to `any` or `never` and double assertions through `unknown` are forbidden; model the type or validate the value instead.',
-  'Type shapes: write explicit named shapes instead of `Pick`, `Omit`, `Partial`, `NonNullable`, intersection types, or indexed access types.',
+  'Type shapes: write explicit named shapes instead of `Pick`, `Omit`, `Partial`, `NonNullable`, or intersection types.',
 ];
 
 function projectPluginSection(projectConfig: ReturnType<typeof readAgentQualityGateConfig>): string[] {

@@ -14,3 +14,23 @@ export function directParameterType(node) {
   const owner = parameter?.parent;
   return Array.isArray(owner?.params) && owner.params.includes(parameter);
 }
+
+export function isStaticString(node) {
+  return (
+    (node?.type === 'Literal' && typeof node.value === 'string') ||
+    (node?.type === 'TemplateLiteral' && node.expressions.length === 0)
+  );
+}
+
+export function isReadonlyStringLiteralCatalog(node) {
+  return (
+    node?.type === 'TSAsExpression' &&
+    node.expression.type === 'ArrayExpression' &&
+    node.expression.elements.length > 0 &&
+    node.expression.elements.every(isStaticString) &&
+    node.typeAnnotation.type === 'TSTypeReference' &&
+    node.typeAnnotation.typeName.type === 'Identifier' &&
+    node.typeAnnotation.typeName.name === 'const' &&
+    node.typeAnnotation.typeArguments == null
+  );
+}
