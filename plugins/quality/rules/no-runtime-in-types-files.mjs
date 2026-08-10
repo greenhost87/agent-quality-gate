@@ -1,4 +1,19 @@
+import { isReadonlyStringLiteralCatalog } from '../ast.mjs';
 import { isTypeOnlyFile } from '../type-only-files.mjs';
+
+function isExportedReadonlyStringLiteralCatalog(node) {
+  const declaration = node?.type === 'ExportNamedDeclaration' ? node.declaration : null;
+  return (
+    declaration?.type === 'VariableDeclaration' &&
+    declaration.kind === 'const' &&
+    declaration.declarations.every(
+      (item) =>
+        item.id.type === 'Identifier' &&
+        item.id.typeAnnotation == null &&
+        isReadonlyStringLiteralCatalog(item.init)
+    )
+  );
+}
 
 function isTypeOnlyDeclaration(node) {
   return (
@@ -15,7 +30,8 @@ const noRuntimeInTypesFiles = {
     type: 'problem',
     schema: [],
     messages: {
-      invalid: 'Type-only files must contain only type imports, type exports, and type declarations.',
+      invalid:
+        'Dedicated type files may contain only type imports, type exports, type declarations, and exported unannotated "as const" string literal catalogs.',
     },
   },
   create(context) {
@@ -39,7 +55,11 @@ const noRuntimeInTypesFiles = {
         }
       },
       ExportNamedDeclaration(node) {
-        if (node.exportKind !== 'type' && !isTypeOnlyDeclaration(node.declaration)) {
+        if (
+          node.exportKind !== 'type' &&
+          !isTypeOnlyDeclaration(node.declaration) &&
+          !isExportedReadonlyStringLiteralCatalog(node)
+        ) {
           context.report({ node, messageId: 'invalid' });
         }
       },

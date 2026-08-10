@@ -16,7 +16,7 @@
 Install the release archive directly from GitHub:
 
 ```bash
-bun add -d https://github.com/greenhost87/agent-quality-gate/releases/download/v0.3.1/agent-quality-gate-0.3.1.tgz
+bun add -d https://github.com/greenhost87/agent-quality-gate/releases/download/v0.3.2/agent-quality-gate-0.3.2.tgz
 ```
 
 Add the package commands to `package.json`:

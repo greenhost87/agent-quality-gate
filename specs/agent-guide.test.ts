@@ -57,6 +57,7 @@ describe('generate-agent-guide', () => {
     expect(guide).toContain('indexed access types are forbidden except for the exact form `(typeof identifier)[number]`');
     expect(guide).toContain('declare exported non-empty catalogs as unannotated `as const` tuples');
     expect(guide).toContain('derive their union types from the runtime tuple instead of duplicating them manually');
+    expect(guide).toContain('exported unannotated `as const` string literal catalogs');
     expect(guide).toContain('runtime files normally cannot contain top-level types');
     expect(guide).toContain('`(typeof localExportedConst)[number]` derived from an exported `as const` string literal catalog in the same file');
     expect(guide).not.toContain('quality/no-single-use-forwarders');

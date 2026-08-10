@@ -33,7 +33,7 @@ const QUALITY_CONSTRAINT_GROUPS = [
   },
   {
     rules: ['quality/no-runtime-in-types-files', 'quality/no-types-in-runtime-files'],
-    text: 'Type organization: dedicated type files (`*.d.ts`, `*.d.mts`, `*.d.cts`, `*.types.ts(x)`, `*.contracts.ts(x)`, `*.interfaces.ts(x)`, and `types.ts(x)`) contain only type imports, exports, and declarations; runtime files normally cannot contain top-level types, except for a directly exported companion union of the exact form `(typeof localExportedConst)[number]` derived from an exported `as const` string literal catalog in the same file.',
+    text: 'Type organization: dedicated type files (`*.d.ts`, `*.d.mts`, `*.d.cts`, `*.types.ts(x)`, `*.contracts.ts(x)`, `*.interfaces.ts(x)`, and `types.ts(x)`) contain only type imports, exports, declarations, and exported unannotated `as const` string literal catalogs; runtime files normally cannot contain top-level types, except for a directly exported companion union of the exact form `(typeof localExportedConst)[number]` derived from an exported `as const` string literal catalog in the same file.',
   },
   {
     rules: ['quality/no-single-use-forwarders'],

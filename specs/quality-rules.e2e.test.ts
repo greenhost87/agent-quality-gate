@@ -135,7 +135,8 @@ describe('quality rules', () => {
 
     const validProject = await createProject(
       {
-        'src/index.types.ts': 'export interface Shape {\n  readonly value: string;\n}\n',
+        'src/index.types.ts':
+          "export const values = ['a', 'b'] as const;\n\nexport type Value = (typeof values)[number];\n\nexport interface Shape {\n  readonly value: Value;\n}\n",
       },
       'src/index.types.ts'
     );
