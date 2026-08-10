@@ -124,9 +124,9 @@ describe('release package', () => {
     }
     const installedManifest = await readFile(join(installedPackage, 'package.json'), 'utf8');
     expect(installedManifest).toContain('"node": ">=24.19.0"');
-    expect(installedManifest).toContain('"fallow": "3.9.1"');
-    expect(installedManifest).toContain('"oxlint": "1.75.0"');
-    expect(installedManifest).toContain('"oxlint-plugin-eslint": "1.75.0"');
+    expect(installedManifest).toContain('"fallow": "3.14.0"');
+    expect(installedManifest).toContain('"oxlint": "1.77.0"');
+    expect(installedManifest).toContain('"oxlint-plugin-eslint": "1.77.0"');
     expect(installedManifest).toContain('"oxlint-tsgolint": "7.0.2001"');
 
     const guideResult = await runCommand('bun', ['run', '--silent', 'generate-agent-guide'], cwd);

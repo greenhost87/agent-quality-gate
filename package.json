@@ -1,6 +1,6 @@
 {
   "name": "agent-quality-gate",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "private": true,
   "type": "module",
   "packageManager": "bun@1.3.14",
@@ -37,9 +37,9 @@
   "devDependencies": {
     "@types/bun": "1.3.14",
     "@types/node": "24.13.3",
-    "fallow": "3.9.1",
-    "oxlint": "1.75.0",
-    "oxlint-plugin-eslint": "1.75.0",
+    "fallow": "3.14.0",
+    "oxlint": "1.77.0",
+    "oxlint-plugin-eslint": "1.77.0",
     "oxlint-tsgolint": "7.0.2001"
   },
   "overrides": {
