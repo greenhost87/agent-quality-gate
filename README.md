@@ -1,5 +1,9 @@
 # agent-quality-gate
 
+[![CI](https://github.com/greenhost87/agent-quality-gate/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/greenhost87/agent-quality-gate/actions/workflows/ci.yml)
+[![GitHub Release](https://img.shields.io/github/v/release/greenhost87/agent-quality-gate)](https://github.com/greenhost87/agent-quality-gate/releases/latest)
+[![License](https://img.shields.io/github/license/greenhost87/agent-quality-gate)](LICENSE)
+
 `agent-quality-gate` provides a locked Oxlint and Fallow quality gate for AI-assisted TypeScript and JavaScript projects.
 
 ## Requirements
