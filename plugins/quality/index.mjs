@@ -31,4 +31,5 @@ const qualityPlugin = {
   },
 };
 
+// fallow-ignore-next-line unused-export -- Oxlint loads the plugin through its configured path.
 export default qualityPlugin;

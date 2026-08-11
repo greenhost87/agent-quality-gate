@@ -140,7 +140,7 @@ describe('verify', () => {
   });
 
   it('ignores every locked root path', async () => {
-    const cwd = await createTypeScriptProject('export const value = 1;\n');
+    const cwd = await createTypeScriptProject('function value(): number { return 1; }\nvalue();\n');
     const directive = ['eslint', 'disable'].join('-');
     const directories = resolveIgnoredPaths().map((path) => (path === '.*' ? '.metadata' : path));
     for (const directory of directories) {
@@ -154,7 +154,7 @@ describe('verify', () => {
   });
 
   it('ignores directives in arbitrary root dot directories', async () => {
-    const cwd = await createTypeScriptProject('export const value = 1;\n');
+    const cwd = await createTypeScriptProject('function value(): number { return 1; }\nvalue();\n');
     const checkout = join(cwd, '.worktrees', 'feature');
     const directive = ['oxlint', 'disable'].join('-');
     await mkdir(checkout, { recursive: true });
@@ -166,7 +166,7 @@ describe('verify', () => {
   });
 
   it('ignores Oxlint issues in arbitrary root dot directories', async () => {
-    const cwd = await createTypeScriptProject('export const value = 1;\n');
+    const cwd = await createTypeScriptProject('function value(): number { return 1; }\nvalue();\n');
     const checkout = join(cwd, '.worktrees', 'feature');
     await mkdir(checkout, { recursive: true });
     await writeFile(join(checkout, 'generated.ts'), 'const = ;\n', 'utf8');
@@ -183,7 +183,7 @@ describe('verify', () => {
       ['worktrees', 1],
       ['.worktrees', 0],
     ] as const) {
-      const cwd = await createTypeScriptProject('export const value = 1;\n');
+      const cwd = await createTypeScriptProject('function value(): number { return 1; }\nvalue();\n');
       const checkout = join(cwd, directory, 'feature');
       await mkdir(checkout, { recursive: true });
       await writeFile(join(checkout, 'complex.ts'), source, 'utf8');
@@ -202,7 +202,7 @@ describe('verify', () => {
   });
 
   it('ignores root dot-directory symlinks', async () => {
-    const cwd = await createTypeScriptProject('export const value = 1;\n');
+    const cwd = await createTypeScriptProject('function value(): number { return 1; }\nvalue();\n');
     const target = await makeTempDirectory('quality-gate-dot-directory-target-');
     const directive = ['oxlint', 'disable'].join('-');
     await writeFile(join(target, 'generated.ts'), `// ${directive}\nconst = ;\n`, 'utf8');
@@ -235,6 +235,48 @@ describe('verify', () => {
 
     expect(result.exitCode).toBe(1);
     expect(output).toContain(join('src', '.hidden', 'invalid.ts'));
+  });
+
+  it('rejects test directories in production entries', async () => {
+    const cwd = await createTypeScriptProject('const value = 1;\n');
+    const forbiddenEntries = ['tests/**', 'e2e/**', 'specs/**', '__tests__/**', 'src/__tests__/**'];
+
+    for (const entry of forbiddenEntries) {
+      await writeProjectConfig(cwd, { entries: [entry] });
+      const result = await runVerify(cwd);
+
+      expect(result.exitCode).toBe(2);
+      expect(result.stderr).toContain(`production entries must not include test directories, received "${entry}"`);
+    }
+  });
+
+  it('checks unused exports in entry files', async () => {
+    const cwd = await createTypeScriptProject('export const unusedEntryExport = 1;\n');
+
+    const result = await runVerify(cwd);
+    const output = `${result.stdout}\n${result.stderr}`;
+
+    expect(result.exitCode).toBe(1);
+    expect(output).toContain('unusedEntryExport');
+  });
+
+  it('treats a local Oxlint plugin default export as externally consumed', async () => {
+    const cwd = await createTypeScriptProject('function value(): number { return 1; }\nvalue();\n');
+    await mkdir(join(cwd, 'quality'));
+    await writeFile(
+      join(cwd, 'quality', 'plugin.mjs'),
+      "export default { meta: { name: 'project' }, rules: { sample: { meta: { schema: [], messages: {} }, create() { return {}; } } } };\n",
+      'utf8'
+    );
+    await writeProjectConfig(cwd, {
+      entries: ['src/index.ts'],
+      plugins: [{ name: 'project', specifier: './quality/plugin.mjs', rules: { 'project/sample': 'error' } }],
+    });
+
+    const result = await runVerify(cwd);
+
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain('verify: ok');
   });
 
   it('rejects project-defined ignore paths', async () => {
@@ -355,7 +397,7 @@ describe('verify', () => {
   });
 
   it('removes native configs after a successful run', async () => {
-    const cwd = await createTypeScriptProject('export const value = 1;\n');
+    const cwd = await createTypeScriptProject('function value(): number { return 1; }\nvalue();\n');
     const systemTemp = await makeTempDirectory('quality-gate-system-tmp-');
     const result = await runVerify(cwd, { TMPDIR: systemTemp });
 
@@ -365,7 +407,7 @@ describe('verify', () => {
   });
 
   it('stores the Fallow cache under node_modules', async () => {
-    const cwd = await createTypeScriptProject('export const value = 1;\n');
+    const cwd = await createTypeScriptProject('function value(): number { return 1; }\nvalue();\n');
 
     const result = await runVerify(cwd);
 

@@ -105,6 +105,9 @@ export function renderFallowConfig(projectConfig: ReturnType<typeof readAgentQua
     ],
     ignorePatterns: [...ignoredPatterns(), ...projectConfig.fallowIgnorePatterns],
     ignoreDependencies: lockedPolicy.fallow.ignoreDependencies,
+    ignoreExports: projectConfig.plugins.flatMap((plugin) =>
+      plugin.entry ? [{ file: plugin.entry, exports: ['default'] }] : []
+    ),
     duplicates: {
       ...lockedPolicy.fallow.duplicates,
       ignore: lockedPolicy.fallow.duplicateFilePatterns,
@@ -112,5 +115,6 @@ export function renderFallowConfig(projectConfig: ReturnType<typeof readAgentQua
     health: resolveHealthThresholds(projectConfig),
     rules: lockedPolicy.fallow.rules,
     production: lockedPolicy.fallow.production,
+    includeEntryExports: true,
   };
 }

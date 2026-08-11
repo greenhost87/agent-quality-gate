@@ -43,7 +43,8 @@ async function createProject(files: Record<string, string>, entry: string): Prom
     include: ['src/**/*.ts'],
   };
   await writeFile(join(cwd, 'tsconfig.json'), `${JSON.stringify(tsconfig, null, 2)}\n`, 'utf8');
-  await writeFile(join(cwd, 'agent-quality-gate.config.json'), `${JSON.stringify({ entries: [entry] }, null, 2)}\n`, 'utf8');
+  const qualityRuleConfig = { entries: [entry], fallowIgnorePatterns: ['src/**'] };
+  await writeFile(join(cwd, 'agent-quality-gate.config.json'), `${JSON.stringify(qualityRuleConfig, null, 2)}\n`, 'utf8');
   for (const [relativePath, content] of Object.entries(files)) {
     const filePath = join(cwd, relativePath);
     await mkdir(dirname(filePath), { recursive: true });

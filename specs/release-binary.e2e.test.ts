@@ -101,7 +101,7 @@ afterAll(async () => {
 
 describe('release package', () => {
   it('installs its tool dependencies and passes a valid project', async () => {
-    const cwd = await createProject('export function double(value: number): number {\n  return value * 2;\n}\n');
+    const cwd = await createProject('function double(value: number): number {\n  return value * 2;\n}\ndouble(2);\n');
     const installedPackage = await installReleasePackage(cwd);
     await mkdir(join(cwd, 'migrations'));
     await writeFile(join(cwd, 'migrations', '001-unused.ts'), 'export const unusedMigration = 1;\n', 'utf8');

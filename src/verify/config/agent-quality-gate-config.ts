@@ -7,6 +7,7 @@ const ROOT_KEYS = new Set(['entries', 'fallowIgnorePatterns', 'health', 'plugins
 const HEALTH_KEYS = new Set(['maxCyclomatic', 'maxCognitive', 'maxCrap']);
 const PLUGIN_KEYS = new Set(['name', 'specifier', 'rules']);
 const RESERVED_PLUGIN_NAMES = new Set(['eslint-js', 'quality', 'typescript']);
+const TEST_DIRECTORY_NAMES = new Set(['tests', 'e2e', 'specs', '__tests__']);
 
 function isObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -164,13 +165,19 @@ export function readAgentQualityGateConfig(cwd: string) {
     throw new Error(`${CONFIG_NAME}: entries must be a non-empty string array`);
   }
   for (const entry of config.entries) {
+    const segments = entry.split('/');
     if (
       entry.length === 0 ||
       isAbsolute(entry) ||
       entry.includes('\\') ||
-      entry.split('/').includes('..')
+      segments.includes('..')
     ) {
       throw new Error(`${CONFIG_NAME}: entries must contain root-relative globs, received "${entry}"`);
+    }
+    if (segments.some((segment) => TEST_DIRECTORY_NAMES.has(segment))) {
+      throw new Error(
+        `${CONFIG_NAME}: production entries must not include test directories, received "${entry}"`
+      );
     }
   }
   return {
