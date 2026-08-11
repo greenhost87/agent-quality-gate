@@ -115,6 +115,6 @@ export function renderFallowConfig(projectConfig: ReturnType<typeof readAgentQua
     health: resolveHealthThresholds(projectConfig),
     rules: lockedPolicy.fallow.rules,
     production: lockedPolicy.fallow.production,
-    includeEntryExports: true,
+    includeEntryExports: false,
   };
 }

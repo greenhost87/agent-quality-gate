@@ -250,14 +250,13 @@ describe('verify', () => {
     }
   });
 
-  it('checks unused exports in entry files', async () => {
-    const cwd = await createTypeScriptProject('export const unusedEntryExport = 1;\n');
+  it('treats exports from configured entries as externally consumed', async () => {
+    const cwd = await createTypeScriptProject('export const publicValue = 1;\n');
 
     const result = await runVerify(cwd);
-    const output = `${result.stdout}\n${result.stderr}`;
 
-    expect(result.exitCode).toBe(1);
-    expect(output).toContain('unusedEntryExport');
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toContain('verify: ok');
   });
 
   it('treats a local Oxlint plugin default export as externally consumed', async () => {
