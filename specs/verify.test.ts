@@ -358,6 +358,25 @@ describe('verify', () => {
     }
   });
 
+  it('prints only actionable Fallow findings', async () => {
+    const cwd = await createTypeScriptProject(
+      "import { WorkflowDao } from './workflows.dao.js';\nnew WorkflowDao().find();\n"
+    );
+    await writeFile(
+      join(cwd, 'src', 'workflows.dao.ts'),
+      'export class WorkflowDao {\n  create(): number { return 1; }\n  find(): number { return 1; }\n}\n',
+      'utf8'
+    );
+
+    const result = await runVerify(cwd);
+
+    const outputLines = result.stdout.split('\n');
+    expect(result.exitCode).toBe(1);
+    expect(outputLines).toContain('unused-class-member:src/workflows.dao.ts:2:WorkflowDao.create');
+    expect(outputLines.some((line) => line.startsWith('vital-signs:'))).toBe(false);
+    expect(outputLines.some((line) => line.startsWith('file-score:'))).toBe(false);
+  });
+
   it('keeps Fallow-ignored files covered by Oxlint', async () => {
     const cwd = await createTypeScriptProject('export const value = 1;\n');
     await mkdir(join(cwd, 'migrations'));

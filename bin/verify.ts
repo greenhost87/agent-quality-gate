@@ -14,6 +14,20 @@ import { rejectOxlintDisableDirectives } from '../src/verify/lint-bypass-scanner
 
 const require = createRequire(import.meta.url);
 const QUALITY_PLUGIN_PATH = fileURLToPath(new URL('../plugins/quality/index.mjs', import.meta.url));
+const FALLOW_INFORMATIONAL_PREFIXES = [
+  'health-score:',
+  'vital-signs:',
+  'file-score:',
+  'hotspot:',
+  'refactoring-target:',
+];
+
+function removeFallowInformation(output: string): string {
+  return output
+    .split('\n')
+    .filter((line) => !FALLOW_INFORMATIONAL_PREFIXES.some((prefix) => line.startsWith(prefix)))
+    .join('\n');
+}
 
 function packageRoot(packageName: string): string {
   return dirname(require.resolve(`${packageName}/package.json`));
@@ -114,7 +128,7 @@ async function main(): Promise<number> {
     ]);
     const exitCode = Math.max(oxlint.exitCode, fallow.exitCode);
     if (exitCode !== 0) {
-      const output = [oxlint.stdout.trimEnd(), fallow.stdout.trimEnd()]
+      const output = [oxlint.stdout.trimEnd(), removeFallowInformation(fallow.stdout).trimEnd()]
         .filter((value) => value.length > 0)
         .join('\n\n');
       if (output) {

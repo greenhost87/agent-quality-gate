@@ -231,7 +231,7 @@ export default {
     expect(result.exitCode).toBe(1);
     expect(output).toContain('project(no-custom-identifier)');
     expect(output).toContain('eslint(no-debugger)');
-    expect(output).toContain('unused-file:src/unused.ts');
+    expect(output.split('\n')).toContain('unused-file:src/unused.ts');
   });
 
   it('runs configured native Oxlint plugins', async () => {
