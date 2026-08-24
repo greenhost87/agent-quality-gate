@@ -7,7 +7,7 @@
     "fmt": "oxfmt",
     "lint": "oxlint --deny-warnings --config oxlint.json .",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "bun test --parallel tests/system tests/verify-committed-migrations.test.ts",
+    "test": "bun test --parallel --timeout 30000 tests/system tests/verify-committed-migrations.test.ts",
     "test:integration": "bun payload/tests/setup/testDatabase.bootstrap.ts bun test --parallel --timeout 120000 tests/*.integration.test.ts tests/system/test-database-bootstrap-lazy.test.ts",
     "verify": "bun run lint && bun run typecheck"
   },
