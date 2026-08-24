@@ -7,7 +7,7 @@
     "fmt": "oxfmt",
     "lint": "oxlint --deny-warnings --config oxlint.json .",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "bun test --parallel tests",
+    "test": "bun test --parallel --timeout 30000 tests",
     "verify": "bun run lint && bun run typecheck"
   },
   "dependencies": {

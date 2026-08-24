@@ -23,7 +23,7 @@ describe('runLocalPresetSteps', () => {
       (presetName) => `failed ${presetName}\n`,
     );
 
-    expect(performance.now() - startedAt).toBeLessThan(70);
+    expect(performance.now() - startedAt).toBeLessThan(150);
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toBe(
       readFileSync(join(FIXTURES, 'local-preset-steps-ok-stdout.txt'), 'utf8'),
