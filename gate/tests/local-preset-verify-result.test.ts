@@ -9,11 +9,15 @@ const FIXTURES = join(import.meta.dir, 'fixtures');
 
 describe('runLocalPresetSteps', () => {
   it('runs steps concurrently and prints ok lines in name order', async () => {
-    const startedAt = performance.now();
+    let inFlight = 0;
+    let maxInFlight = 0;
     const result = await runLocalPresetSteps(
       ['beta', 'alpha'],
       async (presetName) => {
+        inFlight += 1;
+        maxInFlight = Math.max(maxInFlight, inFlight);
         await delay(40);
+        inFlight -= 1;
         return {
           exitCode: 0,
           stdout: `verify: ok pack ${presetName}\n`,
@@ -23,7 +27,7 @@ describe('runLocalPresetSteps', () => {
       (presetName) => `failed ${presetName}\n`,
     );
 
-    expect(performance.now() - startedAt).toBeLessThan(150);
+    expect(maxInFlight).toBe(2);
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toBe(
       readFileSync(join(FIXTURES, 'local-preset-steps-ok-stdout.txt'), 'utf8'),
