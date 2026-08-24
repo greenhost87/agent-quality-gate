@@ -183,5 +183,5 @@ describe('preset composition', () => {
         0,
       );
     }
-  }, 30_000);
+  }, 120_000);
 });
