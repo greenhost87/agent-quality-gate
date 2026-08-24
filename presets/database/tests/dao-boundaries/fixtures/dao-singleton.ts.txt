@@ -1,0 +1,2 @@
+export class OrdersDao {}
+export const ordersDao = new OrdersDao();

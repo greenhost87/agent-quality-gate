@@ -1,0 +1,4 @@
+tests/orders.test.ts:1:1: Import only useIsolatedTestDatabase from tests/setup/testDatabase.ts. [database/test-database-boundaries]
+tests/orders.test.ts:4:1: Do not use production DAO bindings from beforeAll when useIsolatedTestDatabase is active; arrange in beforeEach or the test body. [database/test-database-boundaries]
+system/orders/service.ts:2:1: Schema DDL is allowed only in migrations/ or as managed CREATE/DROP DATABASE in tests/setup/testDatabase.ts. [database/dao-boundaries]
+database-concurrent-script:test

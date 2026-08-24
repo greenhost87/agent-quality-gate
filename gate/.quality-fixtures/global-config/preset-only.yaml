@@ -1,0 +1,6 @@
+projects:
+  - root: /tmp/example
+    entries:
+      - src/index.ts
+    presets:
+      - module-placement

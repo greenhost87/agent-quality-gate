@@ -1,49 +1,88 @@
 {
   "name": "agent-quality-gate",
-  "version": "0.3.5",
+  "version": "1.0.0",
   "private": true,
-  "type": "module",
-  "packageManager": "bun@1.3.14",
   "description": "Locked Oxlint and Fallow quality gate for AI-assisted TypeScript and JavaScript workflows",
+  "keywords": [
+    "agent-quality-gate",
+    "ai",
+    "bun",
+    "pi-package",
+    "quality-gate",
+    "typescript",
+    "verify",
+    "vibe-coding"
+  ],
+  "homepage": "https://github.com/greenhost87/agent-quality-gate",
+  "bugs": {
+    "url": "https://github.com/greenhost87/agent-quality-gate/issues"
+  },
   "license": "MIT",
   "author": "greenhost87",
   "repository": {
     "type": "git",
     "url": "https://github.com/greenhost87/agent-quality-gate.git"
   },
-  "homepage": "https://github.com/greenhost87/agent-quality-gate",
-  "bugs": {
-    "url": "https://github.com/greenhost87/agent-quality-gate/issues"
+  "type": "module",
+  "exports": {
+    "./preset-runtime": "./gate/preset-runtime/preset-runtime.ts",
+    "./verify": "./gate/public-verify/public-verify.ts",
+    "./oxlint-rule-bench": "./scripts/oxlint-rule-bench/bench-create-once-rule.ts",
+    "./oxlint-rule-bench/types": "./scripts/oxlint-rule-bench/bench-create-once-rule.types.ts",
+    "./oxlint-rule-bench/create-bench-context": "./scripts/oxlint-rule-bench/create-bench-context.ts",
+    "./oxlint-rule-bench/require-create-once-rule": "./scripts/oxlint-rule-bench/require-create-once-rule.ts",
+    "./oxlint-rule-bench/hot-code": "./scripts/oxlint-rule-bench/hot-code.ts",
+    "./oxlint-walk": "./scripts/oxlint-walk/oxlint-walk.ts"
   },
-  "keywords": [
-    "agent-quality-gate",
-    "ai",
-    "quality-gate",
-    "verify",
-    "bun",
-    "typescript",
-    "vibe-coding"
-  ],
   "scripts": {
-    "build:release": "bun ./scripts/build-release-package.ts",
-    "generate-agent-guide": "bun ./bin/generate-agent-guide.ts",
-    "verify": "bun ./bin/verify.ts",
-    "test": "bun run build:release && bun test --timeout 30000"
+    "build:release": "bun ./scripts/build-release/build-release-package.ts",
+    "bench:baseline": "bun ./presets/baseline/tests/all/baseline.bench.ts",
+    "fmt": "bun ./scripts/self-fmt/self-fmt.ts",
+    "install:local": "bun ./scripts/install-local/install-local.ts",
+    "outdated": "bun ./scripts/outdated/outdated.ts",
+    "verify": "bun ./scripts/self-verify/self-verify.ts",
+    "verify:cwd": "bun ./scripts/verify-cwd/verify-cwd.ts",
+    "install:preset": "bun ./scripts/install-preset/install-preset.ts",
+    "test": "bun ./scripts/self-test/self-test.ts"
   },
-  "engines": {
-    "bun": ">=1.3.14",
-    "node": ">=24.19.0"
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.30.0",
+    "@oxlint/plugins": "1.79.0",
+    "fallow": "3.17.0",
+    "mitata": "1.0.34",
+    "oxc-parser": "0.146.0",
+    "oxlint": "1.79.0",
+    "oxlint-plugin-eslint": "1.79.0",
+    "oxlint-tsgolint": "7.0.2001",
+    "typebox": "1.3.16",
+    "valibot": "1.4.2"
   },
   "devDependencies": {
-    "@types/bun": "1.3.14",
-    "@types/node": "24.13.3",
-    "fallow": "3.14.0",
-    "oxlint": "1.77.0",
-    "oxlint-plugin-eslint": "1.77.0",
-    "oxlint-tsgolint": "7.0.2001"
+    "@testcontainers/postgresql": "12.1.0",
+    "@types/bun": "1.4.0",
+    "oxfmt": "0.64.0",
+    "testcontainers": "12.1.0"
   },
-  "overrides": {
-    "@types/node": "24.13.3"
+  "peerDependencies": {
+    "@earendil-works/pi-coding-agent": "^0.83.0"
+  },
+  "peerDependenciesMeta": {
+    "@earendil-works/pi-coding-agent": {
+      "optional": true
+    }
+  },
+  "engines": {
+    "bun": ">=1.4.0"
+  },
+  "packageManager": "bun@1.4.0",
+  "ignoreScripts": [
+    "ssh2",
+    "cpu-features"
+  ],
+  "pi": {
+    "extensions": [
+      "./adapters/pi/extension.ts"
+    ]
   },
   "trustedDependencies": []
 }

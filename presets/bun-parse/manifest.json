@@ -1,0 +1,23 @@
+{
+  "name": "bun-parse",
+  "requires": [],
+  "files": [],
+  "dependencies": [
+    {
+      "name": "valibot",
+      "version": "1.4.2",
+      "section": "dependencies"
+    }
+  ],
+  "oxlint": {
+    "plugins": [
+      {
+        "name": "bun-parse",
+        "specifier": "oxlint/index.ts"
+      }
+    ],
+    "rules": {
+      "bun-parse/no-handmade-json-types": "error"
+    }
+  }
+}

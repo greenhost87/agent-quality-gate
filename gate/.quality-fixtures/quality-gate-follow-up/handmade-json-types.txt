@@ -1,0 +1,3 @@
+schema.ts:1:1: Do not invent a recursive JSON type. Parse with Bun + valibot and take types from v.InferOutput. [bun-parse/no-handmade-json-types]
+schema.ts:2:1: Do not invent a recursive JSON type. Parse with Bun + valibot and take types from v.InferOutput. [bun-parse/no-handmade-json-types]
+schema.ts:4:1: Do not invent a plain-object JSON type guard. Parse with Bun + valibot and take types from v.InferOutput. [bun-parse/no-handmade-json-types]

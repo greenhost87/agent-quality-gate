@@ -1,0 +1,23 @@
+{
+  "categories": {
+    "correctness": "off"
+  },
+  "ignorePatterns": ["node_modules/**", ".*/**"],
+  "jsPlugins": [
+    {
+      "name": "aqg",
+      "specifier": "../baseline/oxlint/index.ts"
+    },
+    {
+      "name": "config",
+      "specifier": "./oxlint/index.ts"
+    }
+  ],
+  "rules": {
+    "aqg/no-inline-multiline-test-data": "error",
+    "aqg/no-oxlint-disable-directives": "error",
+    "config/environment-boundaries": "error",
+    "config/no-valibot-custom": "error",
+    "config/no-trivial-valibot-schema-alias": "error"
+  }
+}

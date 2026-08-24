@@ -1,0 +1,9 @@
+export function short(value: string | number): void {
+  void value;
+}
+export function literals(value: 'a' | 'b' | 'c'): void {
+  void value;
+}
+export function keywords(value: string | number | boolean): void {
+  void value;
+}

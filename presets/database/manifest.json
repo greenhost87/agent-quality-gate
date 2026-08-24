@@ -1,0 +1,61 @@
+{
+  "name": "database",
+  "requires": ["config"],
+  "files": [
+    {
+      "destination": "system/database/connection.ts",
+      "source": "payload/system/database/connection.ts"
+    },
+    {
+      "destination": "system/database/migrate.ts",
+      "source": "payload/system/database/migrate.ts"
+    },
+    {
+      "destination": "system/database/migrate.types.ts",
+      "source": "payload/system/database/migrate.types.ts"
+    },
+
+    {
+      "destination": "tests/setup/testDatabase.ts",
+      "source": "payload/tests/setup/testDatabase.ts"
+    },
+    {
+      "destination": "tests/setup/testDatabase.bootstrap.ts",
+      "source": "payload/tests/setup/testDatabase.bootstrap.ts"
+    },
+    {
+      "destination": "tests/setup/fixtures/terminate-database-connections.sql",
+      "source": "payload/tests/setup/fixtures/terminate-database-connections.sql"
+    },
+    {
+      "destination": "tests/database.integration.test.ts.example",
+      "source": "payload/tests/database.integration.test.ts.example",
+      "exampleOnly": true
+    }
+  ],
+  "dependencies": [
+    {
+      "name": "@testcontainers/postgresql",
+      "version": "12.0.4",
+      "section": "devDependencies"
+    },
+    {
+      "name": "testcontainers",
+      "version": "12.0.4",
+      "section": "devDependencies"
+    }
+  ],
+  "ignoreScripts": ["ssh2", "cpu-features"],
+  "oxlint": {
+    "plugins": [
+      {
+        "name": "database",
+        "specifier": "oxlint/dao-boundaries.ts"
+      }
+    ],
+    "rules": {
+      "database/dao-boundaries": "error",
+      "database/test-database-boundaries": "error"
+    }
+  }
+}

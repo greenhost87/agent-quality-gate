@@ -1,0 +1,36 @@
+# Add projects here to enable automatic checks.
+#
+# presets: shipped names from presets/*/manifest.json
+#   (baseline always on; optional: bun-parse, config, database, playwright, module-placement)
+# and home-installed names from $AGENT_QUALITY_GATE_HOME/presets/<name>/ (for example packages).
+#
+# Install optional presets (for example from aqg-presets) with:
+#   bun run install:preset -- /absolute/path/to/preset-root
+# or from aqg-presets: bun run install
+#
+# Gate policy stays in this file only — never in the target repo — so agents cannot
+# disable presets or weaken rules through ordinary project edits.
+#
+# modulePlacement watches configured directories and requires production modules to
+# live one concern level deeper (<directory>/<concern>/). Enable the module-placement
+# preset and list directories under modulePlacement. Without modulePlacement config,
+# the preset is a no-op.
+#
+# baseline.maxInlineParameterObjectMembers limits inline object types in parameters.
+# -1 disables the check (default when baseline is omitted). 3 allows up to three members.
+
+# Example - this project with the database preset (transitively activates config):
+# projects:
+#   - root: /Users/greenhost/develop/ai/agent-quality-gate
+#     entries:
+#       - adapters/claude/*.ts
+#       - adapters/cursor/*.ts
+#       - adapters/mcp/*.ts
+#       - adapters/pi/*.ts
+#       - presets/baseline/oxlint/*.ts
+#       - presets/baseline/oxlint/rules/*.ts
+#       - scripts/*.ts
+#     presets:
+#       - database
+
+projects: []

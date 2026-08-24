@@ -7,9 +7,27 @@
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "noUncheckedIndexedAccess": true,
-    "types": ["bun", "node"],
+    "types": ["bun"],
     "resolveJsonModule": true,
-    "noEmit": true
+    "noEmit": true,
+    "allowImportingTsExtensions": true
   },
-  "include": ["src/**/*.ts", "bin/**/*.ts", "scripts/**/*.ts", "specs/**/*.ts"]
+  "include": [
+    "config/**/*.ts",
+    "adapters/**/*.ts",
+    "assets/**/*.ts",
+    "gate/**/*.ts",
+    "preset-catalog/**/*.ts",
+    "process/**/*.ts",
+    "scripts/**/*.ts",
+    "tests/support/**/*.ts",
+    "presets/baseline/oxlint/**/*.ts",
+    "presets/baseline/tests/**/*.ts",
+    "presets/database/check.ts",
+    "presets/database/verify-committed-migrations.ts",
+    "presets/database/verify-committed-migrations.types.ts",
+    "presets/database/verify-database-concurrency.ts",
+    "presets/database/verify-database-concurrency.types.ts",
+    "presets/playwright/check.ts"
+  ]
 }

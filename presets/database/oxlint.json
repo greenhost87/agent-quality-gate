@@ -1,0 +1,22 @@
+{
+  "categories": {
+    "correctness": "off"
+  },
+  "ignorePatterns": ["node_modules/**", ".*/**", "payload/**"],
+  "jsPlugins": [
+    {
+      "name": "aqg",
+      "specifier": "../baseline/oxlint/index.ts"
+    },
+    {
+      "name": "database",
+      "specifier": "./oxlint/dao-boundaries.ts"
+    }
+  ],
+  "rules": {
+    "aqg/no-inline-multiline-test-data": "error",
+    "aqg/no-oxlint-disable-directives": "error",
+    "database/dao-boundaries": "error",
+    "database/test-database-boundaries": "error"
+  }
+}

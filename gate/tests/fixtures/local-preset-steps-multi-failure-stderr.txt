@@ -1,0 +1,5 @@
+verify: 2 local presets failed: alpha, zeta
+verify: local preset "alpha" failed
+alpha stderr
+verify: local preset "zeta" failed
+zeta stderr

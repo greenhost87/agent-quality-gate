@@ -1,0 +1,5 @@
+"pi": {
+    "extensions": [
+      "./dist/extensions/pi.js"
+    ]
+  }

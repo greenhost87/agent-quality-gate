@@ -1,0 +1,2 @@
+live-ui-surface:components/ui/button.types.ts:4:kind=component,owner=Button,prop=variant,dead="secondary"
+live-ui-surface:app/globals.css:7:token=--font-heading

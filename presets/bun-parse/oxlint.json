@@ -1,0 +1,21 @@
+{
+  "categories": {
+    "correctness": "off"
+  },
+  "ignorePatterns": ["node_modules/**", ".*/**"],
+  "jsPlugins": [
+    {
+      "name": "aqg",
+      "specifier": "../baseline/oxlint/index.ts"
+    },
+    {
+      "name": "bun-parse",
+      "specifier": "./oxlint/index.ts"
+    }
+  ],
+  "rules": {
+    "aqg/no-inline-multiline-test-data": "error",
+    "aqg/no-oxlint-disable-directives": "error",
+    "bun-parse/no-handmade-json-types": "error"
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "categories": {
+    "correctness": "off"
+  },
+  "ignorePatterns": ["node_modules/**", ".*/**"],
+  "jsPlugins": [
+    {
+      "name": "module-placement",
+      "specifier": "./oxlint/module-placement.ts"
+    }
+  ],
+  "rules": {
+    "module-placement/module-placement": "error"
+  }
+}

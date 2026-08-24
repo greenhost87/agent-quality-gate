@@ -1,0 +1,6 @@
+export function nullOnly(value: string | null): void {
+  void value;
+}
+export function undefinedOnly(value: string | undefined): void {
+  void value;
+}

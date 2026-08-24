@@ -1,0 +1,2 @@
+const source = 'one-line';
+void source;

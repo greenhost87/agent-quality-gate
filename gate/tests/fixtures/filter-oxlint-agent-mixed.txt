@@ -1,0 +1,2 @@
+payload/system/database/migrate.ts:8:1: error database(dao-boundaries): Schema DDL is forbidden here
+payload/system/database/migrate.ts:9:1: error aqg(no-types-in-runtime-files): Move top-level type declarations out of runtime files
