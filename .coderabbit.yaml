@@ -1,0 +1,11 @@
+# CodeRabbit reads this from the PR branch under review.
+# Exclusion patterns use a leading `!` (see https://docs.coderabbit.ai/configuration/path-instructions).
+reviews:
+  path_filters:
+    # AQG verify fixtures: intentionally invalid or golden sample trees.
+    - "!**/.quality-fixtures/**"
+    - "!**/tests/fixtures/**"
+    - "!**/fixtures/**"
+
+    # Release/build output checked in only for local install tests.
+    - "!artifacts/**"
