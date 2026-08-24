@@ -3,6 +3,7 @@
 [![CI](https://github.com/greenhost87/agent-quality-gate/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/greenhost87/agent-quality-gate/actions/workflows/ci.yml)
 [![GitHub Release](https://img.shields.io/github/v/release/greenhost87/agent-quality-gate)](https://github.com/greenhost87/agent-quality-gate/releases/latest)
 [![License](https://img.shields.io/github/license/greenhost87/agent-quality-gate)](LICENSE)
+![CodeRabbit Pull Request Reviews](https://img.shields.io/coderabbit/prs/github/greenhost87/agent-quality-gate?utm_source=oss&utm_medium=github&utm_campaign=greenhost87%2Fagent-quality-gate&labelColor=171717&color=FF570A&link=https%3A%2F%2Fcoderabbit.ai&label=CodeRabbit+Reviews)
 
 `agent-quality-gate` is an opinionated, tamper-resistant Oxlint and Fallow quality gate for AI-assisted Bun + TypeScript work. It enforces a fixed house layout (optional packs use `system/` and related paths), not a generic per-repo linter framework. The checked project does not install this package.
 
