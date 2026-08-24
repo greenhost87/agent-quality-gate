@@ -1,0 +1,5 @@
+export type Row = { id: number };
+export type Id = Row['id'];
+declare const items: string[];
+export type BadIndex = (typeof items)[string];
+export type Nested = Row[keyof Row];

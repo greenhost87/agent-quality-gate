@@ -1,0 +1,1 @@
+payload/system/database/migrate.ts:8:1: error database(dao-boundaries): Schema DDL is forbidden here

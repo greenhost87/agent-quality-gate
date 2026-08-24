@@ -1,0 +1,10 @@
+export type Alias = string | null | undefined;
+export function bad(value: string | null | undefined): void {
+  void value;
+}
+export function nested(value: Array<string | null | undefined>): void {
+  void value;
+}
+export const arrow = (value: number | null | undefined): void => {
+  void value;
+};

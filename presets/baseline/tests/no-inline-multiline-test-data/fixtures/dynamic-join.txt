@@ -1,0 +1,3 @@
+const other = 'x';
+const source = ['a\nb', other].join('\n');
+void source;

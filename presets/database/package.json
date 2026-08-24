@@ -1,0 +1,27 @@
+{
+  "name": "@agent-quality-gate/preset-database",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "fmt": "oxfmt",
+    "lint": "oxlint --deny-warnings --config oxlint.json .",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "bun test --parallel tests/system tests/verify-committed-migrations.test.ts",
+    "test:integration": "bun payload/tests/setup/testDatabase.bootstrap.ts bun test --parallel --timeout 120000 tests/*.integration.test.ts tests/system/test-database-bootstrap-lazy.test.ts",
+    "verify": "bun run lint && bun run typecheck"
+  },
+  "devDependencies": {
+    "@testcontainers/postgresql": "12.1.0",
+    "@types/bun": "1.4.0",
+    "oxfmt": "0.64.0",
+    "oxlint": "1.79.0",
+    "testcontainers": "12.1.0",
+    "typescript": "7.0.2"
+  },
+  "packageManager": "bun@1.4.0",
+  "ignoreScripts": [
+    "ssh2",
+    "cpu-features"
+  ]
+}

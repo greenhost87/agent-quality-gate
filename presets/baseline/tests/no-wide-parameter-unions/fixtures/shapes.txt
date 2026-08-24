@@ -1,0 +1,10 @@
+export type Alias = string | number | boolean | object;
+export function wide(value: string | number | boolean | object): void {
+  void value;
+}
+export function nested(value: Array<string | number | boolean | object>): void {
+  void value;
+}
+export const arrow = (value: string | Date | RegExp | Error): void => {
+  void value;
+};

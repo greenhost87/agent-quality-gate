@@ -1,0 +1,11 @@
+export type RunOptions = { a: string; b: string; c: string; d: string };
+export function named(options: RunOptions): void { void options; }
+export function destructured({ a, b, c, d }: { a: string; b: string; c: string; d: string }): void {
+  void a; void b; void c; void d;
+}
+export function defaulted(options: { a: string; b: string; c: string; d: string } = {
+  a: 'a', b: 'b', c: 'c', d: 'd',
+}): void { void options; }
+export const variable: { a: string; b: string; c: string; d: string } = {
+  a: 'a', b: 'b', c: 'c', d: 'd',
+};

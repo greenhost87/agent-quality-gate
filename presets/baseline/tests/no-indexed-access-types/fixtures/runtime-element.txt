@@ -1,0 +1,2 @@
+declare const items: string[];
+export type Elem = (typeof items)[number];

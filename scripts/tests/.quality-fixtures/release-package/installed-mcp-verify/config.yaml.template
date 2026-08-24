@@ -1,0 +1,4 @@
+projects:
+  - root: REPLACE_ROOT
+    entries:
+      - src/index.ts

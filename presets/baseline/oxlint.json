@@ -1,0 +1,38 @@
+{
+  "categories": {
+    "correctness": "off"
+  },
+  "ignorePatterns": ["node_modules/**", ".*/**"],
+  "jsPlugins": [
+    {
+      "name": "aqg",
+      "specifier": "./oxlint/index.ts"
+    }
+  ],
+  "rules": {
+    "aqg/console-format-placeholders": "error",
+    "aqg/max-inline-parameter-object-members": "error",
+    "aqg/no-inline-multiline-test-data": "error",
+    "aqg/no-oxlint-disable-directives": "error"
+  },
+  "overrides": [
+    {
+      "files": ["**/*.{ts,tsx,mts,cts}"],
+      "rules": {
+        "aqg/no-empty-extended-interfaces": "error",
+        "aqg/no-identity-aliases": "error",
+        "aqg/no-indexed-access-types": "error",
+        "aqg/no-manual-exported-string-literal-unions": "error",
+        "aqg/no-null-undefined-parameter-union": "error",
+        "aqg/no-runtime-in-types-files": "error",
+        "aqg/no-thin-forwarders": "error",
+        "aqg/no-trivial-const-wrappers": "error",
+        "aqg/no-types-in-runtime-files": "error",
+        "aqg/no-unknown-parameters": "error",
+        "aqg/no-useless-exported-type-aliases": "error",
+        "aqg/no-wide-parameter-unions": "error",
+        "aqg/require-export-string-literal-catalogs-as-const": "error"
+      }
+    }
+  ]
+}

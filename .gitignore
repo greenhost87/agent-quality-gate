@@ -4,7 +4,9 @@ node_modules/
 *.swo
 .env*
 .claude/
+.aqg/
 .codex/
+.cursor/rules/user-global.mdc
 .idea/
 tmp/
 .tmp/

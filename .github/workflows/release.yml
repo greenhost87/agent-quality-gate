@@ -32,10 +32,26 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
-          bun-version: 1.3.14
+          bun-version: 1.4.0
 
       - name: Install dependencies
         run: bun install --frozen-lockfile
+
+      - name: Install config preset
+        run: bun install --frozen-lockfile
+        working-directory: presets/config
+
+      - name: Verify config preset
+        run: bun run verify
+        working-directory: presets/config
+
+      - name: Install database preset
+        run: bun install --frozen-lockfile
+        working-directory: presets/database
+
+      - name: Verify database preset
+        run: bun run verify
+        working-directory: presets/database
 
       - name: Verify
         run: bun run --silent verify
@@ -43,8 +59,7 @@ jobs:
       - name: Build and test release package
         run: bun run test
 
-  build:
-    needs: verify-and-test
+  preset-integration:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -59,7 +74,35 @@ jobs:
       - name: Setup Bun
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
-          bun-version: 1.3.14
+          bun-version: 1.4.0
+
+      - name: Install database preset
+        run: bun install --frozen-lockfile
+        working-directory: presets/database
+
+      - name: Run database Testcontainers integration
+        run: bun run test:integration
+        working-directory: presets/database
+
+  build:
+    needs:
+      - verify-and-test
+      - preset-integration
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5.1.0
+
+      - name: Setup Node
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
+        with:
+          node-version: 24.19.0
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version: 1.4.0
 
       - name: Install dependencies
         run: bun install --frozen-lockfile

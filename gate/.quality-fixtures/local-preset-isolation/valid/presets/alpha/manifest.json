@@ -1,0 +1,7 @@
+{
+  "name": "alpha",
+  "requires": [],
+  "files": [],
+  "dependencies": [],
+  "oxlint": { "nativePlugins": [], "plugins": [], "rules": {}, "overrides": [] }
+}

@@ -1,0 +1,3 @@
+tests/e2e/visualizer.test.ts:1:1: Playwright e2e specs must be named tests/e2e/**/*.pw.ts. [playwright/e2e-runner]
+tests/e2e/visualizer.test.ts:8:1: Playwright e2e must use the page fixture; do not call chromium.launch, firefox.launch, or webkit.launch. [playwright/e2e-runner]
+playwright-config: add playwright.config.ts with use.baseURL and webServer

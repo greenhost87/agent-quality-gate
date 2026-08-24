@@ -1,0 +1,57 @@
+/**
+ * Database integration test example (managed by agent-quality-gate).
+ *
+ * Run only under the parent runner (one shared Postgres container for the suite):
+ *   bun tests/setup/testDatabase.bootstrap.ts bun test --parallel --timeout 120000 tests/*.integration.test.ts
+ *
+ * Do not run this file with bare `bun test` - workers expect AQG_TEST_DATABASE_* from the parent
+ * and never start or stop the container themselves.
+ *
+ * Isolation model:
+ * - Parent migrates once and snapshots an immutable template.
+ * - Each Bun `--parallel` worker gets its own stable app DB (`test_database_app_${BUN_TEST_WORKER_ID}`).
+ * - `useIsolatedTestDatabase` closes the production pool and reclones from the template before every test.
+ * - File-level `--parallel` is supported. `test.concurrent` / `it.concurrent` / `describe.concurrent`
+ *   inside a database file are forbidden (one DATABASE_URL per worker).
+ *
+ * Arrange and observe only through production-reachable modules (DAOs / services). Do not import
+ * `getDatabase`, Bun.sql, testcontainers, or other DB infrastructure from the test. Do not create
+ * a test-only DAO. Assert persistence with an independent production read after write.
+ *
+ * Database calls from a user `beforeAll` are invalid under this hook (the hook bootstraps there).
+ * Put setup in the test body or in a `beforeEach` registered after `useIsolatedTestDatabase`.
+ */
+import { describe, expect, test } from 'bun:test';
+import { ordersDao } from '@/system/database/orders/orders.dao';
+import { useIsolatedTestDatabase } from '@/tests/setup/testDatabase';
+
+useIsolatedTestDatabase(import.meta.path);
+
+describe('orders database integration', () => {
+  test('starts from migrated seed data', async () => {
+    const orders = await ordersDao.list();
+
+    expect(orders).toEqual([{ id: 1, status: 'pending' }]);
+  });
+
+  test('persists an order', async () => {
+    const created = await ordersDao.create({ status: 'confirmed' });
+
+    expect(await ordersDao.getById(created.id)).toEqual({
+      id: created.id,
+      status: 'confirmed',
+    });
+  });
+
+  test('does not leak changes from another test', async () => {
+    expect(await ordersDao.list()).toEqual([{ id: 1, status: 'pending' }]);
+  });
+
+  test('rolls back a failed transaction', async () => {
+    const before = await ordersDao.list();
+
+    await expect(ordersDao.createThenFail({ status: 'confirmed' })).rejects.toThrow();
+
+    expect(await ordersDao.list()).toEqual(before);
+  });
+});

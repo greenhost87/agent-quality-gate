@@ -1,0 +1,30 @@
+{
+  "name": "config",
+  "requires": [],
+  "files": [
+    {
+      "destination": "system/config/environment.ts",
+      "source": "payload/system/config/environment.ts"
+    }
+  ],
+  "dependencies": [
+    {
+      "name": "valibot",
+      "version": "1.4.2",
+      "section": "dependencies"
+    }
+  ],
+  "oxlint": {
+    "plugins": [
+      {
+        "name": "config",
+        "specifier": "oxlint/index.ts"
+      }
+    ],
+    "rules": {
+      "config/environment-boundaries": "error",
+      "config/no-valibot-custom": "error",
+      "config/no-trivial-valibot-schema-alias": "error"
+    }
+  }
+}
