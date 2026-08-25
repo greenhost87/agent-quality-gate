@@ -10,7 +10,7 @@
 - Local `bun run test` (`scripts/self-test/self-test.ts`) builds the release package, runs the root Bun suite, then pack unit tests (installs pack deps when needed);
 - Local `bun run fmt` (`scripts/self-fmt/self-fmt.ts`) formats the repository (skipping packs that declare `fmt`) and every pack `fmt` script;
 - Local `bun run outdated` (`scripts/outdated/outdated.ts`) runs `bun outdated` in the project root and every preset pack with a lockfile; `bun run outdated -- --update` runs `bun update --latest` in the same roots; `--cwd <path>` selects the project root (defaults to the current working directory);
-- Release PRs use branch `release/vX.Y.Z` and must already bump `package.json` (plus install docs) to that version before push/review; follow `.cursor/skills/aqg-release-pr/SKILL.md`;
+- Release PRs use branch `release/vX.Y.Z` and must already bump `package.json` (plus install docs) to that version before push/review; the `vX.Y.Z` GitHub Release/tag must include a written change description; follow `.cursor/skills/aqg-release-pr/SKILL.md`;
 - Tests live next to their owner (`adapters/*/tests`, `scripts/tests`, `scripts/*/tests`, `gate/tests`, `presets/*/tests`); `*.test.ts`, `*.spec.ts`, and `*.bench.ts` follow the same rule; shared helpers only under `tests/support/`;
 - `.quality-fixtures` live at the owner root as a sibling of `tests/` (`adapters/<name>/`, `presets/<name>/`, `gate/`, `scripts/tests/`). Under `gate/`, all cases share one tree: `gate/.quality-fixtures/<case>/`. Nested `.quality-fixtures` inside a case only exist to exercise skip behavior. Static golden files stay in `*/tests/fixtures/`.
 - Bun documentation - https://bun.com/llms.txt

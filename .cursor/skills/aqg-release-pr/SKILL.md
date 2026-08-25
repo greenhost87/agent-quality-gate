@@ -1,10 +1,11 @@
 ---
 name: aqg-release-pr
 description: >-
-  Prepare and open agent-quality-gate release pull requests. Use when cutting a
-  release, creating release/vX.Y.Z, moving release commits off main, opening or
-  updating a release PR, bumping the package version, or waiting for CodeRabbit
-  on a release.
+  Prepare and open agent-quality-gate release pull requests and GitHub release
+  tags. Use when cutting a release, creating release/vX.Y.Z, moving release
+  commits off main, opening or updating a release PR, bumping the package
+  version, tagging vX.Y.Z, writing release notes, or waiting for CodeRabbit on a
+  release.
 ---
 
 # AQG release PR
@@ -15,6 +16,7 @@ description: >-
 2. Branch name is `release/vX.Y.Z` (example: `release/v1.0.1`).
 3. Release commits live on that branch, not left ahead on `main`. After the branch exists, point local `main` back at `origin/main` without discarding the release commits.
 4. When asked for a release branch/PR, create the PR with Summary + Test plan in the same pass as the push. Do not stop at “branch pushed, open it yourself.”
+5. Tagging `vX.Y.Z` requires a real GitHub Release description of what changed. Never create an empty or placeholder tag/release body. Write the notes when creating the tag/release, not “later.”
 
 ## Version surfaces
 
@@ -38,6 +40,7 @@ Preset `package.json` versions that stay at `0.0.0` are unrelated; leave them.
    - Body: Summary bullets for every commit on the branch; Test plan with verify/test and version already set
 7. Run `bun run verify` and `bun run test` before calling the PR ready. If either fails, fix on the release branch and push.
 8. If version was forgotten, fix immediately on the same branch, commit, push, and update the PR body so no checklist item says “bump version later.”
+9. After merge, when creating tag `vX.Y.Z` / the GitHub Release, write the change description in the same step (see below). Pushing the tag triggers `.github/workflows/release.yml`.
 
 ## PR body shape
 
@@ -52,3 +55,12 @@ Preset `package.json` versions that stay at `0.0.0` are unrelated; leave them.
 - [x] `bun run test`
 - [x] Version is `X.Y.Z` in `package.json`
 ```
+
+## Tag / GitHub Release notes
+
+When the user asks to tag or publish `vX.Y.Z`:
+
+1. Diff against the previous release tag (example: `v1.0.0...HEAD` or `v1.0.0...v1.0.1`).
+2. Write a concrete release body: what changed and why it matters for installers/users. Cover features, fixes, dependency bumps, and breaking changes. Do not paste only commit subjects if a short prose summary is clearer.
+3. Create the GitHub Release with that body in the same pass, e.g. `gh release create vX.Y.Z --title vX.Y.Z --notes-file …` or `--notes "$(cat <<'EOF' … EOF)"`.
+4. Never ship a tag with an empty body, “TBD”, or “see commits.”
