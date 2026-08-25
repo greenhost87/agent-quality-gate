@@ -3,9 +3,9 @@
 reviews:
   path_filters:
     # AQG verify fixtures: intentionally invalid or golden sample trees.
-    - "!**/.quality-fixtures/**"
-    - "!**/tests/fixtures/**"
-    - "!**/fixtures/**"
+    - '!**/.quality-fixtures/**'
+    - '!**/tests/fixtures/**'
+    - '!**/fixtures/**'
 
     # Release/build output checked in only for local install tests.
-    - "!artifacts/**"
+    - '!artifacts/**'

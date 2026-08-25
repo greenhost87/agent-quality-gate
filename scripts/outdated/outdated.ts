@@ -1,44 +1,60 @@
-import { existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { $, Glob, file } from 'bun';
+import { dirname, join, resolve } from 'node:path';
+import { parseArgs } from 'node:util';
 
 import { reportCommandError } from '../../process/command/command.js';
-import { runCapturedProcessSync } from '../../process/run-command/run-command.js';
-import { hasBunLockfile } from '../self-verify/has-bun-lockfile.js';
 import type { OutdatedMode, ParseOutdatedArgsResult } from './outdated.types.js';
-import {
-  listPresetPackageNames,
-  resolveProjectRoot,
-  toProjectRelativePath,
-} from '../self-verify/repo-walk.js';
+import { resolveProjectRoot, toProjectRelativePath } from '../self-verify/repo-walk.js';
 
-const PRESETS_DIRECTORY = 'presets';
+const PRESET_MANIFEST_GLOB = new Glob('presets/*/manifest.json');
 
-export function parseOutdatedArgs(argv: readonly string[]): ParseOutdatedArgsResult {
-  let mode: OutdatedMode = 'outdated';
-
-  for (const arg of argv) {
-    switch (arg) {
-      case '-h':
-      case '--help':
-        return 'help';
-      case '--update':
-        mode = 'update';
-        break;
-      default:
-        throw new Error(`unexpected argument "${arg}"`);
-    }
+export function parseOutdatedArgs(
+  argv: readonly string[],
+  defaultCwd: string = process.cwd(),
+): ParseOutdatedArgsResult {
+  let values: {
+    help?: boolean;
+    update?: boolean;
+    cwd?: string;
+  };
+  let positionals: string[];
+  try {
+    ({ values, positionals } = parseArgs({
+      args: [...argv],
+      options: {
+        help: { type: 'boolean', short: 'h', default: false },
+        update: { type: 'boolean', default: false },
+        cwd: { type: 'string' },
+      },
+      allowPositionals: true,
+      strict: true,
+    }));
+  } catch (error) {
+    throw new Error(error instanceof Error ? error.message : String(error), { cause: error });
   }
 
-  return { mode };
+  const unexpected = positionals[0];
+  if (unexpected !== undefined) {
+    throw new Error(`unexpected argument "${unexpected}"`);
+  }
+  if (values.help === true) {
+    return 'help';
+  }
+
+  return {
+    mode: values.update === true ? 'update' : 'outdated',
+    cwd: values.cwd === undefined ? resolve(defaultCwd) : resolve(values.cwd),
+  };
 }
 
-export const OUTDATED_USAGE = `Usage: bun run outdated [--update]
+export const OUTDATED_USAGE = `Usage: bun run outdated [--update] [--cwd <path>]
 
-Check or refresh Bun dependencies in the repository root and every preset
-pack that has a lockfile.
+Check or refresh Bun dependencies in the project root and every preset pack
+that has a lockfile.
 
   (default)     bun outdated
   --update      bun update --latest
+  --cwd <path>  Project root to scan (defaults to the current working directory)
   -h, --help    Show this help
 
 `;
@@ -47,27 +63,38 @@ export function printOutdatedUsage(): void {
   process.stdout.write(OUTDATED_USAGE);
 }
 
-export function bunDependencyArgs(mode: OutdatedMode): readonly string[] {
-  return mode === 'update' ? (['update', '--latest'] as const) : (['outdated'] as const);
+async function hasBunLockfile(directory: string): Promise<boolean> {
+  return (
+    (await file(join(directory, 'bun.lock')).exists()) ||
+    (await file(join(directory, 'bun.lockb')).exists())
+  );
 }
 
-function isDependencyPackageRoot(directory: string): boolean {
-  return existsSync(join(directory, 'package.json')) && hasBunLockfile(directory);
+async function isDependencyPackageRoot(directory: string): Promise<boolean> {
+  return (
+    (await file(join(directory, 'package.json')).exists()) && (await hasBunLockfile(directory))
+  );
 }
 
-export function listDependencyPackageRoots(projectRoot: string): string[] {
+export async function listDependencyPackageRoots(projectRoot: string): Promise<string[]> {
   const root = resolveProjectRoot(projectRoot);
   const roots: string[] = [];
-  if (isDependencyPackageRoot(root)) {
+  if (await isDependencyPackageRoot(root)) {
     roots.push(root);
   }
-  const presetsRoot = join(root, PRESETS_DIRECTORY);
-  for (const name of listPresetPackageNames(presetsRoot)) {
-    const presetRoot = join(presetsRoot, name);
-    if (isDependencyPackageRoot(presetRoot)) {
-      roots.push(presetRoot);
+
+  const presetRoots: string[] = [];
+  for await (const relativePath of PRESET_MANIFEST_GLOB.scan({
+    cwd: root,
+    onlyFiles: true,
+  })) {
+    const presetRoot = join(root, dirname(relativePath));
+    if (await isDependencyPackageRoot(presetRoot)) {
+      presetRoots.push(presetRoot);
     }
   }
+  presetRoots.sort((left, right) => left.localeCompare(right));
+  roots.push(...presetRoots);
   return roots;
 }
 
@@ -79,22 +106,23 @@ function packageRootLabel(projectRoot: string, packageRoot: string): string {
   return toProjectRelativePath(root, packageRoot);
 }
 
-export function runDependencyCommand(projectRoot: string, mode: OutdatedMode): number {
+export async function runDependencyCommand(
+  projectRoot: string,
+  mode: OutdatedMode,
+): Promise<number> {
   const root = resolveProjectRoot(projectRoot);
-  const args = bunDependencyArgs(mode);
-  let exitCode = 0;
+  const packageRoots = await listDependencyPackageRoots(root);
+  if (packageRoots.length === 0) {
+    throw new Error(`no Bun package roots with a lockfile under ${root}`);
+  }
 
-  for (const packageRoot of listDependencyPackageRoots(root)) {
+  let exitCode = 0;
+  for (const packageRoot of packageRoots) {
     process.stdout.write(`${packageRootLabel(root, packageRoot)}\n`);
-    const result = runCapturedProcessSync({
-      command: 'bun',
-      args: [...args],
-      cwd: packageRoot,
-      inheritOutput: true,
-    });
-    if (result.error !== undefined) {
-      throw result.error;
-    }
+    const result =
+      mode === 'update'
+        ? await $`bun update --latest`.cwd(packageRoot).nothrow()
+        : await $`bun outdated`.cwd(packageRoot).nothrow();
     if (result.exitCode !== 0 && exitCode === 0) {
       exitCode = result.exitCode;
     }
@@ -109,7 +137,7 @@ if (import.meta.main) {
     if (parsed === 'help') {
       printOutdatedUsage();
     } else {
-      process.exitCode = runDependencyCommand(process.cwd(), parsed.mode);
+      process.exitCode = await runDependencyCommand(parsed.cwd, parsed.mode);
     }
   } catch (error) {
     reportCommandError('outdated', error instanceof Error ? error : String(error));
