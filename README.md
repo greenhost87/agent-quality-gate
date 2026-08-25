@@ -202,7 +202,7 @@ Harness selection:
 ./install.sh --pi --cursor
 ./install.sh --pi --cursor --claude
 ./install.sh --pi --cursor --claude --codex
-./install.sh --version 1.0.0
+./install.sh --version 1.0.1
 ./install.sh --prefix /tmp/aqg-install
 ./install.sh --wire-only --cursor
 ```
