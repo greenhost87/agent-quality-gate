@@ -24,6 +24,8 @@ type T = string | number | boolean | null | T[] | { [k: string]: T };
 
 Any names, mutual recursion, and `Record<string, T>` count.
 
+Also rejects valibot catch-all JSON schemas (`v.union` of primitives plus `v.array(v.unknown())` and `v.record(v.string(), v.unknown())`), standalone loose record schemas such as `v.record(v.string(), v.unknown())`, and exported parse helpers that return `object`, `Record<string, unknown>`, or loose JSON unions such as `string | number | boolean | null | object`.
+
 Prefer:
 
 ```ts
@@ -39,6 +41,8 @@ On verify failure, the gate writes `.aqg/hints/bun-parse-json.md` and emits `hin
 Rejects `JSON.parse(...)` and non-Bun `.json()` calls outside test trees (`tests/` at any depth).
 
 `Bun.file(...).json()`, `file(...).json()` from `bun` (including renames), a `const` bound to those factories then `.json()` (lexical scope; not `let` or aliases), and `Bun.readableStreamToJSON(...)` are allowed only when the value is passed into `v.parse` / `v.safeParse` before it escapes (no typeof / Array.isArray narrowing). Tests may use raw `JSON.parse` / `request.json()` / `response.json()`. There is no `http/` or `scripts/` exemption.
+
+Also rejects `v.parse(v.pipe(v.string(), v.parseJson()), …)` and const schemas that are only `v.pipe(v.string(), v.parseJson())` — put the domain schema in the same pipe: `v.parse(v.pipe(v.string(), v.parseJson(), Schema), text)`.
 
 On verify failure, the gate writes `.aqg/hints/bun-parse-json.md` and emits `hint:bun-parse-json — .aqg/hints/bun-parse-json.md`.
 

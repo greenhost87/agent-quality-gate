@@ -6,6 +6,8 @@ const rule = 'bun-parse/no-raw-json-parse';
 const jsonParseMessage = 'JSON.parse is banned outside tests.';
 const jsonMethodMessage = 'Non-Bun .json() is banned outside tests.';
 const unvalidatedBunJsonMessage = 'Pass Bun JSON into v.parse(Schema, raw) before use.';
+const unvalidatedParseJsonMessage =
+  'Parse JSON text with v.pipe(v.string(), v.parseJson(), Schema); do not stop at unknown.';
 
 async function expectRejected(fixture: string, entry: string, message: string) {
   const result = await runOxlintFixture(`no-raw-json-parse/invalid/${fixture}`, entry, rule);
@@ -117,4 +119,24 @@ test('no-raw-json-parse rejects a Bun global shadowed by a parameter', async () 
 
 test('no-raw-json-parse rejects let-bound Bun.file(...).json()', async () => {
   await expectRejected('bound-let', 'system/config/load.ts', jsonMethodMessage);
+});
+
+test('no-raw-json-parse rejects bare v.parseJson text pipe', async () => {
+  await expectRejected('bare-parse-json-text', 'http/parse-json.ts', unvalidatedParseJsonMessage);
+});
+
+test('no-raw-json-parse rejects const bare v.parseJson text pipe', async () => {
+  await expectRejected('bare-parse-json-const', 'http/parse-json.ts', unvalidatedParseJsonMessage);
+});
+
+test('no-raw-json-parse rejects two-step bare v.parseJson text pipe', async () => {
+  await expectRejected(
+    'bare-parse-json-two-step',
+    'system/config/load.ts',
+    unvalidatedParseJsonMessage,
+  );
+});
+
+test('no-raw-json-parse allows domain schema in v.parseJson text pipe', async () => {
+  await expectAllowed('json-string-pipe', 'system/config/load.ts');
 });

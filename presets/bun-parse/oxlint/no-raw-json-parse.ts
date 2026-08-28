@@ -15,6 +15,7 @@ import {
 import type { BunFileBindings } from './bun-file-bindings.ts';
 import { memberName } from './member-name.ts';
 import { isUnderPathSegment, projectPath } from './project-path.ts';
+import type { ParseValibotBindings } from './valibot-bindings.ts';
 import {
   createRawJsonValidationTracker,
   isDeferredRawJsonValidated,
@@ -23,8 +24,8 @@ import {
   noteValibotBindingsFromImport,
   registerDeferredRawJsonValidation,
   trackedRawJsonEntries,
-  type ValibotBindings,
 } from './valibot-raw-validation.ts';
+import { scanBareParseJsonViolations } from './valibot-bare-parse-json.ts';
 
 function memberCallCallee(node: ESTree.CallExpression): ESTree.MemberExpression | null {
   const callee = unwrapExpression(node.callee);
@@ -114,7 +115,7 @@ function reportRawJsonCall(
 }
 
 function scanRawJsonCalls(context: Context, root: ESTree.Node): void {
-  const valibotBindings: ValibotBindings = { named: new Set(), namespaces: new Set() };
+  const valibotBindings: ParseValibotBindings = { named: new Set(), namespaces: new Set() };
   const fileBindings = createEmptyBunFileBindings();
   const rawJsonTracker = createRawJsonValidationTracker();
 
@@ -164,6 +165,8 @@ function scanRawJsonCalls(context: Context, root: ESTree.Node): void {
       context.report({ node: entry.initCall, messageId: 'unvalidatedBunJson' });
     }
   }
+
+  scanBareParseJsonViolations(context, context.sourceCode.ast);
 }
 
 export const noRawJsonParse = defineRule({
@@ -174,6 +177,8 @@ export const noRawJsonParse = defineRule({
       jsonParse: 'JSON.parse is banned outside tests.',
       jsonMethod: 'Non-Bun .json() is banned outside tests.',
       unvalidatedBunJson: 'Pass Bun JSON into v.parse(Schema, raw) before use.',
+      unvalidatedParseJson:
+        'Parse JSON text with v.pipe(v.string(), v.parseJson(), Schema); do not stop at unknown.',
     },
   },
   createOnce(context) {
@@ -182,7 +187,7 @@ export const noRawJsonParse = defineRule({
         const relativePath = projectPath(context);
         if (
           isUnderPathSegment(relativePath, 'tests') ||
-          !/\b(?:JSON|json|readableStreamToJSON)\b/u.test(context.sourceCode.text)
+          !/\b(?:JSON|json|readableStreamToJSON|parseJson)\b/u.test(context.sourceCode.text)
         ) {
           return false;
         }

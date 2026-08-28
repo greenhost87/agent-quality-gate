@@ -1,18 +1,15 @@
 import type { ESTree } from '@oxlint/plugins';
 
-import type {
-  InterfaceEntry,
-  TypeAliasEntry,
-  TypeTables,
-  UnionShape,
-} from './no-handmade-json-types.ts';
-
-function unwrapType(node: ESTree.TSType): ESTree.TSType {
-  if (node.type === 'TSParenthesizedType') {
-    return unwrapType(node.typeAnnotation);
-  }
-  return node;
-}
+import type { InterfaceEntry, TypeAliasEntry, TypeTables } from './no-handmade-json-types.ts';
+import { classifyHandmadeUnion, type UnionMemberKind } from './handmade-json-union-shape.ts';
+import {
+  flattenUnion,
+  indexSignatureValue,
+  isJsonPrimitiveType,
+  isLooseObjectType,
+  stringIndexValueType,
+  unwrapType,
+} from './handmade-ts-type-helpers.ts';
 
 export function typeReferenceName(node: ESTree.TSType): string | null {
   const unwrapped = unwrapType(node);
@@ -23,59 +20,6 @@ export function typeReferenceName(node: ESTree.TSType): string | null {
     return null;
   }
   return unwrapped.typeName.name;
-}
-
-function isJsonPrimitive(node: ESTree.TSType): boolean {
-  const unwrapped = unwrapType(node);
-  return (
-    unwrapped.type === 'TSStringKeyword' ||
-    unwrapped.type === 'TSNumberKeyword' ||
-    unwrapped.type === 'TSBooleanKeyword' ||
-    unwrapped.type === 'TSNullKeyword'
-  );
-}
-
-function flattenUnion(node: ESTree.TSType): ESTree.TSType[] {
-  const unwrapped = unwrapType(node);
-  if (unwrapped.type === 'TSUnionType') {
-    return unwrapped.types.flatMap((member) => flattenUnion(member));
-  }
-  return [unwrapped];
-}
-
-function indexSignatureValue(member: ESTree.TSIndexSignature): ESTree.TSType | null {
-  if (member.parameters.length !== 1) {
-    return null;
-  }
-  const parameter = member.parameters[0];
-  if (unwrapType(parameter.typeAnnotation.typeAnnotation).type !== 'TSStringKeyword') {
-    return null;
-  }
-  return member.typeAnnotation.typeAnnotation;
-}
-
-function stringIndexValueType(node: ESTree.TSType): ESTree.TSType | null {
-  const unwrapped = unwrapType(node);
-  if (unwrapped.type === 'TSTypeLiteral') {
-    if (unwrapped.members.length !== 1) {
-      return null;
-    }
-    const member = unwrapped.members[0];
-    return member.type === 'TSIndexSignature' ? indexSignatureValue(member) : null;
-  }
-  if (
-    unwrapped.type !== 'TSTypeReference' ||
-    unwrapped.typeName.type !== 'Identifier' ||
-    unwrapped.typeName.name !== 'Record' ||
-    unwrapped.typeArguments?.params.length !== 2
-  ) {
-    return null;
-  }
-  const [key, value] = unwrapped.typeArguments.params;
-  if (unwrapType(key).type !== 'TSStringKeyword') {
-    return null;
-  }
-  return value;
 }
 
 function arrayElementType(node: ESTree.TSType): ESTree.TSType | null {
@@ -187,27 +131,23 @@ function resolvesToSelf(
   return namedContainerTowardSelf(name, selfName, tables, seen) != null;
 }
 
-function classifyUnion(
+function* unionMemberKinds(
   selfName: string,
   annotation: ESTree.TSType,
   tables: TypeTables,
-): UnionShape {
-  let primitiveCount = 0;
-  let hasArray = false;
-  let hasIndex = false;
-  const partners = new Set<string>();
+): Generator<UnionMemberKind> {
   for (const member of flattenUnion(annotation)) {
-    if (isJsonPrimitive(member)) {
-      primitiveCount += 1;
+    if (isJsonPrimitiveType(member)) {
+      yield { type: 'primitive' };
       continue;
     }
     const direct = containerValueTowardSelf(member, selfName, tables, new Set());
     if (direct === 'array') {
-      hasArray = true;
+      yield { type: 'array' };
       continue;
     }
     if (direct === 'index') {
-      hasIndex = true;
+      yield { type: 'index' };
       continue;
     }
     const name = typeReferenceName(member);
@@ -216,17 +156,90 @@ function classifyUnion(
     }
     const kind = namedContainerTowardSelf(name, selfName, tables, new Set());
     if (kind === 'array') {
-      hasArray = true;
-      partners.add(name);
+      yield { type: 'partner', name, container: 'array' };
     } else if (kind === 'index') {
-      hasIndex = true;
-      partners.add(name);
+      yield { type: 'partner', name, container: 'index' };
     }
   }
+}
+
+function classifyUnion(selfName: string, annotation: ESTree.TSType, tables: TypeTables) {
+  return classifyHandmadeUnion(unionMemberKinds(selfName, annotation, tables));
+}
+
+type ExportedReturnFlags = {
+  primitiveCount: number;
+  hasArray: boolean;
+  hasIndex: boolean;
+  hasLooseObject: boolean;
+  referencesHandmadeAlias: boolean;
+};
+
+function exportedReturnMemberFlags(member: ESTree.TSType, tables: TypeTables): ExportedReturnFlags {
+  if (isJsonPrimitiveType(member)) {
+    return {
+      primitiveCount: 1,
+      hasArray: false,
+      hasIndex: false,
+      hasLooseObject: false,
+      referencesHandmadeAlias: false,
+    };
+  }
+  if (isLooseObjectType(member)) {
+    return {
+      primitiveCount: 0,
+      hasArray: false,
+      hasIndex: false,
+      hasLooseObject: true,
+      referencesHandmadeAlias: false,
+    };
+  }
+  if (arrayElementType(member) != null) {
+    return {
+      primitiveCount: 0,
+      hasArray: true,
+      hasIndex: false,
+      hasLooseObject: false,
+      referencesHandmadeAlias: false,
+    };
+  }
+  if (stringIndexValueType(member) != null) {
+    return {
+      primitiveCount: 0,
+      hasArray: false,
+      hasIndex: true,
+      hasLooseObject: false,
+      referencesHandmadeAlias: false,
+    };
+  }
+  const name = typeReferenceName(member);
+  const alias = name == null ? undefined : tables.aliases.get(name);
   return {
-    handmade: primitiveCount >= 2 && hasArray && hasIndex,
-    partners,
+    primitiveCount: 0,
+    hasArray: false,
+    hasIndex: false,
+    hasLooseObject: false,
+    referencesHandmadeAlias:
+      name != null && alias != null && classifyUnion(name, alias.annotation, tables).handmade,
   };
+}
+
+export function handmadeExportedReturnType(annotation: ESTree.TSType, tables: TypeTables): boolean {
+  let primitiveCount = 0;
+  let hasArray = false;
+  let hasIndex = false;
+  let hasLooseObject = false;
+  for (const member of flattenUnion(annotation)) {
+    const flags = exportedReturnMemberFlags(member, tables);
+    if (flags.referencesHandmadeAlias) {
+      return true;
+    }
+    primitiveCount += flags.primitiveCount;
+    hasArray ||= flags.hasArray;
+    hasIndex ||= flags.hasIndex;
+    hasLooseObject ||= flags.hasLooseObject;
+  }
+  return (primitiveCount >= 2 && hasArray && hasIndex) || (primitiveCount >= 2 && hasLooseObject);
 }
 
 export function findHandmadeJsonTypeNames(
