@@ -20,7 +20,7 @@ export function parseInstallArgs(
       'Install agent-quality-gate from the latest GitHub Release (default), or build from this checkout with --local-build. Wires Pi, Cursor, Claude Code, and/or Codex integrations.',
     )
     .option('--prefix <path>', 'Install prefix', defaultPrefix)
-    .option('--version <ver>', 'Install a specific release (e.g. 1.1.0); default: latest')
+    .option('--version <ver>', 'Install a specific release (e.g. 1.1.1); default: latest')
     .option(
       '--local-build',
       'Verify, test, run pack integration tests, then build from this checkout',
