@@ -10,7 +10,10 @@ export {
   parseFallowDiscoveredFiles,
 } from '../preflight/fallow-analysis.js';
 export type { DiscoveredFilesOutput } from '../preflight/fallow-analysis.js';
-export { projectScopedArtifactPath } from '../../config/agent-quality-gate-home/agent-quality-gate-home.js';
+export {
+  projectScopedArtifactPath,
+  projectStableArtifactPath,
+} from '../../config/agent-quality-gate-home/agent-quality-gate-home.js';
 export type {
   PresetCheckModule,
   PresetVerifyContext,

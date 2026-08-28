@@ -86,6 +86,33 @@ The listed module has exactly one importer in the project import graph.
 Inline or fold it into that sole caller (or give it a second real production consumer).
 
 Do not add artificial call sites, and do not change fallow / verify tooling to silence the finding.
+
+Also read \`.aqg/hints/avoid-micro-splits.md\` before carving a long file into more modules.
+`;
+
+const AVOID_MICRO_SPLITS = `# avoid-micro-splits
+
+A long file is not a reason to carve out a new micro-module.
+
+Do not react to file length by extracting every function into its own \`.helpers.ts\`, \`.lib.ts\`, or sibling \`*.types.ts\` beside the caller.
+
+## Prefer
+
+- Keep cohesive domain logic together until a real boundary appears (shared reuse, deployment boundary, test isolation worth the split).
+- Extract one meaningful unit with a stable API and multiple expected callers — not a 5–20 line wrapper file.
+- Inline into the sole caller when only one module needs the code (\`single-consumer\` findings).
+
+## Avoid
+
+- New files whose only job is to shorten a parent file.
+- \`foo.helpers.ts\` / \`foo-lib.ts\` chains where each file has a single importer.
+- Splitting types, constants, and one-liner wrappers into separate files in the same feature folder.
+
+When verify lists \`single-consumer:\`, merge those modules back into the caller or into a shared module with real reuse.
+
+Baseline rules that also emit this hint: \`aqg/no-thin-forwarders\`, \`aqg/no-trivial-const-wrappers\`, \`aqg/no-identity-aliases\`, \`aqg/no-useless-exported-type-aliases\`, \`aqg/no-runtime-in-types-files\`.
+
+Do not add artificial importers or change verify thresholds to silence findings.
 `;
 
 const BUN_PARSE_JSON = `# bun-parse-json
@@ -218,6 +245,7 @@ export const HINT_DOC_IDS = [
   'dev-dep-in-prod',
   'database-committed-migration',
   'single-consumer',
+  'avoid-micro-splits',
   'bun-parse-json',
 ] as const;
 
@@ -259,6 +287,10 @@ export const HINT_DOCUMENTS: Record<HintDocId, { path: string; body: string }> =
   'single-consumer': {
     path: `${AQG_HINTS_DIRECTORY}/single-consumer.md`,
     body: SINGLE_CONSUMER,
+  },
+  'avoid-micro-splits': {
+    path: `${AQG_HINTS_DIRECTORY}/avoid-micro-splits.md`,
+    body: AVOID_MICRO_SPLITS,
   },
   'bun-parse-json': {
     path: `${AQG_HINTS_DIRECTORY}/bun-parse-json.md`,

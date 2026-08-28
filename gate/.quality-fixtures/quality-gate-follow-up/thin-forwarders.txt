@@ -1,0 +1,1 @@
+system/utils/sort-by-article.helpers.ts:3:1: Do not wrap calls in thin forwarder "sortByArticle"; call the target directly. [aqg/no-thin-forwarders]

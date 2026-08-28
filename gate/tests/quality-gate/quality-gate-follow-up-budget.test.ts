@@ -73,6 +73,7 @@ describe('followUpForSettledResult hints', () => {
   const hintCases: {
     name: string;
     hint: string;
+    extraHints?: readonly string[];
     stdoutFixture?: string;
     stderrFixture?: string;
     extraStdoutFixtures?: readonly string[];
@@ -115,7 +116,18 @@ describe('followUpForSettledResult hints', () => {
     {
       name: 'single-consumer',
       hint: 'hint:single-consumer',
+      extraHints: ['hint:avoid-micro-splits'],
       stdoutFixture: 'single-consumer.txt',
+    },
+    {
+      name: 'thin-forwarders',
+      hint: 'hint:avoid-micro-splits',
+      stdoutFixture: 'thin-forwarders.txt',
+    },
+    {
+      name: 'trivial-const-wrappers',
+      hint: 'hint:avoid-micro-splits',
+      stdoutFixture: 'trivial-const-wrappers.txt',
     },
   ];
 
@@ -145,6 +157,9 @@ describe('followUpForSettledResult hints', () => {
         throw new Error('expected follow-up message');
       }
       expect(message).toContain(hintCase.hint);
+      for (const extraHint of hintCase.extraHints ?? []) {
+        expect(message).toContain(extraHint);
+      }
       const escaped = hintCase.hint.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
       expect(message.match(new RegExp(escaped, 'g'))?.length).toBe(1);
     });

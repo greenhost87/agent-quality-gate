@@ -1,6 +1,6 @@
 import { isAbsolute, resolve } from 'node:path';
 
-import { oxlintConfigPathForProject } from '../../config/agent-quality-gate-home/agent-quality-gate-home.js';
+import { verifyOxlintConfigPathForProject } from '../../config/agent-quality-gate-home/agent-quality-gate-home.js';
 import {
   readOxlintConfig,
   type OxlintConfig,
@@ -99,7 +99,7 @@ export async function writeOxlintConfigForProject(
     overrides: [...baseOverrides, ...overrides.map(overrideToJson)],
   };
 
-  const configPath = oxlintConfigPathForProject(projectRoot);
+  const configPath = verifyOxlintConfigPathForProject(projectRoot);
   await writeTextIfChanged(configPath, `export default ${JSON.stringify(config, null, 2)};\n`);
   return configPath;
 }

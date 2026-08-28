@@ -1,6 +1,6 @@
-import { rmdir, unlink } from 'node:fs/promises';
+import { readdir, rmdir, unlink } from 'node:fs/promises';
 import { homedir } from 'node:os';
-import { dirname, join, resolve } from 'node:path';
+import { join, resolve } from 'node:path';
 
 import { getOptionalEnv } from '../../gate/read-env/read-env.js';
 
@@ -43,6 +43,19 @@ export function verifyFallowConfigPathForProject(projectRoot: string): string {
   return join(resolve(projectRoot), '.aqg', 'fallow', 'verify.json');
 }
 
+/** Stable path reused by every verify run (overwritten in place). */
+export function verifyOxlintConfigPathForProject(projectRoot: string): string {
+  return join(resolve(projectRoot), '.aqg', 'oxlint', 'verify.config.ts');
+}
+
+export function projectStableArtifactPath(
+  directory: string,
+  fileName: string,
+  projectRoot: string,
+): string {
+  return join(resolve(projectRoot), '.aqg', directory, fileName);
+}
+
 export function oxlintConfigPathForProject(
   projectRoot: string,
   fileName = '{id}.config.ts',
@@ -69,8 +82,40 @@ async function ignoreFilesystemCodes(
   }
 }
 
-/** Remove per-run Oxlint and Fallow configs; drop empty `.aqg/oxlint` and `.aqg/fallow` directories. */
+async function removeEphemeralProjectDirectory(
+  projectRoot: string,
+  name: 'fallow' | 'oxlint',
+): Promise<void> {
+  const directory = join(resolve(projectRoot), '.aqg', name);
+  let entries: string[];
+  try {
+    entries = await readdir(directory);
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      'code' in error &&
+      typeof error.code === 'string' &&
+      error.code === 'ENOENT'
+    ) {
+      return;
+    }
+    throw error;
+  }
+  await Promise.all(
+    entries.map(async (entry) => {
+      await ignoreFilesystemCodes(async () => {
+        await unlink(join(directory, entry));
+      }, ['ENOENT']);
+    }),
+  );
+  await ignoreFilesystemCodes(async () => {
+    await rmdir(directory);
+  }, ['ENOENT', 'ENOTEMPTY']);
+}
+
+/** Remove verify Oxlint/Fallow configs and preset scratch files; drop empty `.aqg/oxlint` and `.aqg/fallow`. */
 export async function removeEphemeralProjectConfigs(
+  projectRoot: string,
   paths: EphemeralProjectConfigPaths,
 ): Promise<void> {
   const configPaths = [paths.oxlintConfigPath, ...paths.fallowConfigPaths].filter(
@@ -83,14 +128,10 @@ export async function removeEphemeralProjectConfigs(
       }, ['ENOENT']);
     }),
   );
-  const directories = new Set(configPaths.map((configPath) => dirname(configPath)));
-  await Promise.all(
-    [...directories].map(async (directory) => {
-      await ignoreFilesystemCodes(async () => {
-        await rmdir(directory);
-      }, ['ENOENT', 'ENOTEMPTY']);
-    }),
-  );
+  await Promise.all([
+    removeEphemeralProjectDirectory(projectRoot, 'fallow'),
+    removeEphemeralProjectDirectory(projectRoot, 'oxlint'),
+  ]);
 }
 
 export type EphemeralProjectConfigPaths = {
