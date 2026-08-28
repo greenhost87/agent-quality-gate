@@ -1,7 +1,7 @@
 # Add projects here to enable automatic checks.
 #
 # presets: shipped names from presets/*/manifest.json
-#   (baseline always on; optional: bun-parse, config, database, playwright, module-placement, single-consumer)
+#   (baseline always on; optional: bun-parse, config, database, playwright, module-placement)
 # and home-installed names from $AGENT_QUALITY_GATE_HOME/presets/<name>/ (for example packages).
 #
 # Install optional presets (for example from aqg-presets) with:

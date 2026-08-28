@@ -17,7 +17,7 @@ const FIXTURE_PROJECT = join(
   import.meta.dir,
   '../../.quality-fixtures/gate-conflict-packages-playwright/project',
 );
-const AQG_PRESETS_PACKAGES = join(import.meta.dir, '../../../../aqg-presets/packages');
+const PACKAGES_PRESET = join(import.meta.dir, '../fixtures/packages-preset');
 
 const createdConfigs: string[] = [];
 
@@ -40,7 +40,7 @@ async function writeConfig(value: object): Promise<string> {
 describe('gate-conflict-packages-playwright fixture', () => {
   it('flags packages + playwright without companion root allowlist entries', async () => {
     await ensureGateInstallNodeModules();
-    await installPresetFromSource(AQG_PRESETS_PACKAGES);
+    await installPresetFromSource(PACKAGES_PRESET);
     const configPath = await writeConfig({
       projects: [
         {
@@ -66,7 +66,7 @@ describe('gate-conflict-packages-playwright fixture', () => {
 
   it('accepts the phoenix-style allowlist for companion root configs', async () => {
     await ensureGateInstallNodeModules();
-    await installPresetFromSource(AQG_PRESETS_PACKAGES);
+    await installPresetFromSource(PACKAGES_PRESET);
     const configPath = await writeConfig({
       projects: [
         {

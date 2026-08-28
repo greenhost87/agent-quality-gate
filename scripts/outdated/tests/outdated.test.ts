@@ -1,13 +1,12 @@
 import { write } from 'bun';
 import { afterEach, describe, expect, it } from 'bun:test';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
 import { listDependencyPackageRoots, OUTDATED_USAGE, parseOutdatedArgs } from '../outdated.js';
 
 const DEFAULT_CWD = '/tmp/aqg-outdated-default';
-const REPO_ROOT = resolve(import.meta.dir, '..', '..', '..');
 const tempRoots: string[] = [];
 
 async function createTempRoot(): Promise<string> {
@@ -74,20 +73,18 @@ describe('parseOutdatedArgs', () => {
 
 describe('listDependencyPackageRoots', () => {
   it('lists the repository and every preset pack with a lockfile', async () => {
-    const roots = await listDependencyPackageRoots(REPO_ROOT);
-    expect(roots[0]).toBe(REPO_ROOT);
-    expect(roots.slice(1)).toEqual([
-      join(REPO_ROOT, 'presets', 'bun-parse'),
-      join(REPO_ROOT, 'presets', 'config'),
-      join(REPO_ROOT, 'presets', 'database'),
-      join(REPO_ROOT, 'presets', 'module-placement'),
-      join(REPO_ROOT, 'presets', 'oxlint-ui-surface'),
-      join(REPO_ROOT, 'presets', 'packages'),
-      join(REPO_ROOT, 'presets', 'playwright'),
-      join(REPO_ROOT, 'presets', 'project-quality'),
-      join(REPO_ROOT, 'presets', 'react-presentation'),
-      join(REPO_ROOT, 'presets', 'single-consumer'),
-    ]);
+    const root = await createTempRoot();
+    await write(join(root, 'package.json'), '{}\n');
+    await write(join(root, 'bun.lock'), '{}\n');
+    const presetsRoot = join(root, 'presets');
+    await mkdir(join(presetsRoot, 'with-lock'), { recursive: true });
+    await mkdir(join(presetsRoot, 'without-lock'));
+    await write(join(presetsRoot, 'with-lock', 'package.json'), '{}\n');
+    await write(join(presetsRoot, 'with-lock', 'bun.lock'), '{}\n');
+    await write(join(presetsRoot, 'with-lock', 'manifest.json'), '{}\n');
+    await write(join(presetsRoot, 'without-lock', 'package.json'), '{}\n');
+
+    expect(await listDependencyPackageRoots(root)).toEqual([root, join(presetsRoot, 'with-lock')]);
   });
 
   it('includes the project root when it has package.json and a Bun lockfile', async () => {
