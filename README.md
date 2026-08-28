@@ -131,7 +131,6 @@ projects:
       - database
       - playwright
       - module-placement
-      - single-consumer
       # packages   # home-installed only (see below)
     presetConfig:
       baseline:
@@ -171,7 +170,6 @@ projects:
 | `database`             | none                                                 | `system/database/`, `tests/setup/testDatabase*.ts`, `migrations/`, DAO layout       |
 | `playwright`           | none                                                 | `tests/e2e/**/*.pw.ts`; blocks DAO / `system/database` imports                      |
 | `module-placement`     | `directories`, `rootExceptions`                      | Concern-depth rule under configured directories                                     |
-| `single-consumer`      | none                                                 | Modules with exactly one importer (fallow DOT fan-in); prefer inline/fold           |
 
 Home-installed only (for example from `aqg-presets`): `packages` (`presetConfig.packages` with `allowedRootModules` and `declaredDependencies`). Manifest destinations cannot be remapped from `config.yaml`.
 

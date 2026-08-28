@@ -40,18 +40,7 @@ const LOCAL_IGNORE_PATTERNS = [
   'assets/oxlint.config.ts',
   'scripts/tests/.quality-fixtures/**',
   'gate/.quality-fixtures/**',
-  'presets/baseline/.quality-fixtures/**',
-  'presets/bun-parse/.quality-fixtures/**',
-  'presets/config/.quality-fixtures/**',
-  'presets/database/.quality-fixtures/**',
-  'presets/module-placement/.quality-fixtures/**',
-  'presets/oxlint-ui-surface/.quality-fixtures/**',
-  'presets/packages/.quality-fixtures/**',
-  'presets/playwright/.quality-fixtures/**',
-  'presets/project-quality/.quality-fixtures/**',
-  'presets/react-duplication/.quality-fixtures/**',
-  'presets/react-presentation/.quality-fixtures/**',
-  'presets/single-consumer/.quality-fixtures/**',
+  'presets/*/.quality-fixtures/**',
 ] as const;
 
 export function localVerifyRequest(): VerifyRequest {

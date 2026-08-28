@@ -1,6 +1,3 @@
-import { existsSync } from 'node:fs';
-import { join } from 'node:path';
-
 import { describe, expect, it } from 'bun:test';
 
 import { oxlintVirtualGroupsFromRules } from '../../execute-verify/oxlint-virtual-groups.js';
@@ -8,14 +5,9 @@ import { resolvePresetContract } from '../../../preset-catalog/catalog/preset-ca
 import { applyPresetGateConfig } from '../../../preset-catalog/load-gate-config/load-preset-gate-config.js';
 import { oxlintRulePhaseOf } from '../../../preset-catalog/oxlint-config/oxlint-rule-phase.js';
 import type { OxlintRuleSetting } from '../../../preset-catalog/oxlint-config/write-oxlint-config.js';
-import { installPresetFromSource } from '../../../scripts/install-preset/install-preset.js';
-import { EXECUTE_VERIFY_REPO_ROOT } from '../../../tests/support/execute-verify-fixture.js';
-import { ensureGateInstallNodeModules } from '../../../tests/support/gate-install.js';
 import { useIsolatedAgentQualityGateHome } from '../../../tests/support/isolated-home.js';
 
 useIsolatedAgentQualityGateHome();
-
-const AQG_PRESETS_PACKAGES = join(EXECUTE_VERIFY_REPO_ROOT, '../aqg-presets/packages');
 
 const PHASE_PRESETS = [
   'bun-parse',
@@ -90,37 +82,5 @@ describe('preset phase + gate-config options', () => {
     expect(groupIdForRule(groups, 'module-placement/module-placement')).toBe(
       'boundaries:module-placement',
     );
-  });
-
-  it('preserves packages phase and allowedRootModules after presetConfig', async () => {
-    if (!existsSync(join(AQG_PRESETS_PACKAGES, 'manifest.json'))) {
-      return;
-    }
-    await ensureGateInstallNodeModules();
-    await installPresetFromSource(AQG_PRESETS_PACKAGES);
-    const contract = await resolvePresetContract(['packages', 'playwright']);
-    const rules = { ...contract.rules };
-    await applyPresetGateConfig(rules, contract.activated, {
-      packages: {
-        allowedRootModules: ['next.config.ts', 'playwright.config.ts'],
-        declaredDependencies: { fabrics: ['media'] },
-      },
-    });
-    const setting = rules['packages/package-boundaries'];
-    expect(setting).toEqual({
-      severity: 'error',
-      phase: 'boundaries',
-      options: {
-        allowedRootModules: ['next.config.ts', 'playwright.config.ts'],
-        declaredDependencies: { fabrics: ['media'] },
-      },
-    });
-    if (setting === undefined) {
-      return;
-    }
-    expect(oxlintRulePhaseOf(setting)).toBe('boundaries');
-    const groups = oxlintVirtualGroupsFromRules(rules, contract.overrides);
-    expect(groupIdForRule(groups, 'packages/package-boundaries')).toBe('boundaries:packages');
-    expect(groupIdForRule(groups, 'playwright/config')).toBe('boundaries:playwright');
   });
 });

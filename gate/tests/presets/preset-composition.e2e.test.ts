@@ -39,13 +39,7 @@ function dependencySections(dependencies: readonly PresetProjectDependency[]): {
 }
 
 function compositionCases(): string[][] {
-  // single-consumer intentionally flags fan-in=1 helpers; keep it off the
-  // full-pack composition fixture (managed payloads) and cover it alone.
-  return [
-    [...SHIPPED_PRESET_NAMES.filter((name) => name !== 'single-consumer')],
-    ['config', 'database'],
-    ['single-consumer'],
-  ];
+  return [[...SHIPPED_PRESET_NAMES], ['config', 'database']];
 }
 
 async function installSharedDependencies(root: string): Promise<void> {

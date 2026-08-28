@@ -24,7 +24,6 @@ export const SHIPPED_PRESET_NAMES = [
   'database',
   'module-placement',
   'playwright',
-  'single-consumer',
 ] as const;
 
 function presetsRoot(): string {
