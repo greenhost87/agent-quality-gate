@@ -215,7 +215,7 @@ bun ./install.ts --codex
 bun ./install.ts --pi --cursor
 bun ./install.ts --pi --cursor --claude
 bun ./install.ts --pi --cursor --claude --codex
-bun ./install.ts --version 1.1.1
+bun ./install.ts --version 1.1.2
 bun ./install.ts --prefix /tmp/aqg-install
 bun ./install.ts --wire-only --cursor
 ```
