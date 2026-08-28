@@ -1,6 +1,6 @@
 {
   "name": "agent-quality-gate",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "private": true,
   "description": "Locked Oxlint and Fallow quality gate for AI-assisted TypeScript and JavaScript workflows",
   "keywords": [
@@ -52,7 +52,7 @@
     "@modelcontextprotocol/sdk": "1.30.0",
     "@oxlint/plugins": "1.80.0",
     "commander": "15.0.0",
-    "fallow": "3.18.0",
+    "fallow": "3.20.0",
     "mitata": "1.0.34",
     "oxc-parser": "0.147.0",
     "oxlint": "1.80.0",
