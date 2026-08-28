@@ -8,6 +8,7 @@ import {
 } from './valibot-bindings.ts';
 import { classifyHandmadeUnion, type UnionMemberKind } from './handmade-json-union-shape.ts';
 import type { UnionShape } from './no-handmade-json-types.ts';
+import { sourceImportsValibot } from './source-fast-path.ts';
 
 const JSON_PRIMITIVE_SCHEMAS = new Set(['string', 'number', 'boolean', 'null']);
 const LOOSE_CONTAINER_SCHEMAS = new Set(['unknown', 'any']);
@@ -268,10 +269,16 @@ function isLooseRecordSchemaConst(
   return value != null && isLooseContainerValue(value, '', schemas, bindings);
 }
 
-function schemaScanContext(program: ESTree.Program): {
+function schemaScanContext(
+  program: ESTree.Program,
+  sourceText?: string,
+): {
   bindings: SchemaValibotBindings;
   schemas: Map<string, SchemaConstEntry>;
 } | null {
+  if (sourceText != null && !sourceImportsValibot(sourceText)) {
+    return null;
+  }
   const bindings = collectSchemaValibotBindings(program);
   if (bindings.namespaces.size === 0 && bindings.named.size === 0) {
     return null;
@@ -279,8 +286,11 @@ function schemaScanContext(program: ESTree.Program): {
   return { bindings, schemas: collectSchemaConsts(program) };
 }
 
-export function collectLooseRecordSchemaNames(program: ESTree.Program): Set<string> {
-  const context = schemaScanContext(program);
+export function collectLooseRecordSchemaNames(
+  program: ESTree.Program,
+  sourceText?: string,
+): Set<string> {
+  const context = schemaScanContext(program, sourceText);
   if (context == null) {
     return new Set();
   }
@@ -309,8 +319,9 @@ function isHandmadeJsonSchemaConst(
 
 export function findHandmadeJsonSchemaNames(
   program: ESTree.Program,
+  sourceText?: string,
 ): Map<string, ESTree.BindingIdentifier> {
-  const context = schemaScanContext(program);
+  const context = schemaScanContext(program, sourceText);
   if (context == null) {
     return new Map();
   }

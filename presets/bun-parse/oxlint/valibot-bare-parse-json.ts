@@ -11,6 +11,7 @@ import {
   type ParseValibotBindings,
   type SchemaValibotBindings,
 } from './valibot-bindings.ts';
+import { sourceUsesParseJson } from './source-fast-path.ts';
 import { isValibotParseCall } from './valibot-raw-validation.ts';
 
 const LOOSE_TAIL_SCHEMAS = new Set(['unknown', 'any']);
@@ -83,7 +84,15 @@ export function isBareJsonTextPipeExpr(
   return isBareJsonTextPipeCall(unwrapped, schemas, bindings);
 }
 
-export function scanBareParseJsonViolations(context: Context, root: ESTree.Program): void {
+export function scanBareParseJsonViolations(
+  context: Context,
+  root: ESTree.Program,
+  sourceText?: string,
+): void {
+  const text = sourceText ?? context.sourceCode.text;
+  if (!sourceUsesParseJson(text)) {
+    return;
+  }
   const schemaBindings = collectSchemaValibotBindings(root);
   const parseBindings: ParseValibotBindings = collectParseValibotBindings(root);
   const schemas = collectSchemaConsts(root);
