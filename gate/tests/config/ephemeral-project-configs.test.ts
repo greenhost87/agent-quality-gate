@@ -1,5 +1,5 @@
 import { existsSync } from 'node:fs';
-import { mkdir, mkdtemp, readdir, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -24,18 +24,18 @@ afterEach(async () => {
 });
 
 describe('removeEphemeralProjectConfigs', () => {
-  it('removes per-run config files and empty ephemeral directories', async () => {
+  it('removes verify configs and empties ephemeral directories', async () => {
     const projectRoot = await makeTempDirectory('aqg-ephemeral-project-');
     const oxlintDir = join(projectRoot, '.aqg', 'oxlint');
     const fallowDir = join(projectRoot, '.aqg', 'fallow');
-    const oxlintConfigPath = join(oxlintDir, 'run-a.config.ts');
-    const fallowConfigPath = join(fallowDir, 'run-a.json');
+    const oxlintConfigPath = join(oxlintDir, 'verify.config.ts');
+    const fallowConfigPath = join(fallowDir, 'verify.json');
     await mkdir(oxlintDir, { recursive: true });
     await mkdir(fallowDir, { recursive: true });
     await writeFile(oxlintConfigPath, 'export default {};\n');
     await writeFile(fallowConfigPath, '{}\n');
 
-    await removeEphemeralProjectConfigs({
+    await removeEphemeralProjectConfigs(projectRoot, {
       oxlintConfigPath,
       fallowConfigPaths: [fallowConfigPath],
     });
@@ -47,34 +47,35 @@ describe('removeEphemeralProjectConfigs', () => {
     expect(existsSync(join(projectRoot, '.aqg'))).toBe(true);
   });
 
-  it('leaves other .aqg artifacts and concurrent run files untouched', async () => {
+  it('removes stale preset scratch files and leaves other .aqg artifacts', async () => {
     const projectRoot = await makeTempDirectory('aqg-ephemeral-project-');
     const artifactPath = join(projectRoot, '.aqg', 'parse_example.ts');
     const oxlintDir = join(projectRoot, '.aqg', 'oxlint');
     const fallowDir = join(projectRoot, '.aqg', 'fallow');
-    const ownOxlintPath = join(oxlintDir, 'run-a.config.ts');
-    const ownFallowPath = join(fallowDir, 'run-a.json');
-    const otherOxlintPath = join(oxlintDir, 'run-b.config.ts');
-    const otherFallowPath = join(fallowDir, 'run-b.json');
+    const oxlintConfigPath = join(oxlintDir, 'verify.config.ts');
+    const fallowConfigPath = join(fallowDir, 'verify.json');
+    const staleOxlintPath = join(oxlintDir, '19b7-mtbxqp7i-ed29e8d5.config.ts');
+    const staleFallowPath = join(fallowDir, 'presentation-duplication-100x-mtbwnqf3-cac9ef5d.json');
+    const staleFallowOutputPath = join(
+      fallowDir,
+      'presentation-duplication-100x-mtbwnqf3-7725fb5c.out.json',
+    );
     await mkdir(oxlintDir, { recursive: true });
     await mkdir(fallowDir, { recursive: true });
     await writeFile(artifactPath, 'export {};\n');
-    await writeFile(ownOxlintPath, 'export default {};\n');
-    await writeFile(otherOxlintPath, 'export default {};\n');
-    await writeFile(ownFallowPath, '{}\n');
-    await writeFile(otherFallowPath, '{}\n');
+    await writeFile(oxlintConfigPath, 'export default {};\n');
+    await writeFile(staleOxlintPath, 'export default {};\n');
+    await writeFile(fallowConfigPath, '{}\n');
+    await writeFile(staleFallowPath, '{}\n');
+    await writeFile(staleFallowOutputPath, '{}\n');
 
-    await removeEphemeralProjectConfigs({
-      oxlintConfigPath: ownOxlintPath,
-      fallowConfigPaths: [ownFallowPath],
+    await removeEphemeralProjectConfigs(projectRoot, {
+      oxlintConfigPath,
+      fallowConfigPaths: [fallowConfigPath],
     });
 
     expect(existsSync(artifactPath)).toBe(true);
-    expect(existsSync(ownOxlintPath)).toBe(false);
-    expect(existsSync(ownFallowPath)).toBe(false);
-    expect(existsSync(otherOxlintPath)).toBe(true);
-    expect(existsSync(otherFallowPath)).toBe(true);
-    expect((await readdir(oxlintDir)).sort()).toEqual(['run-b.config.ts']);
-    expect((await readdir(fallowDir)).sort()).toEqual(['run-b.json']);
+    expect(existsSync(oxlintDir)).toBe(false);
+    expect(existsSync(fallowDir)).toBe(false);
   });
 });

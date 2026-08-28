@@ -1,0 +1,1 @@
+system/mailings/mailing-constants.ts:1:7: Do not wrap a constant in "mailingStatusLabels"; export or use the value directly instead of returning it or a shallow copy. [aqg/no-trivial-const-wrappers]

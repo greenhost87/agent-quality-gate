@@ -43,23 +43,36 @@ const FOLLOW_UP_ESCALATION = 'Retry budget exhausted. Stop and report the blocke
 const COMPACT_OUTPUT_HINTS = [
   {
     pattern: /(?:^|\n)\s*live-ui-surface:/u,
-    hint: shortHint('live-ui-surface'),
+    hints: [shortHint('live-ui-surface')],
   },
   {
     pattern: /(?:^|\n)\s*database-committed-migration\b/u,
-    hint: shortHint('database-committed-migration'),
+    hints: [shortHint('database-committed-migration')],
   },
   {
     pattern: /(?:^|\n)\s*single-consumer:/u,
-    hint: shortHint('single-consumer'),
+    hints: [shortHint('single-consumer'), shortHint('avoid-micro-splits')],
   },
+] as const;
+
+const AVOID_MICRO_SPLITS_MARKERS = [
+  'aqg/no-thin-forwarders',
+  'aqg(no-thin-forwarders)',
+  'aqg/no-trivial-const-wrappers',
+  'aqg(no-trivial-const-wrappers)',
+  'aqg/no-identity-aliases',
+  'aqg(no-identity-aliases)',
+  'aqg/no-useless-exported-type-aliases',
+  'aqg(no-useless-exported-type-aliases)',
+  'aqg/no-runtime-in-types-files',
+  'aqg(no-runtime-in-types-files)',
 ] as const;
 
 function prefixOutputHints(output: string): string[] {
   const hints: string[] = [];
   for (const entry of COMPACT_OUTPUT_HINTS) {
     if (entry.pattern.test(output)) {
-      hints.push(entry.hint);
+      hints.push(...entry.hints);
     }
   }
   return hints;
@@ -127,6 +140,9 @@ function recordCompactHintFlags(trimmed: string, flags: CompactHintFlags): void 
   if (lineContainsMarker(trimmed, BUN_PARSE_JSON_MARKERS)) {
     flags.bunParseJson = true;
   }
+  if (lineContainsMarker(trimmed, AVOID_MICRO_SPLITS_MARKERS)) {
+    flags.avoidMicroSplits = true;
+  }
 }
 
 function collectCompactHints(output: string): string[] {
@@ -137,6 +153,7 @@ function collectCompactHints(output: string): string[] {
     databaseBoundary: false,
     playwrightE2e: false,
     bunParseJson: false,
+    avoidMicroSplits: false,
   };
   for (const line of output.split('\n')) {
     const trimmed = line.trim();
@@ -162,6 +179,9 @@ function collectCompactHints(output: string): string[] {
   }
   if (flags.bunParseJson) {
     hints.push(shortHint('bun-parse-json'));
+  }
+  if (flags.avoidMicroSplits) {
+    hints.push(shortHint('avoid-micro-splits'));
   }
   return hints;
 }
@@ -380,4 +400,5 @@ export type CompactHintFlags = {
   databaseBoundary: boolean;
   playwrightE2e: boolean;
   bunParseJson: boolean;
+  avoidMicroSplits: boolean;
 };

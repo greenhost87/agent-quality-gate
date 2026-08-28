@@ -62,7 +62,7 @@ export async function runExecuteVerify(
   try {
     return await runExecuteVerifyBody(request, run, projectRoot, ephemeral);
   } finally {
-    await removeEphemeralProjectConfigs(ephemeral);
+    await removeEphemeralProjectConfigs(projectRoot, ephemeral);
   }
 }
 
