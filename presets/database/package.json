@@ -8,7 +8,7 @@
     "examples:md": "bun ./build-examples-md.ts",
     "lint": "oxlint --deny-warnings --config oxlint.json .",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "bun test --parallel --timeout 30000 tests/system tests/verify-committed-migrations.test.ts",
+    "test": "bun ../../scripts/self-test/run-preset-tests.ts tests/system tests/verify-committed-migrations.test.ts",
     "test:integration": "bun payload/tests/setup/testDatabase.bootstrap.ts bun test --parallel --timeout 120000 tests/*.integration.test.ts tests/system/test-database-bootstrap-lazy.test.ts",
     "verify": "bun run examples:md && bun run lint && bun run typecheck"
   },
