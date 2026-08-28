@@ -13,6 +13,7 @@ import {
 } from '../self-verify/preset-pack-run.js';
 import { runCapturedProcess } from '../../process/run-command/run-command.js';
 import { runRequired } from '../run-required/run-required.js';
+import { resolveBunTestTimeoutMs } from './bun-test-timeout.js';
 
 const ROOT_TEST_ARGS = [
   'test',
@@ -23,7 +24,7 @@ const ROOT_TEST_ARGS = [
   './presets/baseline/tests',
   './presets/playwright/tests',
   '--timeout',
-  '30000',
+  String(resolveBunTestTimeoutMs()),
 ] as const;
 
 export function parseSelfTestArgs(argv: readonly string[]): ParseSelfTestArgsResult {
