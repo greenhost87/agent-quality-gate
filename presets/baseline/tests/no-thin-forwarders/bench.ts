@@ -24,6 +24,16 @@ export const noThinForwardersBench: BenchCreateOnceRuleInput = {
         `}`,
       ]),
     },
+    {
+      name: 'hot-object-properties',
+      filename: '/bench/no-thin-forwarders-object.ts',
+      code: repeat((index) => [
+        `declare const target${index}: { call: (value: number) => number };`,
+        `export const bag${index} = {`,
+        `  call: (value: number) => target${index}.call(value),`,
+        `};`,
+      ]),
+    },
   ],
 };
 

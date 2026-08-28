@@ -1,0 +1,2 @@
+src/a.ts:1:1: error aqg(no-class): class found
+src/b.ts:1:1: error eslint(no-debugger): debugger found

@@ -1,0 +1,3 @@
+src/a.dao.ts:1:1: error database(dao-boundaries): bad
+src/b.ts:2:2: error aqg(no-class): class found
+src/c.ts:3:3: error aqg(no-class): class found

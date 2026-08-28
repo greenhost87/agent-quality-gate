@@ -15,32 +15,18 @@ const bunValibotFixture = readFileSync(
   'utf8',
 );
 
-describe('no-handmade-json-types', () => {
-  it('replays createOnce bench cases without throwing', () => {
-    const result = replayCreateOnceRule({
-      ruleId: noHandmadeJsonTypesBench.ruleId,
-      rule: noHandmadeJsonTypesBench.rule,
-      cases: noHandmadeJsonTypesBench.cases,
-    });
-    expect(result.cases.length).toBe(1);
-    expect(Array.isArray(result.cases[0]?.reports)).toBe(true);
-  });
-});
-
 describe('no-handmade-json-types reports', () => {
-  it('reports type and guard once per hot recursive JSON union', () => {
+  it('reports each recursive JSON type once', () => {
     const result = replayCreateOnceRule({
       ruleId: noHandmadeJsonTypesBench.ruleId,
       rule: noHandmadeJsonTypesBench.rule,
       cases: noHandmadeJsonTypesBench.cases,
     });
     const reports = result.cases[0]?.reports ?? [];
-    // TreeValue + TreeObject + isTreeObject per hot item
-    expect(reports.length).toBe(HOT * 3);
+    // TreeValue + TreeObject per hot item; no-typeof-object owns the guard.
+    expect(reports.length).toBe(HOT * 2);
     const typeReports = reports.filter((report) => report.messageId === 'handmadeType');
-    const guardReports = reports.filter((report) => report.messageId === 'handmadeGuard');
     expect(typeReports.length).toBe(HOT * 2);
-    expect(guardReports.length).toBe(HOT);
   });
 
   it('allows Bun + valibot InferOutput without handmade JSON types', () => {

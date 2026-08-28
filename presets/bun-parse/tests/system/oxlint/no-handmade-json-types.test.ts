@@ -3,10 +3,7 @@ import { expect, test } from 'bun:test';
 import { runOxlintFixture } from './run-oxlint.ts';
 
 const rule = 'bun-parse/no-handmade-json-types';
-const typeMessage =
-  'Do not invent a recursive JSON type. Parse with Bun + valibot and take types from v.InferOutput.';
-const guardMessage =
-  'Do not invent a plain-object JSON type guard. Parse with Bun + valibot and take types from v.InferOutput.';
+const typeMessage = 'Replace recursive JSON types with v.InferOutput<typeof Schema>.';
 
 async function expectRejected(fixture: string, messages: readonly string[]) {
   const result = await runOxlintFixture(
@@ -30,12 +27,12 @@ async function expectAllowed(fixture: string) {
   expect(result.status).toBe(0);
 }
 
-test('no-handmade-json-types rejects classic JsonValue pair and guard', async () => {
-  await expectRejected('classic-pair', [typeMessage, guardMessage]);
+test('no-handmade-json-types rejects classic JsonValue pair', async () => {
+  await expectRejected('classic-pair', [typeMessage]);
 });
 
-test('no-handmade-json-types rejects renamed mutual recursion and guard', async () => {
-  await expectRejected('renamed-inline', [typeMessage, guardMessage]);
+test('no-handmade-json-types rejects renamed mutual recursion', async () => {
+  await expectRejected('renamed-inline', [typeMessage]);
 });
 
 test('no-handmade-json-types rejects renamed Json-shaped pair', async () => {
@@ -50,7 +47,7 @@ test('no-handmade-json-types allows Bun file + valibot InferOutput', async () =>
   await expectAllowed('bun-valibot');
 });
 
-test('no-handmade-json-types allows plain-object guard to Record<string, unknown>', async () => {
+test('no-handmade-json-types leaves plain-object guards to no-typeof-object', async () => {
   await expectAllowed('plain-object-guard');
 });
 

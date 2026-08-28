@@ -1,2 +1,0 @@
-Do not change detector thresholds or copy the markup elsewhere.
-hint:presentation-duplication

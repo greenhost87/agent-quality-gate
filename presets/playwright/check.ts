@@ -1,6 +1,6 @@
 import { join } from 'node:path';
 
-import type { ToolRunResult } from '../../gate/execute-verify/execute-verify.types.ts';
+import type { ToolRunResult } from '../../gate/execute-verify/execute-verify.ts';
 import type { PresetCheckModule } from '../../preset-catalog/contract/preset-check.types.ts';
 import { readProjectPackageJson } from '../../preset-catalog/dependencies/read-project-package-json.ts';
 import { pathExists } from '../../process/files/files.ts';

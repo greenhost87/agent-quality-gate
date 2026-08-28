@@ -1,2 +1,3 @@
-const query = 'SELECT * FROM users';
-export { query };
+export function listUsers(): string {
+  return 'SELECT * FROM users';
+}

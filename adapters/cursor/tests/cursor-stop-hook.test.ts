@@ -99,13 +99,11 @@ describe('cursor stop hook', () => {
     expect(output.followup_message).toContain(
       'Fix only the violations listed below (and any hint: lines)',
     );
-    expect(output.followup_message).toContain('Do not investigate why the gate complains');
+    expect(output.followup_message).toContain('Apply fixes directly; do not investigate the gate');
     expect(output.followup_message).toContain(
-      'Do not dig into prior verify fixes, agent transcripts, other chat sessions, or git history',
+      'search prior fixes, transcripts, chats, git history, or gate tooling/config/packages',
     );
-    expect(output.followup_message).toContain(
-      'Do not search for verify binaries, fallow/jscpd config, agent-quality-gate packages',
-    );
+    expect(output.followup_message).toContain('Then call native or MCP verify again');
   });
 
   it('escalates on the final loop_count and stops after the budget', async () => {

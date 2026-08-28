@@ -8,9 +8,8 @@ import {
 } from '@oxlint/plugins';
 import * as v from 'valibot';
 
-import type { ParsedOptions, WatchedMatch } from './module-placement.types.ts';
-
 const validNestedPlacement = /^[a-z][a-z0-9-]*(?:\/tests)?\/[^/]+\.tsx?$/u;
+const validTestsTreePlacement = /^tests\/(?:[^/]+\/)*[^/]+\.tsx?$/u;
 
 const ModulePlacementOptionsSchema = v.object({
   directories: v.optional(v.array(v.string()), []),
@@ -83,7 +82,9 @@ function isValidPlacement(
   if (!watchedRelative.includes('/')) {
     return exceptions.has(watchedRelative);
   }
-  return validNestedPlacement.test(watchedRelative);
+  return (
+    validNestedPlacement.test(watchedRelative) || validTestsTreePlacement.test(watchedRelative)
+  );
 }
 
 export const modulePlacement = defineRule({
@@ -154,3 +155,13 @@ export default eslintCompatPlugin(
     },
   }),
 );
+
+export type ParsedOptions = {
+  directories: string[];
+  rootExceptions: Map<string, Set<string>>;
+};
+
+export type WatchedMatch = {
+  directory: string;
+  watchedRelative: string;
+};

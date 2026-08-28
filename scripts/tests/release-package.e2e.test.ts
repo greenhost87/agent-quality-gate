@@ -136,6 +136,8 @@ describe('release package', () => {
     await readTextFile(join(installedPackage, 'dist', 'cursor', 'stop-hook.js'));
     await readTextFile(join(installedPackage, 'dist', 'claude', 'mcp-server.js'));
     await readTextFile(join(installedPackage, 'dist', 'claude', 'stop-hook.js'));
+    await readTextFile(join(installedPackage, 'dist', 'codex', 'mcp-server.js'));
+    await readTextFile(join(installedPackage, 'dist', 'codex', 'stop-hook.js'));
     await readTextFile(join(installedPackage, 'dist', 'install-cli.js'));
     const assetsDirectory = join(installedPackage, 'dist', 'extensions', 'assets');
     await readTextFile(join(assetsDirectory, 'oxlint.config.ts'));

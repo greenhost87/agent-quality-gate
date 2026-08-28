@@ -1,9 +1,3 @@
-import type {
-  HarnessChoice,
-  HarnessSelection,
-  ResolveHarnessInput,
-} from './resolve-harness.types.js';
-
 function selectionFromChoice(choice: HarnessChoice): HarnessSelection {
   if (choice === 'pi') {
     return { wirePi: true, wireCursor: false, wireClaude: false, wireCodex: false };
@@ -34,3 +28,29 @@ export function resolveHarnessSelection(input: ResolveHarnessInput): HarnessSele
   }
   return { wirePi: true, wireCursor: true, wireClaude: true, wireCodex: true };
 }
+
+export const HARNESS_CHOICES = ['all', 'pi', 'cursor', 'claude', 'codex'] as const;
+export type HarnessChoice = (typeof HARNESS_CHOICES)[number];
+
+export type HarnessSelection = {
+  wirePi: boolean;
+  wireCursor: boolean;
+  wireClaude: boolean;
+  wireCodex: boolean;
+};
+
+export type ResolveHarnessInput = {
+  piFlag: boolean;
+  cursorFlag: boolean;
+  claudeFlag: boolean;
+  codexFlag: boolean;
+  isTTY: boolean;
+  prompt: () => HarnessChoice;
+};
+
+export type HarnessPresence = {
+  piHomePresent: boolean;
+  cursorHomePresent: boolean;
+  claudeHomePresent: boolean;
+  codexHomePresent: boolean;
+};

@@ -1,0 +1,12 @@
+declare function expect(value: unknown): { toEqual(expected: unknown): void };
+
+const helpers = {
+  clone(value: object): object {
+    return value;
+  },
+};
+
+const again = { definition: {} };
+const expected = { definition: {} };
+
+expect(helpers.clone(again.definition)).toEqual(helpers.clone(expected));

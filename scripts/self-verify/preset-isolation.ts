@@ -1,7 +1,6 @@
 import { existsSync } from 'node:fs';
 import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 
-import type { CrossPresetImportViolation } from './preset-isolation.types.js';
 import { readTextFileSync } from '../../process/files/files.js';
 import {
   collectRepositoryFiles,
@@ -121,3 +120,9 @@ export function rejectCrossPresetImports(projectRoot: string): {
     ),
   );
 }
+
+export type CrossPresetImportViolation = {
+  importer: string;
+  imported: string;
+  specifier: string;
+};

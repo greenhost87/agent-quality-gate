@@ -11,7 +11,16 @@ import type {
   PresetOxlintOverride,
   ResolvedOxlintPlugin,
 } from '../contract/preset-contract.types.js';
-import type { OxlintRuleSetting } from './write-oxlint-config.types.js';
+import { normalizeOxlintRuleSetting } from './oxlint-rule-phase.js';
+import type { OxlintRulePhase, OxlintRuleSeverity } from './oxlint-rule-setting.js';
+
+function normalizeRuleRecord(
+  rules: Readonly<Record<string, OxlintRuleSetting>>,
+): Record<string, OxlintRuleSeverity | readonly [OxlintRuleSeverity, object]> {
+  return Object.fromEntries(
+    Object.entries(rules).map(([ruleId, setting]) => [ruleId, normalizeOxlintRuleSetting(setting)]),
+  );
+}
 
 function withAbsoluteSpecifier(
   plugin: OxlintJsPlugin,
@@ -29,11 +38,11 @@ function withAbsoluteSpecifier(
 
 function overrideToJson(override: PresetOxlintOverride): {
   files: string[];
-  rules: Record<string, OxlintRuleSetting>;
+  rules: Record<string, OxlintRuleSeverity | readonly [OxlintRuleSeverity, object]>;
 } {
   return {
     files: [...override.files],
-    rules: { ...override.rules },
+    rules: normalizeRuleRecord(override.rules),
   };
 }
 
@@ -83,10 +92,10 @@ export async function writeOxlintConfigForProject(
     ...base,
     plugins: mergedNativePlugins,
     jsPlugins: mergedPlugins,
-    rules: {
+    rules: normalizeRuleRecord({
       ...existingRules,
       ...rules,
-    },
+    }),
     overrides: [...baseOverrides, ...overrides.map(overrideToJson)],
   };
 
@@ -94,3 +103,13 @@ export async function writeOxlintConfigForProject(
   await writeTextIfChanged(configPath, `export default ${JSON.stringify(config, null, 2)};\n`);
   return configPath;
 }
+
+export type OxlintRuleSetting =
+  | OxlintRuleSeverity
+  | readonly [OxlintRuleSeverity, object]
+  | {
+      severity: OxlintRuleSeverity;
+      options?: object;
+      /** Verify phase this rule's findings surface in; defaults to the lint phase. */
+      phase?: OxlintRulePhase;
+    };

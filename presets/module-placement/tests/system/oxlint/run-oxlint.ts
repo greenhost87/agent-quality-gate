@@ -3,14 +3,10 @@ import { mkdtempSync, realpathSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
-import type { ModulePlacementOptions } from './run-oxlint.types.ts';
-
 const oxlintPath = resolve('node_modules/.bin/oxlint');
 const pluginPath = resolve(import.meta.dir, '../../../oxlint/module-placement.ts');
 const fixturesRoot = resolve(import.meta.dir, '../../../.quality-fixtures');
 const ruleName = 'module-placement/module-placement';
-
-export type { ModulePlacementOptions } from './run-oxlint.types.ts';
 
 async function writeRuleConfig(options?: ModulePlacementOptions) {
   const workspace = realpathSync(mkdtempSync(join(tmpdir(), 'module-placement-')));
@@ -59,4 +55,9 @@ export const piForemanOptions: ModulePlacementOptions = {
   rootExceptions: {
     'system/agents': ['agents.types.ts'],
   },
+};
+
+export type ModulePlacementOptions = {
+  directories?: string[];
+  rootExceptions?: Record<string, string[]>;
 };

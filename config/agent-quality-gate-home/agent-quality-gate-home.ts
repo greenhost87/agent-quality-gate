@@ -3,7 +3,6 @@ import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 
 import { getOptionalEnv } from '../../gate/read-env/read-env.js';
-import type { EphemeralProjectConfigPaths } from './agent-quality-gate-home.types.js';
 
 export function agentQualityGateHome(): string {
   const override = getOptionalEnv('AGENT_QUALITY_GATE_HOME');
@@ -39,6 +38,11 @@ export function fallowConfigPathForProject(projectRoot: string): string {
   return projectScopedArtifactPath('fallow', '{id}.json', projectRoot);
 }
 
+/** Stable path reused by every fallow phase within one verify run (shared extraction cache). */
+export function verifyFallowConfigPathForProject(projectRoot: string): string {
+  return join(resolve(projectRoot), '.aqg', 'fallow', 'verify.json');
+}
+
 export function oxlintConfigPathForProject(
   projectRoot: string,
   fileName = '{id}.config.ts',
@@ -69,7 +73,7 @@ async function ignoreFilesystemCodes(
 export async function removeEphemeralProjectConfigs(
   paths: EphemeralProjectConfigPaths,
 ): Promise<void> {
-  const configPaths = [paths.oxlintConfigPath, paths.fallowConfigPath].filter(
+  const configPaths = [paths.oxlintConfigPath, ...paths.fallowConfigPaths].filter(
     (path): path is string => path !== undefined,
   );
   await Promise.all(
@@ -88,3 +92,8 @@ export async function removeEphemeralProjectConfigs(
     }),
   );
 }
+
+export type EphemeralProjectConfigPaths = {
+  oxlintConfigPath?: string;
+  fallowConfigPaths: string[];
+};

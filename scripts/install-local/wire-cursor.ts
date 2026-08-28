@@ -22,9 +22,8 @@ const StopHookEntrySchema = v.looseObject({
   timeout: v.optional(v.number()),
 });
 
-function asDocument(value: object | undefined): ConfigDocument {
-  const result = v.safeParse(ConfigDocumentSchema, value);
-  return result.success ? result.output : {};
+function asDocument(value: ConfigDocument | undefined): ConfigDocument {
+  return value ?? {};
 }
 
 function isAqgStopHookCommand(command: string): boolean {
@@ -35,16 +34,11 @@ export async function readConfigDocument(path: string): Promise<ConfigDocument> 
   if (!(await pathExists(path))) {
     return {};
   }
-  let parsed;
   try {
-    parsed = await readJsonFile(path);
+    return await readJsonFile(path, ConfigDocumentSchema);
   } catch {
     return {};
   }
-  if (typeof parsed !== 'object' || parsed === null) {
-    return {};
-  }
-  return asDocument(parsed);
 }
 
 export async function writeConfigDocument(path: string, value: ConfigDocument): Promise<void> {
@@ -74,11 +68,9 @@ export function stopHookCommand(stopHookPath: string): string {
 /** Merge agent-quality-gate into a Cursor mcp.json document. */
 export function wireMcpDocument(document: ConfigDocument, mcpServerPath: string): ConfigDocument {
   const root: ConfigDocument = { ...document };
-  const mcpServersValue = root.mcpServers;
+  const mcpServersResult = v.safeParse(ConfigDocumentSchema, root.mcpServers);
   const mcpServers: ConfigDocument = {
-    ...asDocument(
-      typeof mcpServersValue === 'object' && mcpServersValue !== null ? mcpServersValue : undefined,
-    ),
+    ...asDocument(mcpServersResult.success ? mcpServersResult.output : undefined),
   };
   mcpServers[MCP_SERVER_NAME] = mcpServerConfig(mcpServerPath);
   root.mcpServers = mcpServers;
@@ -91,9 +83,9 @@ export function wireHooksDocument(document: ConfigDocument, stopHookPath: string
   if (root.version === undefined) {
     root.version = 1;
   }
-  const hooksValue = root.hooks;
+  const hooksResult = v.safeParse(ConfigDocumentSchema, root.hooks);
   const hooks: ConfigDocument = {
-    ...asDocument(typeof hooksValue === 'object' && hooksValue !== null ? hooksValue : undefined),
+    ...asDocument(hooksResult.success ? hooksResult.output : undefined),
   };
   const existingStop = v.safeParse(v.array(ConfigDocumentSchema), hooks.stop);
   const stop: ConfigDocument[] = existingStop.success

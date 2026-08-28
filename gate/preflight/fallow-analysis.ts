@@ -1,8 +1,6 @@
 import { join } from 'node:path';
 import * as v from 'valibot';
 
-import type { DiscoveredFilesOutput } from './fallow-analysis.types.js';
-
 const FallowDiscoveredFilesSchema = v.pipe(
   v.object({
     file_count: v.number(),
@@ -10,6 +8,8 @@ const FallowDiscoveredFilesSchema = v.pipe(
   }),
   v.check((value) => value.file_count === value.files.length, 'file_count must match files length'),
 );
+
+const FallowDiscoveredFilesJsonSchema = v.pipe(v.string(), v.parseJson());
 
 export function fallowCacheEnvironment(projectRoot: string): Record<string, string> {
   return {
@@ -21,15 +21,18 @@ export function parseFallowDiscoveredFiles(
   stdout: string,
   diagnosticPrefix: string,
 ): DiscoveredFilesOutput {
-  let value: unknown;
-  try {
-    value = JSON.parse(stdout);
-  } catch {
+  const parsed = v.safeParse(FallowDiscoveredFilesJsonSchema, stdout);
+  if (!parsed.success) {
     throw new Error(`${diagnosticPrefix}fallow list returned malformed JSON`);
   }
-  const result = v.safeParse(FallowDiscoveredFilesSchema, value);
+  const result = v.safeParse(FallowDiscoveredFilesSchema, parsed.output);
   if (!result.success) {
     throw new Error(`${diagnosticPrefix}fallow list files schema is unsupported`);
   }
   return result.output;
 }
+
+export type DiscoveredFilesOutput = {
+  file_count: number;
+  files: string[];
+};

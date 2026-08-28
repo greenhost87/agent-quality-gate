@@ -23,7 +23,7 @@ test('DAO boundaries reject database driver imports outside system/database', as
   );
 });
 
-test('DAO boundaries reject getDatabase outside DAO implementations', async () => {
+test('DAO boundaries reject sql outside DAO implementations', async () => {
   await Promise.all(
     (
       [
@@ -34,21 +34,29 @@ test('DAO boundaries reject getDatabase outside DAO implementations', async () =
       expectRejected(
         fixture,
         entry,
-        'Import getDatabase only from production *.dao.ts database implementations.',
+        'Import sql only from production *.dao.ts database implementations.',
       ),
     ),
   );
 });
 
-test('DAO boundaries allow getDatabase only in production DAO implementations', async () => {
+test('DAO boundaries allow sql only in production DAO implementations', async () => {
   await Promise.all([
     expectAllowed('sql-pool-dao', 'system/database/orders/orders.dao.ts'),
     expectRejected(
       'sql-pool-test-dao',
       'tests/database/orders.dao.ts',
-      'Import getDatabase only from production *.dao.ts database implementations.',
+      'Import sql only from production *.dao.ts database implementations.',
     ),
   ]);
+});
+
+test('DAO boundaries reject the removed getDatabase accessor', async () => {
+  await expectRejected(
+    'legacy-get-database-dao',
+    'system/database/orders/orders.dao.ts',
+    'Import sql instead of the removed getDatabase accessor.',
+  );
 });
 
 test('DAO boundaries allow database lifecycle imports from connection', async () => {
@@ -190,7 +198,12 @@ test('DAO boundaries reject implementation imports by any path and default metho
   expect(result.output).toContain(
     'DAO implementation modules must not import other DAO implementation modules.',
   );
-  expect(result.output).toContain('DAO methods must not use default parameter values.');
+  expect(result.output).toContain('DAO functions must not use default parameter values.');
+  await expectRejected(
+    'dao-function-default',
+    'system/database/orders/orders.dao.ts',
+    'DAO functions must not use default parameter values.',
+  );
 });
 
 test('DAO boundaries reject obvious DDL outside migrations and managed administrative statements', async () => {
@@ -222,28 +235,66 @@ test('DAO boundaries allow plain DML-looking string literals', async () => {
   ]);
 });
 
-test('DAO boundaries require an exported singleton for each DAO class', async () => {
+test('DAO boundaries require named function exports instead of classes and object bags', async () => {
   await Promise.all([
-    expectAllowed('dao-singleton', 'system/database/orders/orders.dao.ts'),
     expectRejected(
-      'missing-dao-singleton',
+      'dao-class',
       'system/database/orders/orders.dao.ts',
-      'Export a module singleton const matching the DAO class name in camelCase (OrdersDao → ordersDao).',
+      'Use named DAO functions instead of classes.',
     ),
     expectRejected(
-      'wrong-dao-singleton-name',
+      'dao-object-singleton',
       'system/database/orders/orders.dao.ts',
-      'Export a module singleton const matching the DAO class name in camelCase (OrdersDao → ordersDao).',
+      'DAO implementation modules may export only named function declarations and types.',
+    ),
+    expectRejected(
+      'dao-object-bag',
+      'system/database/orders/orders.dao.ts',
+      'DAO implementation modules may export only named function declarations and types.',
+    ),
+    expectRejected(
+      'dao-default-object',
+      'system/database/orders/orders.dao.ts',
+      'DAO implementation modules may export only named function declarations and types.',
     ),
   ]);
 });
 
-test('DAO boundaries reject constructing DAO classes outside the singleton export', async () => {
-  const constructMessage =
-    'Construct DAO classes only as the exported module singleton inside their production *.dao.ts file.';
+test('DAO boundaries reject constructing DAO classes', async () => {
+  const constructMessage = 'Do not construct DAO classes; import named DAO functions.';
   await Promise.all([
     expectRejected('new-dao-service', 'system/orders/service.ts', constructMessage),
     expectRejected('new-dao-test', 'tests/orders/service.test.ts', constructMessage),
     expectRejected('extra-dao-construct', 'system/database/orders/orders.dao.ts', constructMessage),
+  ]);
+});
+
+test('DAO boundaries reject exposing imported DAO operations as runtime values', async () => {
+  const message = 'Invoke DAO operations directly; do not expose them as values or re-export them.';
+  await Promise.all([
+    expectRejected(
+      'dao-operation-bag',
+      'system/database/database-arrange-observe-surface.ts',
+      message,
+    ),
+    expectRejected('dao-named-operation-value', 'system/orders/service.ts', message),
+    expectRejected('dao-runtime-reexport', 'system/orders/service.ts', message),
+  ]);
+});
+
+test('DAO boundaries reject exported object facades backed by local DAO wrappers', async () => {
+  await expectRejected(
+    'dao-exported-wrapper-bag',
+    'system/orders/service.ts',
+    'Do not export object facades backed by DAO operations.',
+  );
+});
+
+test('DAO boundaries allow direct DAO calls, type re-exports, and local dispatch adapters', async () => {
+  await Promise.all([
+    expectAllowed('dao-direct-calls', 'system/orders/service.ts'),
+    expectAllowed('dao-type-reexport', 'system/orders/service.ts'),
+    expectAllowed('dao-local-dispatch-adapter', 'system/orders/service.ts'),
+    expectAllowed('dao-test-spy', 'tests/orders/service.test.ts'),
   ]);
 });

@@ -1,13 +1,9 @@
 import { describe, expect, it } from 'bun:test';
 
 import { replayCreateOnceRule } from 'agent-quality-gate/oxlint-rule-bench';
-import { describeRuleBenchReplay } from '../support/describe-rule-bench-replay.ts';
 import { readRuleFixture } from '../support/read-rule-fixture.ts';
 
 import { noInlineMultilineTestDataBench } from './bench.ts';
-
-describeRuleBenchReplay(noInlineMultilineTestDataBench);
-
 describe('no-inline-multiline-test-data reports', () => {
   it('reports once per newline join on hot-test-data', () => {
     const result = replayCreateOnceRule({

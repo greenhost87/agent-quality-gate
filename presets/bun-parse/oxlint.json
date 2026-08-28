@@ -16,6 +16,9 @@
   "rules": {
     "aqg/no-inline-multiline-test-data": "error",
     "aqg/no-oxlint-disable-directives": "error",
-    "bun-parse/no-handmade-json-types": "error"
+    "bun-parse/no-handmade-json-types": "error",
+    "bun-parse/no-raw-json-parse": "error",
+    "bun-parse/no-typeof-object": "error",
+    "bun-parse/scripts-boundaries": "error"
   }
 }

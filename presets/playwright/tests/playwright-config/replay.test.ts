@@ -6,18 +6,6 @@ import { requireCreateOnceRule } from 'agent-quality-gate/oxlint-rule-bench/requ
 
 import { playwrightConfigBench } from './bench.ts';
 
-describe('playwright-config', () => {
-  it('replays createOnce bench cases without throwing', () => {
-    const result = replayCreateOnceRule({
-      ruleId: playwrightConfigBench.ruleId,
-      rule: playwrightConfigBench.rule,
-      cases: playwrightConfigBench.cases,
-    });
-    expect(result.cases.length).toBe(1);
-    expect(Array.isArray(result.cases[0]?.reports)).toBe(true);
-  });
-});
-
 describe('playwright-config before skip', () => {
   it('runs the scan in before and skips the visitor walk', () => {
     const createOnce = requireCreateOnceRule(playwrightConfigBench.rule);

@@ -1,4 +1,4 @@
-import type { OxlintRuleSetting } from '../oxlint-config/write-oxlint-config.types.js';
+import type { OxlintRuleSetting } from '../oxlint-config/write-oxlint-config.js';
 import type { PresetDependencySection } from './preset-dependency-sections.js';
 
 export type PresetProjectDependency = {

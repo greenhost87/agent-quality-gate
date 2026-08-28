@@ -1,8 +1,10 @@
-import { parseSync, visitorKeys } from 'oxc-parser';
+import { parseSync } from 'oxc-parser';
 import type { Program } from 'oxc-parser';
 import type { VisitorWithHooks } from '@oxlint/plugins';
+import * as v from 'valibot';
 
-import type { AstChildValue, AstNode, ParsedProgram } from './bench-create-once-rule.types.js';
+import { AstNodeSchema, forEachAstChild } from '../oxlint-walk/ast-node-schema.ts';
+import type { AstNode, ParsedProgram } from './bench-create-once-rule.js';
 
 export function languageFromFilename(filename: string): 'js' | 'jsx' | 'ts' | 'tsx' {
   if (filename.endsWith('.tsx')) {
@@ -34,25 +36,8 @@ export function parseFixture(filename: string, code: string): ParsedProgram {
   };
 }
 
-function isAstNode(value: object): value is AstNode {
-  return !Array.isArray(value) && 'type' in value && typeof value.type === 'string';
-}
-
-function childValue(node: AstNode, key: string): AstChildValue {
-  const value = node[key];
-  if (value == null) {
-    return null;
-  }
-  if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean') {
-    return value;
-  }
-  if (Array.isArray(value)) {
-    return value;
-  }
-  if (typeof value === 'object') {
-    return value;
-  }
-  return null;
+function isAstNode(value: unknown): value is AstNode {
+  return v.is(AstNodeSchema, value);
 }
 
 function callVisitor(visitors: VisitorWithHooks, key: string, node: AstNode): void {
@@ -65,26 +50,15 @@ function callVisitor(visitors: VisitorWithHooks, key: string, node: AstNode): vo
   }
 }
 
-function walkChild(value: AstChildValue, parent: AstNode, visitors: VisitorWithHooks): void {
-  if (Array.isArray(value)) {
-    for (const entry of value) {
-      walkNode(entry, parent, visitors);
-    }
-    return;
-  }
-  if (value != null && typeof value === 'object') {
-    walkNode(value, parent, visitors);
-  }
-}
-
 function walkNode(node: AstNode, parent: AstNode | null, visitors: VisitorWithHooks): void {
   node.parent = parent;
   callVisitor(visitors, node.type, node);
 
-  const keys: string[] = visitorKeys[node.type] ?? [];
-  for (const key of keys) {
-    walkChild(childValue(node, key), node, visitors);
-  }
+  forEachAstChild(node, (child) => {
+    if (isAstNode(child)) {
+      walkNode(child, node, visitors);
+    }
+  });
 
   callVisitor(visitors, `${node.type}:exit`, node);
 }

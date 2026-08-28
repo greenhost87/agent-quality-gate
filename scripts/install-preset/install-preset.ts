@@ -11,6 +11,7 @@ import {
   homePresetsDirectory,
 } from '../../config/agent-quality-gate-home/agent-quality-gate-home.js';
 import { isKnownPresetName } from '../../preset-catalog/catalog/preset-catalog.js';
+import { createCli, parseCli, reportCommandError } from '../../process/command/command.js';
 import { packagePresetRoot } from '../package-preset-root/package-preset-root.js';
 
 function resolveBundleCwd(sourceRoot: string): string {
@@ -73,16 +74,18 @@ export async function installPresetFromSource(
   }
 }
 
-function usage(): never {
-  throw new Error(
-    'usage: bun ./scripts/install-preset/install-preset.ts <absolute-preset-source-root>',
-  );
-}
-
 async function main(): Promise<void> {
-  const sourceRoot = process.argv[2];
+  const program = createCli('install:preset').argument(
+    '<preset-source-root>',
+    'Absolute preset source root containing manifest.json',
+  );
+  if (parseCli(program, process.argv.slice(2)) === 'help') {
+    process.stdout.write('Usage: bun ./install.ts preset <absolute-preset-source-root>\n');
+    return;
+  }
+  const sourceRoot = program.args[0];
   if (sourceRoot === undefined || sourceRoot.length === 0) {
-    usage();
+    throw new Error('usage: bun ./install.ts preset <absolute-preset-source-root>');
   }
   if (!isAbsolute(sourceRoot)) {
     throw new Error(`preset source root must be absolute: ${sourceRoot}`);
@@ -92,5 +95,10 @@ async function main(): Promise<void> {
 }
 
 if (import.meta.main) {
-  await main();
+  try {
+    await main();
+  } catch (error) {
+    reportCommandError('install:preset', error instanceof Error ? error : String(error));
+    process.exitCode = 1;
+  }
 }

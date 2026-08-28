@@ -12,7 +12,6 @@ import { registerQualityGate } from '../register-quality-gate.js';
 import { activeToolNamesForCwd } from '../verify-tool-visibility.js';
 import { VERIFY_TOOL_NAME } from '../../hooks/verify-tool-name.js';
 import { executeVerify } from '../../../gate/execute-verify/execute-verify.js';
-import { expectRejectedMessage } from '../../../tests/support/expect-rejected.js';
 import { useIsolatedAgentQualityGateHome } from '../../../tests/support/isolated-home.js';
 import {
   createPiExtensionHost,
@@ -53,7 +52,7 @@ describe('pi extension', () => {
     expect(match?.presets).toEqual([]);
   });
 
-  it('rejects relative roots and duplicated canonical roots', async () => {
+  it('skips relative roots and duplicated canonical roots', async () => {
     const configDirectory = await makePiTempDirectory('quality-gate-pi-invalid-');
     const project = await makePiTempDirectory('quality-gate-pi-dup-');
     const relativePath = await writePiGlobalConfig(configDirectory, {
@@ -69,14 +68,11 @@ describe('pi extension', () => {
       },
     );
 
-    await expectRejectedMessage(
-      readGlobalQualityGateConfig(relativePath),
-      'root must be an absolute path',
-    );
-    await expectRejectedMessage(
-      readGlobalQualityGateConfig(duplicatePath),
-      'project roots must be unique',
-    );
+    expect(await readGlobalQualityGateConfig(relativePath)).toEqual({ projects: [], warnings: [] });
+    const duplicates = await readGlobalQualityGateConfig(duplicatePath);
+    expect(duplicates.projects).toHaveLength(1);
+    expect(duplicates.projects[0]?.root).toBe(realpathSync(project));
+    expect(duplicates.projects[0]?.entries).toEqual(['src/index.ts']);
   });
 
   it('runs verify for an allowlisted workspace', async () => {
@@ -162,30 +158,6 @@ describe('pi extension', () => {
 
     expect(result.exitCode).toBe(1);
     expect(diagnostics).toContain('eslint(no-debugger)');
-  });
-
-  it('allows settlement when verify passes', async () => {
-    const cwd = await createPiProject('clean-function');
-    const configPath = await writePiGlobalConfig(
-      await makePiTempDirectory('quality-gate-pi-pass-'),
-      {
-        projects: [{ root: cwd, entries: ['src/index.ts'] }],
-      },
-    );
-    const project = findProjectForCwd(
-      cwd,
-      (await readGlobalQualityGateConfig(configPath)).projects,
-    );
-    if (project === undefined) {
-      throw new Error('expected allowlisted project');
-    }
-
-    const result = await executeVerify({
-      projectRoot: project.root,
-      entries: project.entries,
-    });
-
-    expect(result.exitCode).toBe(0);
   });
 
   it('creates one global YAML configuration', async () => {

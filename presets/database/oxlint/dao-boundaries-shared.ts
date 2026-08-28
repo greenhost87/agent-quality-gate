@@ -43,11 +43,15 @@ export function projectPath(context: Context): string {
   return filename.startsWith(`${root}/`) ? filename.slice(root.length + 1) : filename;
 }
 
-export function daoMethodDefault(node: ESTree.Node): boolean {
+export function daoFunctionDefault(node: ESTree.Node): boolean {
   let current: ESTree.Node = node;
   while (current.parent) {
     const parent = current.parent;
-    if (parent.type === 'FunctionExpression' && parent.parent.type === 'MethodDefinition') {
+    if (
+      parent.type === 'FunctionDeclaration' ||
+      parent.type === 'FunctionExpression' ||
+      parent.type === 'ArrowFunctionExpression'
+    ) {
       return (parent.params as ESTree.Node[]).includes(current);
     }
     if (
@@ -303,70 +307,4 @@ export function reportSqlDdl(
 
 export function isDaoClassName(name: string | undefined): name is string {
   return typeof name === 'string' && daoClassNamePattern.test(name);
-}
-
-export function daoSingletonName(className: string): string {
-  return `${className[0].toLowerCase()}${className.slice(1)}`;
-}
-
-function isExportedConstDeclarator(node: ESTree.VariableDeclarator): boolean {
-  const declaration = node.parent;
-  if (declaration.type !== 'VariableDeclaration' || declaration.kind !== 'const') return false;
-  const exported = declaration.parent;
-  return exported.type === 'ExportNamedDeclaration' && exported.declaration === declaration;
-}
-
-export function isDaoSingletonExport(node: ESTree.VariableDeclarator, className: string): boolean {
-  if (!isExportedConstDeclarator(node)) return false;
-  if (node.id.type !== 'Identifier' || node.id.name !== daoSingletonName(className)) return false;
-  return (
-    node.init?.type === 'NewExpression' &&
-    node.init.callee.type === 'Identifier' &&
-    node.init.callee.name === className
-  );
-}
-
-export function exportedDaoClassDeclarations(program: ESTree.Program): ESTree.Node[] {
-  const declarations: ESTree.Node[] = [];
-  for (const statement of program.body) {
-    if (statement.type !== 'ExportNamedDeclaration') continue;
-    const declaration = statement.declaration;
-    if (declaration?.type === 'ClassDeclaration' && isDaoClassName(declaration.id?.name)) {
-      declarations.push(declaration);
-    }
-  }
-  return declarations;
-}
-
-export function exportedDaoSingletonClassNames(program: ESTree.Program): Set<string> {
-  const names = new Set<string>();
-  for (const statement of program.body) {
-    const declaration = statement.type === 'ExportNamedDeclaration' ? statement.declaration : null;
-    if (declaration?.type !== 'VariableDeclaration' || declaration.kind !== 'const') {
-      continue;
-    }
-    for (const declarator of declaration.declarations) {
-      const className = daoClassNameFromSingletonDeclarator(declarator);
-      if (className !== undefined) {
-        names.add(className);
-      }
-    }
-  }
-  return names;
-}
-
-function daoClassNameFromSingletonDeclarator(
-  declarator: ESTree.VariableDeclarator,
-): string | undefined {
-  if (declarator.id.type !== 'Identifier') {
-    return undefined;
-  }
-  if (declarator.init?.type !== 'NewExpression' || declarator.init.callee.type !== 'Identifier') {
-    return undefined;
-  }
-  const className = declarator.init.callee.name;
-  if (!isDaoClassName(className) || declarator.id.name !== daoSingletonName(className)) {
-    return undefined;
-  }
-  return className;
 }

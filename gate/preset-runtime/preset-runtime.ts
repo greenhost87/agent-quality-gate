@@ -4,12 +4,12 @@ export {
   readFallowConfigFile,
 } from '../../config/verify-config-files/verify-config-files.js';
 export type { FallowConfig } from '../../config/verify-config-files/verify-config-files.js';
-export type { ToolRunResult } from '../execute-verify/execute-verify.types.js';
+export type { ToolRunResult } from '../execute-verify/execute-verify.js';
 export {
   fallowCacheEnvironment,
   parseFallowDiscoveredFiles,
 } from '../preflight/fallow-analysis.js';
-export type { DiscoveredFilesOutput } from '../preflight/fallow-analysis.types.js';
+export type { DiscoveredFilesOutput } from '../preflight/fallow-analysis.js';
 export { projectScopedArtifactPath } from '../../config/agent-quality-gate-home/agent-quality-gate-home.js';
 export type {
   PresetCheckModule,

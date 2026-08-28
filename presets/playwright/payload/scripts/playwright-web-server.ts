@@ -1,5 +1,3 @@
-// Managed by agent-quality-gate. Do not edit; changes are overwritten on verify.
-
 /**
  * Point playwright.config.ts webServer.command at a project-owned scripts/ starter
  * (not this file, and not under tests/ or e2e/). That command starts PostgreSqlContainer,

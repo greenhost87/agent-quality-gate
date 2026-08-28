@@ -2,10 +2,10 @@
 
 import { join } from 'node:path';
 
-import { rejectUnexpectedArgument, reportCommandError } from '../../process/command/command.js';
-import type { VerifyResult } from '../../gate/execute-verify/execute-verify.types.js';
+import { createCli, reportCommandError, runCli } from '../../process/command/command.js';
+import type { VerifyResult } from '../../gate/execute-verify/execute-verify.js';
 import { formatFmtOk } from '../../gate/execute-verify/verify-ok-message.js';
-import { exitCodeAfterWritingResults } from '../self-verify/cli.js';
+import { exitCodeAfterWritingResults } from '../../gate/public-verify/verify-streams.js';
 import {
   formatLocalPresetPacks,
   listLocalPresetPackFmtNames,
@@ -20,7 +20,7 @@ export function repositoryOxfmtArgs(packFmtNames: readonly string[]): string[] {
 async function formatLocalRepository(projectRoot: string): Promise<VerifyResult> {
   const root = resolveProjectRoot(projectRoot);
   const startedAt = performance.now();
-  const packFmtNames = listLocalPresetPackFmtNames(root);
+  const packFmtNames = await listLocalPresetPackFmtNames(root);
   const oxfmt = join(root, 'node_modules', 'oxfmt', 'bin', 'oxfmt');
   const result = await runCapturedProcess({
     command: oxfmt,
@@ -38,10 +38,8 @@ async function formatLocalRepository(projectRoot: string): Promise<VerifyResult>
 }
 
 if (import.meta.main) {
-  if (rejectUnexpectedArgument('fmt')) {
-    process.exitCode = 2;
-  } else {
-    try {
+  try {
+    await runCli(createCli('fmt'), process.argv.slice(2), 'Usage: bun run fmt', async () => {
       const projectRoot = process.cwd();
       process.exitCode = exitCodeAfterWritingResults(
         ...(await Promise.all([
@@ -49,9 +47,9 @@ if (import.meta.main) {
           formatLocalPresetPacks(projectRoot),
         ])),
       );
-    } catch (error) {
-      reportCommandError('fmt', error instanceof Error ? error : String(error));
-      process.exitCode = 2;
-    }
+    });
+  } catch (error) {
+    reportCommandError('fmt', error instanceof Error ? error : String(error));
+    process.exitCode = 2;
   }
 }

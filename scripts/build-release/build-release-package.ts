@@ -2,7 +2,7 @@
 
 import { cp, mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import packageJson from '../../package.json' with { type: 'json' };
@@ -12,7 +12,10 @@ import {
 } from '../../config/verify-config-files/verify-config-files.js';
 import { SHIPPED_PRESET_NAMES } from '../../preset-catalog/catalog/preset-catalog.js';
 import { writeTextFile } from '../../process/files/files.js';
-import { packagePresetRoot } from '../package-preset-root/package-preset-root.js';
+import {
+  buildOxlintPluginBundle,
+  packagePresetRoot,
+} from '../package-preset-root/package-preset-root.js';
 import { runRequired } from '../run-required/run-required.js';
 
 const REPO_ROOT = fileURLToPath(new URL('../..', import.meta.url));
@@ -152,6 +155,39 @@ function packReleasePackage(releasePackageDir: string): void {
   );
 }
 
+async function packageAssetsOxlintConfig(
+  config: ReturnType<typeof readOxlintConfig>,
+  assetsDir: string,
+  releaseAssetsDir: string,
+): Promise<ReturnType<typeof readOxlintConfig>> {
+  const jsPlugins = config.jsPlugins ?? [];
+  const nextPlugins = await Promise.all(
+    jsPlugins.map(async (plugin) => {
+      const specifier = plugin.specifier;
+      if (
+        specifier === undefined ||
+        !specifier.startsWith('./oxlint/') ||
+        !specifier.endsWith('.ts')
+      ) {
+        return plugin;
+      }
+      const sourceEntry = join(assetsDir, specifier);
+      const packagedSpecifier = specifier.replace(/\.ts$/u, '.js');
+      const output = join(releaseAssetsDir, packagedSpecifier);
+      await mkdir(dirname(output), { recursive: true });
+      buildOxlintPluginBundle(sourceEntry, output, REPO_ROOT);
+      return {
+        ...plugin,
+        specifier: packagedSpecifier,
+      };
+    }),
+  );
+  return {
+    ...config,
+    jsPlugins: nextPlugins,
+  };
+}
+
 async function main(): Promise<void> {
   const releasePackageDir = await mkdtemp(join(tmpdir(), 'agent-quality-gate-release-'));
   const releaseDistDir = join(releasePackageDir, 'dist');
@@ -163,7 +199,11 @@ async function main(): Promise<void> {
     const releaseDistAssetsDir = join(releaseDistExtensionsDir, 'assets');
     await mkdir(releaseDistAssetsDir, { recursive: true });
     const verifyAssetsDir = join(REPO_ROOT, 'assets');
-    const oxlintConfig = readOxlintConfig(verifyAssetsDir);
+    const oxlintConfig = await packageAssetsOxlintConfig(
+      readOxlintConfig(verifyAssetsDir),
+      verifyAssetsDir,
+      releaseDistAssetsDir,
+    );
     await writeTextFile(
       join(releaseDistAssetsDir, OXLINT_CONFIG_NAME),
       `export default ${JSON.stringify(oxlintConfig, null, 2)};\n`,

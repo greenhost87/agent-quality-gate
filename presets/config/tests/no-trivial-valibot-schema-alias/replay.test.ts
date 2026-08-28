@@ -17,18 +17,6 @@ const nonEmptyPipeFixture = readFileSync(
   'utf8',
 );
 
-describe('no-trivial-valibot-schema-alias', () => {
-  it('replays createOnce bench cases without throwing', () => {
-    const result = replayCreateOnceRule({
-      ruleId: noTrivialValibotSchemaAliasBench.ruleId,
-      rule: noTrivialValibotSchemaAliasBench.rule,
-      cases: noTrivialValibotSchemaAliasBench.cases,
-    });
-    expect(result.cases.length).toBe(1);
-    expect(Array.isArray(result.cases[0]?.reports)).toBe(true);
-  });
-});
-
 describe('no-trivial-valibot-schema-alias before skip', () => {
   it('runs the scan in before and skips the visitor walk', () => {
     const createOnce = requireCreateOnceRule(noTrivialValibotSchemaAliasBench.rule);

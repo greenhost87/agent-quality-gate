@@ -1,8 +1,4 @@
-import type {
-  VerifyRequest,
-  VerifyResult,
-} from '../../gate/execute-verify/execute-verify.types.js';
-import { firstNonZeroResult } from './preset-verify-result.js';
+import type { VerifyRequest } from '../../gate/execute-verify/execute-verify.js';
 
 const LOCAL_ENTRIES = [
   'adapters/claude/*.ts',
@@ -13,12 +9,13 @@ const LOCAL_ENTRIES = [
   'adapters/hooks/*.ts',
   'presets/baseline/oxlint/*.ts',
   'presets/baseline/oxlint/rules/*.ts',
-  'presets/playwright/check.ts',
+  'presets/baseline/gate-config.ts',
   'scripts/*/*.ts',
   'config/*/*.ts',
   'gate/*/*.ts',
   'preset-catalog/*/*.ts',
   'process/*/*.ts',
+  'install.ts',
 ] as const;
 
 const LOCAL_PRESETS = [
@@ -36,6 +33,7 @@ const LOCAL_MODULE_PLACEMENT = {
 
 const LOCAL_IGNORE_PATTERNS = [
   'adapters/claude/.quality-fixtures/**',
+  'gate/tests/**/fixtures/**',
   'adapters/codex/.quality-fixtures/**',
   'adapters/cursor/.quality-fixtures/**',
   'adapters/pi/.quality-fixtures/**',
@@ -47,7 +45,13 @@ const LOCAL_IGNORE_PATTERNS = [
   'presets/config/.quality-fixtures/**',
   'presets/database/.quality-fixtures/**',
   'presets/module-placement/.quality-fixtures/**',
+  'presets/oxlint-ui-surface/.quality-fixtures/**',
+  'presets/packages/.quality-fixtures/**',
   'presets/playwright/.quality-fixtures/**',
+  'presets/project-quality/.quality-fixtures/**',
+  'presets/react-duplication/.quality-fixtures/**',
+  'presets/react-presentation/.quality-fixtures/**',
+  'presets/single-consumer/.quality-fixtures/**',
 ] as const;
 
 export function localVerifyRequest(): VerifyRequest {
@@ -57,28 +61,14 @@ export function localVerifyRequest(): VerifyRequest {
     ignorePatterns: LOCAL_IGNORE_PATTERNS,
     presets: LOCAL_PRESETS,
     skipPresetProjectChecks: true,
-    modulePlacement: {
-      directories: [...LOCAL_MODULE_PLACEMENT.directories],
-      rootExceptions: { ...LOCAL_MODULE_PLACEMENT.rootExceptions },
+    presetConfig: {
+      'module-placement': {
+        directories: [...LOCAL_MODULE_PLACEMENT.directories],
+        rootExceptions: { ...LOCAL_MODULE_PLACEMENT.rootExceptions },
+      },
+      baseline: { maxInlineParameterObjectMembers: 3 },
     },
-    baseline: { maxInlineParameterObjectMembers: 3 },
-    fallowIgnoreDependencies: ['@testcontainers/postgresql', 'testcontainers'],
+    fallowIgnoreDependencies: ['@testcontainers/postgresql', 'testcontainers', '@oxlint/plugins'],
     okLabel: 'repository',
   };
-}
-
-export function writeVerifyStreams(result: VerifyResult): void {
-  if (result.stdout.length > 0) {
-    process.stdout.write(result.stdout);
-  }
-  if (result.stderr.length > 0) {
-    process.stderr.write(result.stderr);
-  }
-}
-
-export function exitCodeAfterWritingResults(...results: readonly VerifyResult[]): number {
-  for (const result of results) {
-    writeVerifyStreams(result);
-  }
-  return firstNonZeroResult(...results)?.exitCode ?? 0;
 }

@@ -6,7 +6,7 @@ import type {
   NodeProcessRunOptions,
   NodeProcessToFileOptions,
   ToolRunResult,
-} from '../../gate/execute-verify/execute-verify.types.js';
+} from '../../gate/execute-verify/execute-verify.js';
 import { createEnv } from '../../gate/read-env/read-env.js';
 import { readTextFile } from '../files/files.js';
 import { runCapturedProcess } from '../run-command/run-command.js';

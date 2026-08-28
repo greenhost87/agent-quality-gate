@@ -1,4 +1,4 @@
-import type { SessionBranchEntry } from './session-ask-user.types.js';
+import type { SessionBranchEntry } from './session-ask-user.js';
 
 export type EmptyToolParams = Record<string, never>;
 

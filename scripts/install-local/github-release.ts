@@ -1,7 +1,5 @@
 import * as v from 'valibot';
 
-import type { GithubRelease, GithubReleaseAsset } from './github-release.types.js';
-
 export const GITHUB_REPO = 'greenhost87/agent-quality-gate';
 
 const TARBALL_NAME = /^agent-quality-gate-.+\.tgz$/;
@@ -46,3 +44,13 @@ export function parseGithubRelease(payload: object): GithubRelease {
   }
   return { tag_name: release.output.tag_name, assets };
 }
+
+export type GithubReleaseAsset = {
+  name: string;
+  browser_download_url: string;
+};
+
+export type GithubRelease = {
+  tag_name: string;
+  assets: readonly GithubReleaseAsset[];
+};

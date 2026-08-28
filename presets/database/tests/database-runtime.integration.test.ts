@@ -9,6 +9,7 @@ import {
   insertRuntimeItemInTransaction,
   insertRuntimeItemThenFail,
   listRuntimeItems,
+  listRuntimeItemsByIds,
 } from '../fixture/system/database/runtime/runtime.dao.ts';
 import { useIsolatedTestDatabase } from '../payload/tests/setup/testDatabase.ts';
 
@@ -30,6 +31,7 @@ describe('database runtime integration', () => {
   test('starts from migrated baseline seed data', async () => {
     const items = await listRuntimeItems();
     expect(items.map((item) => item.name)).toEqual(['seed']);
+    expect(await listRuntimeItemsByIds([1])).toEqual([{ id: 1, name: 'seed' }]);
   });
 
   test('creates schema_migrations when pgmigrations is absent', async () => {

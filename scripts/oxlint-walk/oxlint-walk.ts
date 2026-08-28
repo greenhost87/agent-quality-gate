@@ -1,56 +1,93 @@
 import { type ESTree } from '@oxlint/plugins';
-import { visitorKeys } from 'oxc-parser';
+import * as v from 'valibot';
 
-function isIndexableObject(value: object): value is { readonly [name: string]: unknown } {
-  return typeof value === 'object';
-}
-
-function propertyAt(node: object, key: string): unknown {
-  if (!isIndexableObject(node)) {
-    return undefined;
-  }
-  return node[key];
-}
+import { forEachAstChild, isLooseAstNode, UnknownArraySchema } from './ast-node-schema.ts';
 
 export function isAstNode(value: unknown): value is ESTree.Node {
-  return (
-    value != null && typeof value === 'object' && typeof propertyAt(value, 'type') === 'string'
-  );
+  return isLooseAstNode(value);
 }
 
 export function childNodes(
   node: ESTree.Node,
   options: { skipKeys?: ReadonlySet<string> } = {},
 ): ESTree.Node[] {
-  const skipKeys = options.skipKeys;
   const children: ESTree.Node[] = [];
-  const keys: readonly string[] = visitorKeys[node.type] ?? [];
-  for (const key of keys) {
-    if (skipKeys?.has(key)) {
-      continue;
-    }
-    const value = propertyAt(node, key);
-    if (Array.isArray(value)) {
-      for (const entry of value) {
-        if (isAstNode(entry)) {
-          children.push(entry);
-        }
+  forEachAstChild(
+    node,
+    (child) => {
+      if (isAstNode(child)) {
+        children.push(child);
       }
-    } else if (isAstNode(value)) {
-      children.push(value);
+    },
+    options,
+  );
+  return children;
+}
+
+export function attachAstParent(node: ESTree.Node, parent: ESTree.Node | null): void {
+  Reflect.set(node, 'parent', parent);
+}
+
+export function astParentOf(node: ESTree.Node): ESTree.Node | null {
+  const parent: unknown = Reflect.get(node, 'parent');
+  return isAstNode(parent) ? parent : null;
+}
+
+export type WalkAstOptions = {
+  skipKeys?: ReadonlySet<string>;
+  /** Skip JSX tag/attribute-name markup; still walk `{expression}` and spread args. */
+  skipJsxMarkup?: boolean;
+};
+
+function jsxOpeningAttributes(
+  node: ESTree.JSXElement | ESTree.JSXFragment,
+): readonly ESTree.JSXAttributeItem[] {
+  if (node.type === 'JSXElement') {
+    return node.openingElement.attributes;
+  }
+  return node.openingFragment.attributes ?? [];
+}
+
+/** Expression and nested JSX roots embedded in JSX markup (not tag names or text). */
+export function jsxMarkupExpressionRoots(
+  node: ESTree.JSXElement | ESTree.JSXFragment,
+): ESTree.Node[] {
+  const roots: ESTree.Node[] = [];
+  for (const attribute of jsxOpeningAttributes(node)) {
+    if (attribute.type === 'JSXAttribute') {
+      const value = attribute.value;
+      if (value?.type === 'JSXExpressionContainer') {
+        roots.push(value.expression);
+      }
+    } else {
+      roots.push(attribute.argument);
     }
   }
-  return children;
+  for (const child of node.children) {
+    if (child.type === 'JSXExpressionContainer') {
+      roots.push(child.expression);
+    } else if (child.type === 'JSXElement' || child.type === 'JSXFragment') {
+      roots.push(child);
+    }
+  }
+  return roots;
+}
+
+function walkChildren(node: ESTree.Node, options: WalkAstOptions): ESTree.Node[] {
+  if (options.skipJsxMarkup && (node.type === 'JSXElement' || node.type === 'JSXFragment')) {
+    return jsxMarkupExpressionRoots(node);
+  }
+  return childNodes(node, options);
 }
 
 export function walkAst(
   root: ESTree.Node,
   visit: (node: ESTree.Node, parent: ESTree.Node | null) => void,
-  options: { skipKeys?: ReadonlySet<string> } = {},
+  options: WalkAstOptions = {},
 ): void {
   function scan(node: ESTree.Node, parent: ESTree.Node | null): void {
     visit(node, parent);
-    for (const child of childNodes(node, options)) {
+    for (const child of walkChildren(node, options)) {
       scan(child, node);
     }
   }
@@ -72,7 +109,7 @@ export function unwrapExpression(node: ESTree.Node): ESTree.Node {
     if (!EXPRESSION_WRAPPER_TYPES.has(current.type)) {
       return current;
     }
-    const expression = propertyAt(current, 'expression');
+    const expression: unknown = Reflect.get(current, 'expression');
     if (!isAstNode(expression)) {
       return current;
     }
@@ -84,19 +121,51 @@ const TYPE_SUBTREE_KEYS = new Set(['typeAnnotation', 'returnType', 'typeParamete
 
 export function walkAstSkippingTypeSubtrees(
   root: ESTree.Node,
-  visit: (node: ESTree.Node) => void,
+  visit: (node: ESTree.Node, parent: ESTree.Node | null) => void,
 ): void {
-  walkAst(
-    root,
-    (node) => {
-      visit(node);
-    },
-    { skipKeys: TYPE_SUBTREE_KEYS },
-  );
+  walkAst(root, visit, { skipKeys: TYPE_SUBTREE_KEYS });
+}
+
+export function walkAstSkippingTypeAndJsxMarkup(
+  root: ESTree.Node,
+  visit: (node: ESTree.Node, parent: ESTree.Node | null) => void,
+): void {
+  walkAst(root, visit, { skipKeys: TYPE_SUBTREE_KEYS, skipJsxMarkup: true });
+}
+
+export function walkJsxSurfaceNodes(
+  root: ESTree.Node,
+  visit: (node: ESTree.JSXOpeningElement | ESTree.JSXAttribute) => void,
+): void {
+  function scanJsx(node: ESTree.JSXElement | ESTree.JSXFragment): void {
+    if (node.type === 'JSXElement') {
+      visit(node.openingElement);
+      for (const attribute of node.openingElement.attributes) {
+        if (attribute.type === 'JSXAttribute') {
+          visit(attribute);
+        }
+      }
+    }
+    for (const child of jsxMarkupExpressionRoots(node)) {
+      scan(child, node);
+    }
+  }
+
+  function scan(node: ESTree.Node, _parent: ESTree.Node | null): void {
+    if (node.type === 'JSXElement' || node.type === 'JSXFragment') {
+      scanJsx(node);
+      return;
+    }
+    for (const child of walkChildren(node, { skipKeys: TYPE_SUBTREE_KEYS })) {
+      scan(child, node);
+    }
+  }
+
+  scan(root, null);
 }
 
 export function paramTypeAnnotation(param: ESTree.Node): ESTree.Node | null {
-  const annotation = propertyAt(param, 'typeAnnotation');
+  const annotation: unknown = Reflect.get(param, 'typeAnnotation');
   if (!isAstNode(annotation) || annotation.type !== 'TSTypeAnnotation') {
     return null;
   }
@@ -109,8 +178,8 @@ export function paramUnionType(param: ESTree.Node): ESTree.TSUnionType | null {
 }
 
 export function nodeParams(node: ESTree.Node): readonly ESTree.Node[] | null {
-  const params = propertyAt(node, 'params');
-  if (!Array.isArray(params)) {
+  const params: unknown = Reflect.get(node, 'params');
+  if (!v.is(UnknownArraySchema, params)) {
     return null;
   }
   const result: ESTree.Node[] = [];

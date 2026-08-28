@@ -9,15 +9,13 @@ import {
   executeQualityGateForCwd,
   followUpForSettledResult,
 } from '../../gate/quality-gate-run/quality-gate-run.js';
-import type { RegisterQualityGateOptions } from '../../gate/quality-gate-run/quality-gate-run.types.js';
+import type { RegisterQualityGateOptions } from '../../gate/quality-gate-run/quality-gate-run.js';
 import { runStdinJsonHook } from '../hooks/stdin-json-hook.js';
-import {
-  CURSOR_STOP_HOOK_STATUSES,
-  type CursorStopHookInput,
-  type CursorStopHookOutput,
-} from './stop-hook.types.js';
+
 import { transcriptEndsWithAskQuestion } from './transcript-ask-question.js';
 import * as v from 'valibot';
+
+export const CURSOR_STOP_HOOK_STATUSES = ['completed', 'aborted', 'error'] as const;
 
 const CursorStopHookInputSchema = v.object({
   status: v.picklist(CURSOR_STOP_HOOK_STATUSES),
@@ -76,3 +74,16 @@ export async function handleCursorStop(
 if (import.meta.main) {
   await runStdinJsonHook((value) => (isStopHookInput(value) ? value : undefined), handleCursorStop);
 }
+
+export type CursorStopHookStatus = (typeof CURSOR_STOP_HOOK_STATUSES)[number];
+
+export type CursorStopHookInput = {
+  status: CursorStopHookStatus;
+  workspace_roots: string[];
+  loop_count?: number;
+  transcript_path?: string | null;
+};
+
+export type CursorStopHookOutput = {
+  followup_message?: string;
+};

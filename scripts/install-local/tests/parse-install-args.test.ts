@@ -11,6 +11,7 @@ describe('parseInstallArgs', () => {
       version: undefined,
       localBuild: false,
       wireOnly: false,
+      skipPresets: false,
       piFlag: false,
       cursorFlag: false,
       claudeFlag: false,
@@ -72,6 +73,16 @@ describe('parseInstallArgs', () => {
 
   it('documents local-build preflight gates in help', () => {
     expect(INSTALL_USAGE).toMatch(/--local-build\s+Verify, test, run pack integration tests/);
+  });
+
+  it('accepts --skip-presets', () => {
+    expect(parseInstallArgs(['--skip-presets'], DEFAULT_PREFIX)).toMatchObject({
+      skipPresets: true,
+    });
+  });
+
+  it('mentions --skip-presets in help', () => {
+    expect(INSTALL_USAGE).toContain('--skip-presets');
   });
 
   it('rejects --no-pi and --no-cursor', () => {

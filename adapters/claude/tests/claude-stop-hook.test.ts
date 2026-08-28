@@ -11,7 +11,7 @@ async function appendTextFile(path: string, contents: string): Promise<void> {
 import { afterEach, describe, expect, it } from 'bun:test';
 import { YAML } from 'bun';
 import { handleClaudeStop } from '../../hooks/session-stop-hook.js';
-import type { ClaudeStopHookInput } from '../stop-hook.types.js';
+import type { ClaudeStopHookInput } from '../../hooks/session-stop-hook.js';
 import { QUALITY_GATE_FOLLOW_UP_BUDGET } from '../../../gate/quality-gate-run/quality-gate-run.js';
 import { useIsolatedAgentQualityGateHome } from '../../../tests/support/isolated-home.js';
 import { readFixture } from '../../../tests/support/fixture-files.js';
@@ -115,13 +115,13 @@ describe('claude stop hook', () => {
     expect(additionalContext(output)).toContain(
       'Fix only the violations listed below (and any hint: lines)',
     );
-    expect(additionalContext(output)).toContain('Do not investigate why the gate complains');
     expect(additionalContext(output)).toContain(
-      'Do not dig into prior verify fixes, agent transcripts, other chat sessions, or git history',
+      'Apply fixes directly; do not investigate the gate',
     );
     expect(additionalContext(output)).toContain(
-      'Do not search for verify binaries, fallow/jscpd config, agent-quality-gate packages',
+      'search prior fixes, transcripts, chats, git history, or gate tooling/config/packages',
     );
+    expect(additionalContext(output)).toContain('Then call native or MCP verify again');
   });
 
   it('escalates on the final persisted attempt and stops after the budget', async () => {

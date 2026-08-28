@@ -1,7 +1,5 @@
 import type { ESTree } from '@oxlint/plugins';
 
-import type { ValibotBindings } from './valibot-bindings.types.ts';
-
 const VALIBOT_SOURCES = new Set(['valibot', 'valibot/']);
 
 function isValibotSource(source: string): boolean {
@@ -68,3 +66,8 @@ export function isValibotCustomImport(specifier: ESTree.ImportSpecifier, source:
   const imported = specifier.imported;
   return 'name' in imported && imported.name === 'custom';
 }
+
+export type ValibotBindings = {
+  namespaces: ReadonlySet<string>;
+  named: ReadonlyMap<string, string>;
+};

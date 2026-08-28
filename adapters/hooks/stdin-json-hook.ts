@@ -2,6 +2,7 @@ import { stdin } from 'bun';
 import * as v from 'valibot';
 
 const StdinObjectSchema = v.looseObject({});
+const StdinJsonSchema = v.pipe(v.string(), v.parseJson(), StdinObjectSchema);
 
 export async function runStdinJsonHook<TInput, TOutput>(
   parseInput: (value: v.InferOutput<typeof StdinObjectSchema>) => TInput | undefined,
@@ -9,8 +10,8 @@ export async function runStdinJsonHook<TInput, TOutput>(
 ): Promise<void> {
   try {
     const raw = (await stdin.text()).trim();
-    const parsed: unknown = raw.length === 0 ? {} : (JSON.parse(raw) as unknown);
-    const document = v.safeParse(StdinObjectSchema, parsed);
+    const document =
+      raw.length === 0 ? v.safeParse(StdinObjectSchema, {}) : v.safeParse(StdinJsonSchema, raw);
     const input = document.success ? parseInput(document.output) : undefined;
     if (input === undefined) {
       process.stdout.write('{}\n');

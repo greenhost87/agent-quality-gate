@@ -64,6 +64,16 @@ test('module placement allows colocated tests under concern/tests', async () => 
   expect(result.status).toBe(0);
 });
 
+test('module placement allows the top-level tests tree at any depth', async () => {
+  const result = await runOxlintFixture(
+    'module-placement/valid/deep-tests',
+    'system/agents/tests/history/normalize.test.ts',
+    piForemanOptions,
+  );
+  expect(result.output).toBe('');
+  expect(result.status).toBe(0);
+});
+
 test('module placement ignores paths outside watched directories', async () => {
   const result = await runOxlintFixture(
     'module-placement/valid/unwatched',

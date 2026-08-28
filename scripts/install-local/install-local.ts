@@ -18,16 +18,17 @@ import {
   piHomePath,
 } from './harness-homes.js';
 import { downloadReleaseTarball, pinnedTarballPath } from './download-release.js';
+import { installOptionalPresetsFromDirectory } from './install-optional-presets.js';
 import { runLocalBuildPreflight } from './local-build-preflight.js';
 import { parseInstallArgs, printInstallUsage } from './parse-install-args.js';
 import { promptHarnessChoice } from './prompt-harness.js';
 import { resolveHarnessSelection } from './resolve-harness.js';
-import type { HarnessChoice, HarnessPresence, HarnessSelection } from './resolve-harness.types.js';
+import type { HarnessChoice, HarnessPresence, HarnessSelection } from './resolve-harness.js';
 import { wireHooksDocument, wireMcpDocument, writeWiredConfig } from './wire-cursor.js';
 import { writeWiredClaudeSettingsConfig } from './wire-claude.js';
 import { writeWiredCodexConfigs } from './wire-codex.js';
-import type { CursorBundlePaths } from './install-local.types.js';
-import type { InstallArgs } from './parse-install-args.types.js';
+
+import type { InstallArgs } from './parse-install-args.js';
 import { runRequired } from '../run-required/run-required.js';
 
 function resolveSourceRepoRoot(): string | undefined {
@@ -230,9 +231,9 @@ async function installReleasePackage(
   }
 }
 
-async function buildLocalReleaseTarball(repoRoot: string): Promise<string> {
+function buildLocalReleaseTarball(repoRoot: string): string {
   process.stdout.write(`Preparing local release package from ${repoRoot}\n`);
-  await runLocalBuildPreflight(repoRoot);
+  runLocalBuildPreflight(repoRoot);
   const tarball = pinnedTarballPath(join(repoRoot, 'artifacts'), packageJson.version);
   if (!existsSync(tarball)) {
     throw new Error(`release tarball not found: ${tarball}`);
@@ -249,7 +250,7 @@ async function acquireTarball(
     if (repoRoot === undefined) {
       throw new Error('--local-build requires a source checkout of agent-quality-gate');
     }
-    return { tarball: await buildLocalReleaseTarball(repoRoot), cleanupDir: undefined };
+    return { tarball: buildLocalReleaseTarball(repoRoot), cleanupDir: undefined };
   }
   const downloadDir = mkdtempSync(join(tmpdir(), 'aqg-download-'));
   process.stdout.write(
@@ -261,6 +262,27 @@ async function acquireTarball(
   return { tarball, cleanupDir: downloadDir };
 }
 
+async function syncOptionalPresetsFromCheckout(skipPresets: boolean): Promise<void> {
+  if (skipPresets) {
+    return;
+  }
+  const repoRoot = resolveSourceRepoRoot();
+  if (repoRoot === undefined) {
+    return;
+  }
+  const presetsDirectory = join(repoRoot, 'presets');
+  const destinations = await installOptionalPresetsFromDirectory(presetsDirectory);
+  if (destinations.length === 0) {
+    return;
+  }
+  process.stdout.write(
+    `Installed ${String(destinations.length)} optional preset(s) from ${presetsDirectory}\n`,
+  );
+  for (const destination of destinations) {
+    process.stdout.write(`  ${destination}\n`);
+  }
+}
+
 async function main(): Promise<void> {
   const defaultPrefix = join(agentQualityGateHome(), 'install');
   const parsed = parseInstallArgs(process.argv.slice(2), defaultPrefix);
@@ -269,13 +291,14 @@ async function main(): Promise<void> {
     return;
   }
 
-  const { prefix, version, localBuild, wireOnly } = parsed;
+  const { prefix, version, localBuild, wireOnly, skipPresets } = parsed;
   const { selected, wired } = await resolveSelectedHarness(parsed);
   if (!wireOnly) {
     await installReleasePackage(prefix, localBuild, version);
   }
   assertInstalledLayout(prefix);
   await wireSelectedHarnesses(prefix, selected, wired);
+  await syncOptionalPresetsFromCheckout(skipPresets);
   const topLevel = readdirSync(prefix);
   process.stdout.write(
     `Install ready at ${prefix} (${String(topLevel.length)} top-level entries)\n`,
@@ -288,3 +311,8 @@ try {
   reportCommandError('install', error instanceof Error ? error : String(error));
   process.exitCode = 1;
 }
+
+export type CursorBundlePaths = {
+  mcpServerPath: string;
+  stopHookPath: string;
+};

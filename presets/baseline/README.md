@@ -6,10 +6,10 @@ The Oxlint plugin id stays `aqg` (rule names `aqg/…`) so diagnostics stay stab
 
 ## What it installs
 
-| Kind          | Detail                                                                       |
-| ------------- | ---------------------------------------------------------------------------- |
-| Oxlint plugin | `aqg` ← `oxlint/index.ts` (bundled to `oxlint/index.js` in the release)      |
-| Oxlint rules  | Console format placeholders, test multiline data, and TypeScript house rules |
+| Kind          | Detail                                                                  |
+| ------------- | ----------------------------------------------------------------------- |
+| Oxlint plugin | `aqg` ← `oxlint/index.ts` (bundled to `oxlint/index.js` in the release) |
+| Oxlint rules  | Console format placeholders, test hygiene, and TypeScript house rules   |
 
 Requires: none. Managed files: none. Dependencies: none.
 

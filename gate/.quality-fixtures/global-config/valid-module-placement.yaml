@@ -4,9 +4,10 @@ projects:
       - src/index.ts
     presets:
       - module-placement
-    modulePlacement:
-      directories:
-        - system/agents
-      rootExceptions:
-        system/agents:
-          - agents.types.ts
+    presetConfig:
+      module-placement:
+        directories:
+          - system/agents
+        rootExceptions:
+          system/agents:
+            - agents.types.ts

@@ -1,0 +1,1 @@
+utils.ts:1:1: error bun-parse(no-raw-json-parse): JSON.parse is banned outside tests.

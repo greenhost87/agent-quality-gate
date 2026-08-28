@@ -28,13 +28,8 @@ export default defineConfig({
     'coverage/**',
     'dist/**',
     'node_modules/**',
-    'presets/config/**',
-    'presets/bun-parse/**',
-    'presets/database/**',
-    'presets/playwright/.quality-fixtures/**',
-    'presets/playwright/oxlint/**',
-    'presets/playwright/payload/**',
-    'presets/module-placement/**',
+    'presets/**/*',
+    '!presets/baseline/**',
     'tmp/**',
     'scripts/playwright-web-server.ts',
   ],
@@ -161,6 +156,12 @@ export default defineConfig({
             selector: 'ExportNamedDeclaration > ExportSpecifier',
             message:
               'Do not create export proxy declarations. Export symbols where they are declared.',
+          },
+          {
+            selector:
+              "CallExpression[callee.object.name='JSON'][callee.property.name='parse'][arguments.0.type='CallExpression'][arguments.0.callee.object.name='JSON'][arguments.0.callee.property.name='stringify']",
+            message:
+              'Do not use JSON.parse(JSON.stringify(...)) to normalize values. Compare with toEqual directly, or transform only the received value when persistence changed its shape.',
           },
         ],
       },
@@ -313,15 +314,23 @@ export default defineConfig({
             selector: 'TSIntersectionType',
             message: 'Do not use intersection types. Write one explicit named shape.',
           },
+          {
+            selector:
+              "CallExpression[callee.object.name='JSON'][callee.property.name='parse'][arguments.0.type='CallExpression'][arguments.0.callee.object.name='JSON'][arguments.0.callee.property.name='stringify']",
+            message:
+              'Do not use JSON.parse(JSON.stringify(...)) to normalize values. Compare with toEqual directly, or transform only the received value when persistence changed its shape.',
+          },
         ],
       },
     },
     {
       files: [
         '**/load-preset-check.ts',
+        '**/load-preset-gate-config.ts',
         '**/preset-runtime.ts',
         '**/public-verify.ts',
         '**/check.ts',
+        '**/gate-config.ts',
         '**/tests/setup/testDatabase.ts',
       ],
       rules: {

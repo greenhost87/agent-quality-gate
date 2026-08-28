@@ -5,10 +5,10 @@ import type {
   ToolRunner,
   VerifyRequest,
   VerifyResult,
-} from '../../gate/execute-verify/execute-verify.types.js';
+} from '../../gate/execute-verify/execute-verify.js';
 import { oxlintRuleIdsFromManifest } from '../../preset-catalog/oxlint-config/oxlint-rule-ids-from-manifest.js';
 import { parsePresetManifest } from '../../preset-catalog/manifest/parse-preset-manifest.js';
-import { runLocalPresetSteps } from './preset-verify-result.js';
+import { runLocalPresetSteps } from '../../gate/public-verify/preset-verify-result.js';
 import { listPresetPackageNames, resolveProjectRoot } from './repo-walk.js';
 
 const PRESETS_DIRECTORY = 'presets';
@@ -24,6 +24,7 @@ export const LOCAL_PRESET_PACKAGE_VERIFY_PRESETS = [
 
 const PRESET_PACKAGE_ENTRIES = [
   'check.ts',
+  'gate-config.ts',
   '*.ts',
   'payload/**/*.ts',
   'oxlint/**/*.{ts,mjs}',
@@ -63,7 +64,9 @@ export async function localPresetPackageVerifyRequest(
     fallowIgnoreDependencies: [...PRESET_PACKAGE_FALLOW_IGNORE_DEPENDENCIES],
     presets: [...LOCAL_PRESET_PACKAGE_VERIFY_PRESETS],
     skipPresetProjectChecks: true,
-    baseline: { maxInlineParameterObjectMembers: 3 },
+    presetConfig: {
+      baseline: { maxInlineParameterObjectMembers: 3 },
+    },
     ignoreOxlintRuleIds: oxlintRuleIdsFromManifest(manifest),
     okLabel: `preset package ${presetName}`,
   };

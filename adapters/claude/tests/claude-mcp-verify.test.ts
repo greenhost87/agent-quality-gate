@@ -88,11 +88,11 @@ describe('claude mcp verify', () => {
     expect(result.isError).toBe(true);
     expect(result.text).toContain('eslint(no-debugger)');
     expect(result.text).toContain('Fix only the violations listed below');
-    expect(result.text).toContain('Do not investigate why the gate complains');
+    expect(result.text).toContain('Apply fixes directly; do not investigate the gate');
     expect(result.text).toContain(
-      'Do not dig into prior verify fixes, agent transcripts, other chat sessions, or git history',
+      'search prior fixes, transcripts, chats, git history, or gate tooling/config/packages',
     );
-    expect(result.text).toContain('Do not search for verify binaries');
+    expect(result.text).toContain('Then call native or MCP verify again');
   });
 
   it('returns ok text when verify passes', async () => {

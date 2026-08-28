@@ -1,0 +1,198 @@
+# Database preset examples
+
+Agent-facing copy targets for the `database` preset. Sources under `examples/` are linted and typechecked by the preset pack (baseline + database oxlint rules). Managed runtime files stay in `payload/` (`connection.ts`, `migrate.ts`, `testDatabase*.ts`).
+
+After verify in a target project, read this file at `.aqg/database/database-examples.md`.
+
+## Rules of thumb
+
+- `sql` from `@/system/database/connection` is already a lazy Proxy — call it directly in `*.dao.ts`.
+- Cache/lifecycle side effects belong in helpers such as `system/database/caches.ts`, keyed by `getDatabaseGeneration()`.
+- Outside `system/database/`, import only `closeDatabase` from connection (app bootstrap / shutdown).
+- Integration tests observe production-reachable named DAO functions only.
+
+## Shared cache helper
+
+Copy to `system/database/caches.ts`.
+
+- Use when several DAOs share in-process memo that must drop on pool recycle.
+- Import `getDatabaseGeneration` only from modules under `system/database/`.
+- Never invent `system/database/client.ts`, `createDatabaseAccessor`, or `getDatabase()` wrappers around `sql`.
+
+```ts
+import { getDatabaseGeneration } from '@/system/database/connection';
+
+const orderListCache = new Map<string, readonly { id: number; status: string }[]>();
+
+let boundGeneration = -1;
+
+/** Drop shared entries when the active SQL client generation changes. */
+export function syncCachesToDatabaseGeneration(): void {
+  const generation = getDatabaseGeneration();
+  if (boundGeneration === generation) {
+    return;
+  }
+  boundGeneration = generation;
+  orderListCache.clear();
+}
+
+export function readCachedOrderList(
+  key: string,
+): readonly { id: number; status: string }[] | undefined {
+  syncCachesToDatabaseGeneration();
+  return orderListCache.get(key);
+}
+
+export function writeCachedOrderList(
+  key: string,
+  value: readonly { id: number; status: string }[],
+): void {
+  syncCachesToDatabaseGeneration();
+  orderListCache.set(key, value);
+}
+
+export function invalidateOrderListCache(): void {
+  orderListCache.clear();
+}
+```
+
+## DAO module
+
+Copy to `system/database/<domain>/<name>.dao.ts`.
+
+- Exactly one domain segment under `system/database/`.
+- Import lazy `sql` from `@/system/database/connection` and call it directly.
+- Export only named function declarations and types — no classes, default exports, or object bags.
+- Baseline gate still applies: keep modules small, avoid banned patterns, no `oxlint-disable` escapes.
+
+```ts
+import { sql } from '@/system/database/connection';
+import {
+  invalidateOrderListCache,
+  readCachedOrderList,
+  writeCachedOrderList,
+} from '@/system/database/caches';
+
+const ORDER_LIST_CACHE_KEY = 'all';
+
+export async function listOrders(): Promise<Order[]> {
+  const cached = readCachedOrderList(ORDER_LIST_CACHE_KEY);
+  if (cached !== undefined) {
+    return [...cached];
+  }
+
+  const rows = await sql<Order[]>`
+    SELECT id, status
+    FROM orders
+    ORDER BY id
+  `;
+  writeCachedOrderList(ORDER_LIST_CACHE_KEY, rows);
+  return rows;
+}
+
+export async function getOrderById(id: number): Promise<Order | null> {
+  const rows = await sql<Order[]>`
+    SELECT id, status
+    FROM orders
+    WHERE id = ${id}
+    LIMIT 1
+  `;
+  return rows[0] ?? null;
+}
+
+export async function listOrdersByIds(ids: number[]): Promise<Order[]> {
+  return await sql<Order[]>`
+    SELECT id, status
+    FROM orders
+    WHERE id IN ${sql(ids)}
+    ORDER BY id
+  `;
+}
+
+export async function createOrder(input: CreateOrderInput): Promise<Order> {
+  const rows = await sql<Order[]>`
+    INSERT INTO orders (status)
+    VALUES (${input.status})
+    RETURNING id, status
+  `;
+  if (rows.length === 0) {
+    throw new Error('Failed to create order');
+  }
+  invalidateOrderListCache();
+  return rows[0];
+}
+
+export async function createOrderThenFail(input: CreateOrderInput): Promise<void> {
+  await sql.begin(async (tx) => {
+    await tx`
+      INSERT INTO orders (status)
+      VALUES (${input.status})
+    `;
+    throw new Error('force rollback');
+  });
+}
+
+export type Order = {
+  id: number;
+  status: string;
+};
+
+export type CreateOrderInput = {
+  status: string;
+};
+```
+
+## Database integration test
+
+Copy to `tests/<area>.integration.test.ts`.
+
+- Run under `tests/setup/testDatabase.bootstrap.ts` so workers receive `TEST_DATABASE_SHARED_URL`.
+- Import named DAO operations only — never an `ordersDao` facade.
+- Do not import `sql`, Bun.sql, or testcontainers from the test file.
+
+```ts
+import { describe, expect, test } from 'bun:test';
+import {
+  createOrder,
+  createOrderThenFail,
+  getOrderById,
+  listOrders,
+} from '@/system/database/orders/orders.dao';
+import { useIsolatedTestDatabase } from '@/tests/setup/testDatabase';
+
+useIsolatedTestDatabase(import.meta.path);
+
+describe('orders database integration', () => {
+  test('starts from migrated seed data', async () => {
+    const orders = await listOrders();
+
+    expect(orders).toEqual([{ id: 1, status: 'pending' }]);
+  });
+
+  test('persists an order', async () => {
+    const created = await createOrder({ status: 'confirmed' });
+
+    expect(await getOrderById(created.id)).toEqual({
+      id: created.id,
+      status: 'confirmed',
+    });
+  });
+
+  test('does not leak changes from another test', async () => {
+    expect(await listOrders()).toEqual([{ id: 1, status: 'pending' }]);
+  });
+
+  test('rolls back a failed transaction', async () => {
+    const before = await listOrders();
+
+    const outcome = await createOrderThenFail({ status: 'confirmed' }).then(
+      () => 'committed',
+      () => 'rolled-back',
+    );
+    expect(outcome).toBe('rolled-back');
+
+    expect(await listOrders()).toEqual(before);
+  });
+});
+```
+

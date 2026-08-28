@@ -7,12 +7,12 @@ import {
   readFallowConfigFile,
 } from '../../config/verify-config-files/verify-config-files.js';
 import { writeTextIfChanged } from '../../process/files/files.js';
-import { joinStreams } from '../../process/run-command/stream-utils.js';
 import { getOptionalEnv } from '../read-env/read-env.js';
 import { filterOxlintAgentOutput } from './filter-oxlint-agent-output.js';
-import type { ToolRunResult, VerifyResult } from './execute-verify.types.js';
+import type { ToolRunResult } from './execute-verify.js';
 
 const require = createRequire(import.meta.url);
+
 const FALLOW_INFORMATIONAL_PREFIXES = [
   'health-score:',
   'vital-signs:',
@@ -93,14 +93,22 @@ export async function writeFallowConfigWithEntries(
   entries: readonly string[],
   ignorePatterns: readonly string[],
   fallowIgnoreDependencies: readonly string[] = [],
+  enabledRules?: readonly string[],
+  configPath: string = fallowConfigPathForProject(projectRoot),
 ): Promise<string> {
   const packaged = await readFallowConfigFile(packagedFallowPath, FALLOW_CONFIG_NAME);
-  const configPath = fallowConfigPathForProject(projectRoot);
+  const rules = Object.fromEntries(
+    Object.entries(packaged.rules ?? {}).map(([ruleId, severity]) => [
+      ruleId,
+      enabledRules === undefined || enabledRules.includes(ruleId) ? severity : 'off',
+    ]),
+  );
   await writeTextIfChanged(
     configPath,
     `${JSON.stringify(
       {
         ...packaged,
+        rules,
         entry: [...entries],
         ignorePatterns: [...ignorePatterns],
         ignoreDependencies: [...(packaged.ignoreDependencies ?? []), ...fallowIgnoreDependencies],
@@ -142,23 +150,5 @@ export function applyIgnoredOxlintRules(
     exitCode,
     stdout: filteredStdout.text,
     stderr: filteredStderr.text,
-  };
-}
-
-export function finishVerify(
-  oxlint: ToolRunResult,
-  fallows: readonly ToolRunResult[],
-  presetChecks: readonly ToolRunResult[],
-): VerifyResult {
-  const normalizedFallows = fallows.map((fallow) => ({
-    ...fallow,
-    stdout: removeFallowInformation(fallow.stdout),
-  }));
-  const runs = [oxlint, ...normalizedFallows, ...presetChecks];
-  const exitCode = Math.max(...runs.map((result) => result.exitCode));
-  return {
-    exitCode,
-    stdout: joinStreams(runs.map((result) => result.stdout)),
-    stderr: joinStreams(runs.map((result) => result.stderr)),
   };
 }
