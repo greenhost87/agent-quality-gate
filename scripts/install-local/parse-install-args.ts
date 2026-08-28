@@ -72,7 +72,7 @@ from this checkout with --local-build. Wires Pi, Cursor, Claude Code, and/or Cod
 
 Options:
   --prefix <path>   Install prefix (default: ${DEFAULT_PREFIX_HELP})
-  --version <ver>   Install a specific release (e.g. 1.1.0); default: latest
+  --version <ver>   Install a specific release (e.g. 1.1.2); default: latest
   --local-build     Verify, test, run pack integration tests, then build from this checkout
   --pi              Wire Pi (alone or with --cursor/--claude/--codex)
   --cursor          Wire Cursor (alone or with --pi/--claude/--codex)
