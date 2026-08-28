@@ -8,7 +8,7 @@ import {
   SLOW_CI_BUN_TEST_TIMEOUT_MS,
 } from '../bun-test-timeout.js';
 
-const ENV_KEYS = ['AQG_TEST_TIMEOUT_MS', 'CI', 'RUNNER_OS', 'RUNNER_ARCH'] as const;
+const ENV_KEYS = ['AQG_TEST_TIMEOUT_MS', 'CI', 'RUNNER_OS'] as const;
 
 const originalEnv = new Map<string, string | undefined>();
 
@@ -34,7 +34,6 @@ describe('resolveBunTestTimeoutMs', () => {
     setEnv('AQG_TEST_TIMEOUT_MS', undefined);
     setEnv('CI', undefined);
     setEnv('RUNNER_OS', undefined);
-    setEnv('RUNNER_ARCH', undefined);
     expect(resolveBunTestTimeoutMs()).toBe(DEFAULT_BUN_TEST_TIMEOUT_MS);
   });
 
@@ -44,12 +43,11 @@ describe('resolveBunTestTimeoutMs', () => {
     expect(resolveBunTestTimeoutMs()).toBe(45_000);
   });
 
-  it('uses 90s on GitHub Actions macOS Intel runners', () => {
+  it('uses 90s on GitHub Actions macOS runners', () => {
     snapshotEnv();
     setEnv('AQG_TEST_TIMEOUT_MS', undefined);
     setEnv('CI', 'true');
     setEnv('RUNNER_OS', 'macOS');
-    setEnv('RUNNER_ARCH', 'X64');
     expect(isSlowCiRunner()).toBe(true);
     expect(resolveBunTestTimeoutMs()).toBe(SLOW_CI_BUN_TEST_TIMEOUT_MS);
   });
@@ -59,7 +57,6 @@ describe('resolveBunTestTimeoutMs', () => {
     setEnv('AQG_TEST_TIMEOUT_MS', '120000');
     setEnv('CI', 'true');
     setEnv('RUNNER_OS', 'macOS');
-    setEnv('RUNNER_ARCH', 'X64');
     expect(resolveBunTestTimeoutMs()).toBe(120_000);
   });
 });

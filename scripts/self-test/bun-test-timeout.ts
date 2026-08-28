@@ -4,11 +4,7 @@ export const DEFAULT_BUN_TEST_TIMEOUT_MS = 30_000;
 export const SLOW_CI_BUN_TEST_TIMEOUT_MS = 90_000;
 
 export function isSlowCiRunner(): boolean {
-  return (
-    getOptionalEnv('CI') === 'true' &&
-    getOptionalEnv('RUNNER_OS') === 'macOS' &&
-    getOptionalEnv('RUNNER_ARCH') === 'X64'
-  );
+  return getOptionalEnv('CI') === 'true' && getOptionalEnv('RUNNER_OS') === 'macOS';
 }
 
 export function resolveBunTestTimeoutMs(): number {
