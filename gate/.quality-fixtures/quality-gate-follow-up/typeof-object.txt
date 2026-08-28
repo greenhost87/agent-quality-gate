@@ -1,0 +1,1 @@
+utils.ts:1:1: error bun-parse(no-typeof-object): Replace Array.isArray(...) checks with v.parse(Schema, value).

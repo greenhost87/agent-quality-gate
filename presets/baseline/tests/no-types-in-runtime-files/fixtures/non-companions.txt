@@ -1,9 +1,0 @@
-import * as v from 'valibot';
-
-export const ConfigSchema = v.object({ port: v.number() });
-
-export type Mixed = { id: number };
-export type FromMissing = v.InferOutput<typeof MissingSchema>;
-export type NotInfer = { schema: typeof ConfigSchema };
-
-export const value = 1;

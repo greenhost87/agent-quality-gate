@@ -13,7 +13,7 @@ import type {
   ResolvedPresetContract,
 } from '../contract/preset-contract.types.js';
 import { parsePresetManifest } from '../manifest/parse-preset-manifest.js';
-import type { OxlintRuleSetting } from '../oxlint-config/write-oxlint-config.types.js';
+import type { OxlintRuleSetting } from '../oxlint-config/write-oxlint-config.js';
 
 const PACKAGE_ROOT = realpathSync(fileURLToPath(new URL('../..', import.meta.url)));
 const BASELINE_PRESET_NAME = 'baseline';
@@ -24,6 +24,7 @@ export const SHIPPED_PRESET_NAMES = [
   'database',
   'module-placement',
   'playwright',
+  'single-consumer',
 ] as const;
 
 function presetsRoot(): string {

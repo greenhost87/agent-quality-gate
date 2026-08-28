@@ -1,4 +1,4 @@
-import type { BenchableCreateOnceRule, BenchCreateOnce } from './bench-create-once-rule.types.js';
+import type { BenchableCreateOnceRule, BenchCreateOnce } from './bench-create-once-rule.js';
 
 function hasFunctionProperty(rule: object, name: 'createOnce' | 'create'): boolean {
   return typeof Reflect.get(rule, name) === 'function';

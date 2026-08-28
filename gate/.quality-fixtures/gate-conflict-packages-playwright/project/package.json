@@ -1,0 +1,8 @@
+{
+  "name": "gate-conflict-packages-playwright",
+  "private": true,
+  "type": "module",
+  "devDependencies": {
+    "@playwright/test": "1.62.1"
+  }
+}

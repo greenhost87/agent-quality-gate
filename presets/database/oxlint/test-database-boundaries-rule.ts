@@ -22,13 +22,51 @@ import {
   testsDirectoryPattern,
   unitTestsDirectoryPattern,
 } from './dao-boundaries-shared.ts';
-import type {
-  TestDatabaseBindings,
-  TestDatabaseImportOptions,
-  TestDatabaseScanState,
-  TestDatabaseState,
-} from './test-database-boundaries.types.ts';
-import { walkAst } from '../../../scripts/oxlint-walk/oxlint-walk.ts';
+
+import {
+  attachAstParent,
+  walkAstSkippingTypeAndJsxMarkup,
+} from '../../../scripts/oxlint-walk/oxlint-walk.ts';
+
+export interface TestDatabaseScanFlags {
+  isTestOrE2eFile: boolean;
+  isTestDatabaseSetup: boolean;
+  isUnitTest: boolean;
+}
+
+export interface TestDatabaseBindings {
+  productionDaoBindings: Set<string>;
+  bunTestBindings: Set<string>;
+  bunTestNamespaces: Set<string>;
+  beforeAllBindings: Set<string>;
+}
+
+export interface TestDatabaseState {
+  usesManagedHook: boolean;
+}
+
+export interface TestDatabaseDeferred {
+  identifierReferences: ESTree.Node[];
+  concurrentReferences: ESTree.Node[];
+}
+
+export interface TestDatabaseScanState {
+  flags: TestDatabaseScanFlags;
+  bindings: TestDatabaseBindings;
+  state: TestDatabaseState;
+  deferred: TestDatabaseDeferred;
+}
+
+export interface TestDatabaseImportOptions {
+  isTestOrE2eFile: boolean;
+  isTestDatabaseSetup: boolean;
+  isUnitTest: boolean;
+  bunTestBindings: Set<string>;
+  bunTestNamespaces: Set<string>;
+  beforeAllBindings: Set<string>;
+  productionDaoBindings: Set<string>;
+  state: TestDatabaseState;
+}
 
 function recordBunTestBindings(
   node: ESTree.ImportDeclaration,
@@ -334,13 +372,18 @@ export const testDatabaseBoundaries = defineRule({
     return {
       before() {
         const relativePath = projectPath(context);
+        const isTestOrE2eFile =
+          testsDirectoryPattern.test(relativePath) || e2eDirectoryPattern.test(relativePath);
+        const isTestDatabaseSetup =
+          relativePath === managedTestDatabasePath ||
+          relativePath === managedTestDatabaseBootstrapPath;
+        if (!isTestOrE2eFile && !isTestDatabaseSetup) {
+          return false;
+        }
         const scanState: TestDatabaseScanState = {
           flags: {
-            isTestOrE2eFile:
-              testsDirectoryPattern.test(relativePath) || e2eDirectoryPattern.test(relativePath),
-            isTestDatabaseSetup:
-              relativePath === managedTestDatabasePath ||
-              relativePath === managedTestDatabaseBootstrapPath,
+            isTestOrE2eFile,
+            isTestDatabaseSetup,
             isUnitTest: unitTestsDirectoryPattern.test(relativePath),
           },
           bindings: {
@@ -356,8 +399,8 @@ export const testDatabaseBoundaries = defineRule({
           },
         };
 
-        walkAst(context.sourceCode.ast, (node, parent) => {
-          node.parent = parent;
+        walkAstSkippingTypeAndJsxMarkup(context.sourceCode.ast, (node, parent) => {
+          attachAstParent(node, parent);
           inspectTestDatabaseNode(context, node, scanState, relativePath);
         });
         if (scanState.state.usesManagedHook) {

@@ -7,7 +7,7 @@ import type {
   BenchSourceCode,
   BindCaseToContextInput,
   MutableFileState,
-} from './bench-create-once-rule.types.js';
+} from './bench-create-once-rule.js';
 
 const EMPTY_PROGRAM: Program = {
   type: 'Program',

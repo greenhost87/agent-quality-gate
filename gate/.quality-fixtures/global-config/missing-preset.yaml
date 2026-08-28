@@ -4,6 +4,7 @@ projects:
       - src/index.ts
     presets:
       - config
-    modulePlacement:
-      directories:
-        - system/agents
+    presetConfig:
+      module-placement:
+        directories:
+          - system/agents

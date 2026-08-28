@@ -4,7 +4,7 @@ import { runStdinJsonHook } from './stdin-json-hook.js';
 import type {
   SessionStopQualityGateHandler,
   SessionStopQualityGateInput,
-} from './handle-session-stop-quality-gate.types.js';
+} from './handle-session-stop-quality-gate.js';
 
 const StdinObjectSchema = v.looseObject({});
 
@@ -16,16 +16,4 @@ export async function runSessionStopHookMain<
   handle: SessionStopQualityGateHandler<TInput, TOutput>,
 ): Promise<void> {
   await runStdinJsonHook(parseInput, handle);
-}
-
-export function installSessionStopHookMain<
-  TInput extends SessionStopQualityGateInput,
-  TOutput extends object,
->(
-  parseInput: (value: v.InferOutput<typeof StdinObjectSchema>) => TInput | undefined,
-  handle: SessionStopQualityGateHandler<TInput, TOutput>,
-): void {
-  if (import.meta.main) {
-    void runSessionStopHookMain(parseInput, handle);
-  }
 }

@@ -22,9 +22,9 @@
       }
     ],
     "rules": {
-      "config/environment-boundaries": "error",
-      "config/no-valibot-custom": "error",
-      "config/no-trivial-valibot-schema-alias": "error"
+      "config/environment-boundaries": { "severity": "error", "phase": "boundaries" },
+      "config/no-valibot-custom": { "severity": "error", "phase": "contracts" },
+      "config/no-trivial-valibot-schema-alias": { "severity": "error", "phase": "contracts" }
     }
   }
 }

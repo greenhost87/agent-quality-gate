@@ -85,11 +85,11 @@ describe('cursor mcp verify', () => {
     expect(result.isError).toBe(true);
     expect(result.text).toContain('eslint(no-debugger)');
     expect(result.text).toContain('Fix only the violations listed below');
-    expect(result.text).toContain('Do not investigate why the gate complains');
+    expect(result.text).toContain('Apply fixes directly; do not investigate the gate');
     expect(result.text).toContain(
-      'Do not dig into prior verify fixes, agent transcripts, other chat sessions, or git history',
+      'search prior fixes, transcripts, chats, git history, or gate tooling/config/packages',
     );
-    expect(result.text).toContain('Do not search for verify binaries');
+    expect(result.text).toContain('Then call native or MCP verify again');
   });
 
   it('returns ok text when verify passes', async () => {
@@ -115,7 +115,7 @@ describe('cursor mcp verify', () => {
     expect(result.text).toContain('No configured agent-quality-gate project');
   });
 
-  it('swallows corrupt global config as unavailable without agent-facing internals', async () => {
+  it('treats invalid global config shape as unconfigured instead of unavailable', async () => {
     const cwd = await createProject('clean-function');
     const configDirectory = await makeTempDirectory('quality-gate-mcp-corrupt-');
     const configPath = join(configDirectory, 'config.yaml');
@@ -123,7 +123,8 @@ describe('cursor mcp verify', () => {
 
     const result = await runMcpVerify(cwd, { configPath });
     expect(result.isError).toBe(false);
-    expect(result.text.toLowerCase()).toContain('unavailable');
+    expect(result.text).toContain('No configured agent-quality-gate project');
+    expect(result.text.toLowerCase()).not.toContain('unavailable');
     expect(result.text).not.toContain(configPath);
     expect(result.text).not.toContain('must contain');
     expect(result.text).not.toContain('oxlint.config');

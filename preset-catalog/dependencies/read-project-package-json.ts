@@ -24,14 +24,11 @@ export async function readProjectPackageJson(
   if (!(await pathExists(path))) {
     return undefined;
   }
-  let parsed;
   try {
-    parsed = await readJsonFile(path);
+    return await readJsonFile(path, ProjectPackageJsonSchema);
   } catch {
     return undefined;
   }
-  const result = v.safeParse(ProjectPackageJsonSchema, parsed);
-  return result.success ? result.output : undefined;
 }
 
 export function packageJsonDependencySection(

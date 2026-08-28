@@ -13,6 +13,7 @@
     "allowImportingTsExtensions": true
   },
   "include": [
+    "install.ts",
     "config/**/*.ts",
     "adapters/**/*.ts",
     "assets/**/*.ts",
@@ -25,9 +26,7 @@
     "presets/baseline/tests/**/*.ts",
     "presets/database/check.ts",
     "presets/database/verify-committed-migrations.ts",
-    "presets/database/verify-committed-migrations.types.ts",
     "presets/database/verify-database-concurrency.ts",
-    "presets/database/verify-database-concurrency.types.ts",
     "presets/playwright/check.ts"
   ]
 }

@@ -1,5 +1,3 @@
-// Managed by agent-quality-gate. Do not edit; changes are overwritten on verify.
-
 /**
  * Keep application-specific names in the project's own system/config/configLoader.ts.
  * Build typed getters from these shared primitives, for example:

@@ -16,6 +16,7 @@ const AssistantRowSchema = v.looseObject({
     }),
   ),
 });
+const AssistantRowJsonSchema = v.pipe(v.string(), v.parseJson(), AssistantRowSchema);
 
 function assistantRowHasNamedTool(
   parsed: v.InferOutput<typeof AssistantRowSchema>,
@@ -28,7 +29,7 @@ function assistantRowHasNamedTool(
   }
   const content = parsed.message?.content ?? parsed.content;
   return contentHasNamedTool(
-    typeof content === 'object' ? content : undefined,
+    typeof content === 'string' ? undefined : content,
     TOOL_USE_TYPE,
     toolName,
   );
@@ -48,17 +49,11 @@ export function transcriptEndsWithNamedTool(transcriptPath: string, toolName: st
     if (line === undefined || line.length === 0) {
       continue;
     }
-    let value: unknown;
-    try {
-      value = JSON.parse(line) as unknown;
-    } catch {
+    const lineResult = v.safeParse(AssistantRowJsonSchema, line);
+    if (!lineResult.success) {
       continue;
     }
-    const parsed = v.safeParse(AssistantRowSchema, value);
-    if (!parsed.success) {
-      continue;
-    }
-    const asked = assistantRowHasNamedTool(parsed.output, toolName);
+    const asked = assistantRowHasNamedTool(lineResult.output, toolName);
     if (asked !== undefined) {
       return asked;
     }

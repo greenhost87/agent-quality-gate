@@ -1,8 +1,7 @@
 import { defineRule, type Context, type ESTree } from '@oxlint/plugins';
 
 import { calleeExportName, collectValibotBindings } from './valibot-bindings.ts';
-import type { ValibotBindings } from './valibot-bindings.types.ts';
-import { walkAst } from '../../../scripts/oxlint-walk/oxlint-walk.ts';
+import type { ValibotBindings } from './valibot-bindings.ts';
 
 const TRIVIAL_LEAVES = new Set(['string', 'number', 'boolean', 'null', 'undefined']);
 const TRIVIAL_WRAPPERS = new Set(['array', 'optional', 'nullable']);
@@ -67,14 +66,14 @@ export const noTrivialValibotSchemaAlias = defineRule({
     return {
       before() {
         const bindings = collectValibotBindings(context.sourceCode.ast);
-        walkAst(context.sourceCode.ast, (node) => {
-          if (node.type !== 'ExportNamedDeclaration') {
-            return;
+        for (const statement of context.sourceCode.ast.body) {
+          if (statement.type !== 'ExportNamedDeclaration') {
+            continue;
           }
-          for (const declarator of exportedConstDeclarators(node)) {
+          for (const declarator of exportedConstDeclarators(statement)) {
             reportTrivialAlias(context, declarator, bindings);
           }
-        });
+        }
         return false;
       },
       Program() {},

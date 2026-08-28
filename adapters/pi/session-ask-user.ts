@@ -1,7 +1,6 @@
 import * as v from 'valibot';
 
 import { contentHasNamedTool } from '../hooks/content-has-named-tool.js';
-import type { SessionBranchEntry } from './session-ask-user.types.js';
 
 export const PI_ASK_USER_TOOL_NAME = 'ask_user';
 
@@ -22,10 +21,18 @@ export function branchEndsWithAskUser(entries: readonly SessionBranchEntry[]): b
     }
     const content = parsed.output.content;
     return contentHasNamedTool(
-      typeof content === 'object' ? content : undefined,
+      typeof content === 'string' ? undefined : content,
       PI_TOOL_CALL_TYPE,
       PI_ASK_USER_TOOL_NAME,
     );
   }
   return false;
 }
+
+export type SessionBranchEntry = {
+  type?: string;
+  message?: {
+    role?: string;
+    content?: object | string;
+  };
+};

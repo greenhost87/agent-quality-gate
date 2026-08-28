@@ -1,6 +1,5 @@
 import { readProjectPackageJson } from '../../preset-catalog/dependencies/read-project-package-json.ts';
 import { formatDatabaseLabeledValues } from './format-database-labeled-values.ts';
-import type { DatabaseConcurrencyScriptViolation } from './verify-database-concurrency.types.ts';
 
 function scriptSegments(command: string): string[] {
   return command.split(/(?:&&|\|\||;)/u);
@@ -68,3 +67,7 @@ export function formatDatabaseConcurrencyViolations(
     violations.map((violation) => violation.scriptName),
   );
 }
+
+export type DatabaseConcurrencyScriptViolation = {
+  scriptName: string;
+};

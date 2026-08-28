@@ -1,4 +1,4 @@
-import type { ToolRunResult } from '../../gate/execute-verify/execute-verify.types.ts';
+import type { ToolRunResult } from '../../gate/execute-verify/execute-verify.ts';
 import type { PresetCheckModule } from '../../preset-catalog/contract/preset-check.types.ts';
 import {
   captureCommittedMigrationDiff,

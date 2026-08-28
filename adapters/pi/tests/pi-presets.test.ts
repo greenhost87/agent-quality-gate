@@ -12,7 +12,6 @@ import {
 } from '../../../config/global-config/global-config.js';
 import { executeVerify } from '../../../gate/execute-verify/execute-verify.js';
 import { installPresetFromSource } from '../../../scripts/install-preset/install-preset.js';
-import { expectRejectedMessage } from '../../../tests/support/expect-rejected.js';
 import { ensureGateInstallNodeModules } from '../../../tests/support/gate-install.js';
 import { useIsolatedAgentQualityGateHome } from '../../../tests/support/isolated-home.js';
 
@@ -68,7 +67,7 @@ afterEach(async () => {
 });
 
 describe('pi extension presets', () => {
-  it('parses optional presets and rejects unknown names and absolute paths', async () => {
+  it('parses optional presets and drops unknown names and absolute paths', async () => {
     const configDirectory = await makeTempDirectory('quality-gate-pi-presets-');
     const project = await makeTempDirectory('quality-gate-pi-preset-project-');
     const privatePreset = await writeNamedPresetRoot('private-example');
@@ -90,15 +89,9 @@ describe('pi extension presets', () => {
 
     const loaded = await readGlobalQualityGateConfig(withPresets);
     expect(loaded.projects[0]?.presets).toEqual(['database']);
-    await expectRejectedMessage(
-      readGlobalQualityGateConfig(withPath),
-      `unknown preset "${privatePreset}"`,
-    );
-    await expectRejectedMessage(readGlobalQualityGateConfig(unknown), 'unknown preset');
-    await expectRejectedMessage(
-      readGlobalQualityGateConfig(malformed),
-      'Invalid type: Expected Array but received',
-    );
+    expect((await readGlobalQualityGateConfig(withPath)).projects[0]?.presets).toEqual([]);
+    expect((await readGlobalQualityGateConfig(unknown)).projects[0]?.presets).toEqual([]);
+    expect((await readGlobalQualityGateConfig(malformed)).projects).toEqual([]);
   });
 
   it('parses project ignorePatterns', async () => {
@@ -118,7 +111,7 @@ describe('pi extension presets', () => {
     expect(loaded.projects[0]?.ignorePatterns).toEqual(['migrations/**']);
   });
 
-  it('parses packageBoundaries only with the packages preset', async () => {
+  it('stores packages options under presetConfig.packages', async () => {
     const configDirectory = await makeTempDirectory('quality-gate-pi-boundaries-');
     const project = await makeTempDirectory('quality-gate-pi-boundaries-project-');
     const packagesSource = await writeNamedPresetRoot('packages');
@@ -130,14 +123,16 @@ describe('pi extension presets', () => {
           root: project,
           entries: ['src/index.ts'],
           presets: ['packages'],
-          packageBoundaries: {
-            allowedRootModules: ['config.ts'],
-            declaredDependencies: { orders: ['shopify'] },
+          presetConfig: {
+            packages: {
+              allowedRootModules: ['config.ts'],
+              declaredDependencies: { orders: ['shopify'] },
+            },
           },
         },
       ],
     });
-    const withoutPreset = await writeGlobalConfig(
+    const withoutPackagesKey = await writeGlobalConfig(
       await makeTempDirectory('quality-gate-pi-boundaries-missing-'),
       {
         projects: [
@@ -145,9 +140,11 @@ describe('pi extension presets', () => {
             root: project,
             entries: ['src/index.ts'],
             presets: ['config'],
-            packageBoundaries: {
-              allowedRootModules: ['config.ts'],
-              declaredDependencies: {},
+            presetConfig: {
+              packages: {
+                allowedRootModules: ['config.ts'],
+                declaredDependencies: {},
+              },
             },
           },
         ],
@@ -155,14 +152,20 @@ describe('pi extension presets', () => {
     );
 
     const loaded = await readGlobalQualityGateConfig(withBoundaries);
-    expect(loaded.projects[0]?.packageBoundaries).toEqual({
-      allowedRootModules: ['config.ts'],
-      declaredDependencies: { orders: ['shopify'] },
+    expect(loaded.projects[0]?.presetConfig).toEqual({
+      packages: {
+        allowedRootModules: ['config.ts'],
+        declaredDependencies: { orders: ['shopify'] },
+      },
     });
-    await expectRejectedMessage(
-      readGlobalQualityGateConfig(withoutPreset),
-      'packageBoundaries requires the packages preset',
-    );
+    const orphaned = await readGlobalQualityGateConfig(withoutPackagesKey);
+    expect(orphaned.projects[0]?.presets).toEqual(['config']);
+    expect(orphaned.projects[0]?.presetConfig).toEqual({
+      packages: {
+        allowedRootModules: ['config.ts'],
+        declaredDependencies: {},
+      },
+    });
   });
 
   it('forwards configured presets into verify', async () => {

@@ -11,11 +11,6 @@
       "source": "payload/system/database/migrate.ts"
     },
     {
-      "destination": "system/database/migrate.types.ts",
-      "source": "payload/system/database/migrate.types.ts"
-    },
-
-    {
       "destination": "tests/setup/testDatabase.ts",
       "source": "payload/tests/setup/testDatabase.ts"
     },
@@ -28,8 +23,13 @@
       "source": "payload/tests/setup/fixtures/terminate-database-connections.sql"
     },
     {
-      "destination": "tests/database.integration.test.ts.example",
-      "source": "payload/tests/database.integration.test.ts.example",
+      "destination": "scripts/sync-database-managed.ts",
+      "source": "payload/scripts/sync-database-managed.ts",
+      "exampleOnly": true
+    },
+    {
+      "destination": "database-examples.md",
+      "source": "payload/database-examples.md",
       "exampleOnly": true
     }
   ],
@@ -54,8 +54,8 @@
       }
     ],
     "rules": {
-      "database/dao-boundaries": "error",
-      "database/test-database-boundaries": "error"
+      "database/dao-boundaries": { "severity": "error", "phase": "boundaries" },
+      "database/test-database-boundaries": { "severity": "error", "phase": "boundaries" }
     }
   }
 }

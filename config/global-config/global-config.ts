@@ -10,164 +10,130 @@ import { packagedGlobalConfigTemplatePath } from '../packaged-assets/packaged-as
 import { canonicalizePath, pathIsInside, selectDeepestRoot } from '../../process/files/paths.js';
 import { isResolvablePresetName } from '../../preset-catalog/catalog/preset-catalog.js';
 import { pathExists, readTextFile, writeTextFile } from '../../process/files/files.js';
+import { collectPresetConflictWarnings } from './preset-conflict-warnings.ts';
 
 const GLOBAL_CONFIG_TEMPLATE_PATH = packagedGlobalConfigTemplatePath();
+
+const StringArraySchema = v.pipe(
+  v.array(v.unknown()),
+  v.transform((items) =>
+    items
+      .filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+      .map((item) => item.trim()),
+  ),
+);
 
 function defaultGlobalConfigPath(): string {
   return join(agentQualityGateHome(), 'config.yaml');
 }
 
-function configError(configPath: string, message: string): Error {
-  return new Error(`${configPath}: ${message}`);
+function resolvePresets(input: LoosePresets): string[] {
+  return (input.presets ?? []).filter(
+    (preset): preset is string => typeof preset === 'string' && isResolvablePresetName(preset),
+  );
 }
 
-function normalizeModulePlacementDirectory(directory: string): string {
-  return directory.replace(/\/+$/u, '');
+function nonEmptyStringArray(input: LooseStringArray): string[] | undefined {
+  const parsed = v.safeParse(StringArraySchema, input.items ?? []);
+  return parsed.success && parsed.output.length > 0 ? parsed.output : undefined;
 }
 
-function isProjectRelativeDirectory(directory: string): boolean {
-  return directory.length > 0 && !directory.startsWith('/') && !directory.includes('..');
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return v.is(v.looseObject({}), value);
 }
 
-const ProjectRelativeDirectorySchema = v.pipe(
-  v.string(),
-  v.check(isProjectRelativeDirectory, 'must be a project-relative path'),
-  v.transform(normalizeModulePlacementDirectory),
-);
-
-const PackageBoundariesSchema = v.strictObject({
-  allowedRootModules: v.array(v.string()),
-  declaredDependencies: v.record(v.string(), v.array(v.string())),
-});
-
-export type PackageBoundariesConfig = v.InferOutput<typeof PackageBoundariesSchema>;
-
-const ModulePlacementSchema = v.pipe(
-  v.strictObject({
-    directories: v.array(ProjectRelativeDirectorySchema),
-    rootExceptions: v.optional(v.record(v.string(), v.array(v.string())), {}),
-  }),
-  v.rawTransform(({ dataset, addIssue }) => {
-    const rootExceptions: Record<string, string[]> = {};
-    for (const [directory, exceptions] of Object.entries(dataset.value.rootExceptions)) {
-      if (!isProjectRelativeDirectory(directory)) {
-        addIssue({
-          message: `modulePlacement.rootExceptions key "${directory}" must be a project-relative path`,
-        });
-        return { directories: dataset.value.directories, rootExceptions: {} };
-      }
-      const normalized = normalizeModulePlacementDirectory(directory);
-      if (!dataset.value.directories.includes(normalized)) {
-        addIssue({
-          message: `modulePlacement.rootExceptions.${directory} must name a configured directory`,
-        });
-        return { directories: dataset.value.directories, rootExceptions: {} };
-      }
-      rootExceptions[normalized] = exceptions;
+function parsePresetConfigBag(raw: object | undefined): Record<string, object> {
+  if (raw === undefined || !isPlainObject(raw)) {
+    return {};
+  }
+  const result: Record<string, object> = {};
+  for (const [key, value] of Object.entries(raw)) {
+    if (isPlainObject(value)) {
+      result[key] = value;
     }
-    return {
-      directories: dataset.value.directories,
-      rootExceptions,
-    };
-  }),
-);
+  }
+  return result;
+}
 
-export type ModulePlacementConfig = v.InferOutput<typeof ModulePlacementSchema>;
+function projectFromRaw(raw: ProjectRaw): GlobalProject | null {
+  if (raw.root === undefined || !isAbsolute(raw.root)) {
+    return null;
+  }
+  const entries = nonEmptyStringArray({ items: raw.entries });
+  if (entries === undefined || invalidProjectRelativeEntries(entries) !== undefined) {
+    return null;
+  }
+  const presets = resolvePresets(raw);
+  const ignorePatterns = nonEmptyStringArray({ items: raw.ignorePatterns });
+  const project: GlobalProject = {
+    root: canonicalizePath(raw.root),
+    entries,
+    presets,
+    presetConfig: parsePresetConfigBag(raw.presetConfig),
+    warnings: [],
+    ...(ignorePatterns === undefined ? {} : { ignorePatterns }),
+  };
+  project.warnings = collectPresetConflictWarnings(project);
+  return project;
+}
 
-const MaxInlineParameterObjectMembersSchema = v.pipe(
-  v.number(),
-  v.integer(),
-  v.check((value) => value === -1 || value >= 0, 'must be -1 or a non-negative integer'),
-);
-
-const BaselineSchema = v.strictObject({
-  maxInlineParameterObjectMembers: MaxInlineParameterObjectMembersSchema,
+const ProjectSchemaRaw = v.looseObject({
+  root: v.optional(v.string()),
+  entries: v.optional(v.array(v.unknown())),
+  presets: v.optional(v.array(v.unknown())),
+  ignorePatterns: v.optional(v.array(v.unknown())),
+  presetConfig: v.optional(v.looseObject({})),
 });
-
-export type BaselineConfig = v.InferOutput<typeof BaselineSchema>;
 
 const ProjectSchema = v.pipe(
-  v.strictObject({
-    root: v.string(),
-    entries: v.pipe(v.array(v.string()), v.minLength(1)),
-    presets: v.optional(v.array(v.string()), []),
-    ignorePatterns: v.optional(v.array(v.string())),
-    packageBoundaries: v.optional(PackageBoundariesSchema),
-    modulePlacement: v.optional(ModulePlacementSchema),
-    baseline: v.optional(BaselineSchema),
-  }),
-  v.rawTransform(({ dataset, addIssue }) => {
-    const value = dataset.value;
-    const empty = {
-      root: value.root,
-      entries: value.entries,
-      presets: [] as string[],
-      ignorePatterns: undefined as string[] | undefined,
-      packageBoundaries: undefined as PackageBoundariesConfig | undefined,
-      modulePlacement: undefined as ModulePlacementConfig | undefined,
-      baseline: undefined as BaselineConfig | undefined,
-    };
-    if (!isAbsolute(value.root)) {
-      addIssue({ message: 'root must be an absolute path' });
-      return empty;
-    }
-    const entryError = invalidProjectRelativeEntries(value.entries);
-    if (entryError !== undefined) {
-      addIssue({ message: entryError });
-      return empty;
-    }
-    const resolvedPresets: string[] = [];
-    for (const preset of value.presets) {
-      if (!isResolvablePresetName(preset)) {
-        addIssue({ message: `unknown preset "${preset}"` });
-        return empty;
-      }
-      resolvedPresets.push(preset);
-    }
-    if (value.packageBoundaries !== undefined && !resolvedPresets.includes('packages')) {
-      addIssue({ message: 'packageBoundaries requires the packages preset' });
-      return empty;
-    }
-    if (value.modulePlacement !== undefined && !resolvedPresets.includes('module-placement')) {
-      addIssue({ message: 'modulePlacement requires the module-placement preset' });
-      return empty;
-    }
-    return {
-      root: canonicalizePath(value.root),
-      entries: value.entries,
-      presets: resolvedPresets,
-      ignorePatterns: value.ignorePatterns,
-      packageBoundaries: value.packageBoundaries,
-      modulePlacement: value.modulePlacement,
-      baseline: value.baseline,
-    };
-  }),
+  ProjectSchemaRaw,
+  v.transform((raw): GlobalProject | null => projectFromRaw(raw)),
 );
 
-export type GlobalProject = v.InferOutput<typeof ProjectSchema>;
+const VerifySettingsSchema = v.looseObject({
+  lintGroups: v.optional(v.array(v.unknown())),
+  boundaryPluginPriority: v.optional(v.array(v.unknown())),
+});
 
 const GlobalQualityGateConfigSchema = v.pipe(
-  v.strictObject({
-    projects: v.array(ProjectSchema, 'projects must be an array'),
+  v.looseObject({
+    projects: v.optional(v.array(v.unknown()), []),
+    verify: v.optional(VerifySettingsSchema),
   }),
-  v.rawCheck(({ dataset, addIssue }) => {
-    if (!dataset.typed) {
-      return;
-    }
+  v.transform((raw): GlobalQualityGateConfig => {
+    const projects: GlobalProject[] = [];
     const roots = new Set<string>();
-    for (const project of dataset.value.projects) {
-      if (roots.has(project.root)) {
-        addIssue({
-          message: `project roots must be unique, duplicated "${project.root}"`,
-        });
-        return;
+    for (const item of raw.projects) {
+      const parsed = v.safeParse(ProjectSchema, item);
+      if (!parsed.success) {
+        continue;
+      }
+      const project = parsed.output;
+      if (project === null || roots.has(project.root)) {
+        continue;
       }
       roots.add(project.root);
+      projects.push(project);
     }
+    const warnings = projects.flatMap((project) => project.warnings);
+    if (raw.verify === undefined) {
+      return { projects, warnings };
+    }
+    return { projects, warnings, verify: parseVerifySettings(raw.verify) };
   }),
 );
 
-export type GlobalQualityGateConfig = v.InferOutput<typeof GlobalQualityGateConfigSchema>;
+function parseVerifySettings(raw: VerifySettingsRaw): VerifySettings | undefined {
+  const lintGroups = nonEmptyStringArray({ items: raw.lintGroups });
+  const boundaryPluginPriority = nonEmptyStringArray({ items: raw.boundaryPluginPriority });
+  if (lintGroups === undefined && boundaryPluginPriority === undefined) {
+    return undefined;
+  }
+  return {
+    ...(lintGroups === undefined ? {} : { lintGroups }),
+    ...(boundaryPluginPriority === undefined ? {} : { boundaryPluginPriority }),
+  };
+}
 
 export async function createGlobalQualityGateConfig(
   configPath = defaultGlobalConfigPath(),
@@ -190,19 +156,17 @@ export async function readGlobalQualityGateConfig(
   configPath = defaultGlobalConfigPath(),
 ): Promise<GlobalQualityGateConfig> {
   if (!(await pathExists(configPath))) {
-    return { projects: [] };
+    return { projects: [], warnings: [] };
   }
-  let raw: unknown;
   try {
-    raw = YAML.parse(await readTextFile(configPath));
+    const result = v.safeParse(
+      GlobalQualityGateConfigSchema,
+      YAML.parse(await readTextFile(configPath)),
+    );
+    return result.success ? result.output : { projects: [], warnings: [] };
   } catch {
-    throw configError(configPath, 'must contain valid YAML');
+    return { projects: [], warnings: [] };
   }
-  const result = v.safeParse(GlobalQualityGateConfigSchema, raw);
-  if (!result.success) {
-    throw configError(configPath, result.issues[0].message);
-  }
-  return result.output;
 }
 
 export function findProjectForCwd(
@@ -215,3 +179,49 @@ export function findProjectForCwd(
     findLinkedCheckoutProject(resolvedCwd, projects)
   );
 }
+
+export type LooseStringArray = {
+  items?: readonly unknown[];
+};
+
+export type LoosePresets = {
+  presets?: readonly unknown[];
+};
+
+export type ProjectRaw = {
+  root?: string;
+  entries?: readonly unknown[];
+  presets?: readonly unknown[];
+  ignorePatterns?: readonly unknown[];
+  presetConfig?: object;
+};
+
+export type GlobalProject = {
+  root: string;
+  entries: string[];
+  presets: string[];
+  ignorePatterns?: string[];
+  presetConfig: Record<string, object>;
+  /** Soft config warnings (e.g. packages + playwright allowlist conflicts). */
+  warnings: string[];
+};
+
+export type VerifySettings = {
+  /** Ordered oxlint output group ids; first non-empty group gates the run. */
+  lintGroups?: string[];
+  /** Plugin order inside the `boundaries` group expansion. */
+  boundaryPluginPriority?: string[];
+};
+
+export type VerifySettingsRaw = {
+  lintGroups?: readonly unknown[];
+  boundaryPluginPriority?: readonly unknown[];
+};
+
+export type GlobalQualityGateConfig = {
+  projects: GlobalProject[];
+  /** Gate-wide verify tuning shared by every configured project. */
+  verify?: VerifySettings;
+  /** Flattened soft warnings from every project (also on each `GlobalProject.warnings`). */
+  warnings: string[];
+};

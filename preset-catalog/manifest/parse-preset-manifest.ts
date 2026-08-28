@@ -1,8 +1,11 @@
 import { file } from 'bun';
 import * as v from 'valibot';
 
-import { OXLINT_RULE_SEVERITIES } from '../oxlint-config/oxlint-rule-setting.js';
-import type { OxlintRuleSetting } from '../oxlint-config/write-oxlint-config.types.js';
+import {
+  OXLINT_RULE_SEVERITIES,
+  OXLINT_RULE_PHASES,
+} from '../oxlint-config/oxlint-rule-setting.js';
+import type { OxlintRuleSetting } from '../oxlint-config/write-oxlint-config.js';
 import type { PresetManifest } from '../contract/preset-contract.types.js';
 import { PRESET_DEPENDENCY_SECTIONS } from '../contract/preset-dependency-sections.js';
 
@@ -30,9 +33,18 @@ const OxlintPluginSchema = v.object({
 
 const RuleSeveritySchema = v.picklist(OXLINT_RULE_SEVERITIES);
 
+const RulePhaseSchema = v.picklist(OXLINT_RULE_PHASES);
+
+const RuleObjectSchema = v.object({
+  severity: RuleSeveritySchema,
+  options: v.optional(v.looseObject({})),
+  phase: v.optional(RulePhaseSchema),
+});
+
 const RuleSettingSchema: v.GenericSchema<OxlintRuleSetting> = v.union([
   RuleSeveritySchema,
   v.tuple([RuleSeveritySchema, v.looseObject({})]),
+  RuleObjectSchema,
 ]);
 
 const OverrideSchema = v.object({

@@ -5,7 +5,7 @@ import type {
   TypeAliasEntry,
   TypeTables,
   UnionShape,
-} from './no-handmade-json-types.types.ts';
+} from './no-handmade-json-types.ts';
 
 function unwrapType(node: ESTree.TSType): ESTree.TSType {
   if (node.type === 'TSParenthesizedType') {

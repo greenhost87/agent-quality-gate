@@ -13,7 +13,7 @@
         "../../scripts/oxlint-rule-bench/bench-create-once-rule.ts"
       ],
       "agent-quality-gate/oxlint-rule-bench/types": [
-        "../../scripts/oxlint-rule-bench/bench-create-once-rule.types.ts"
+        "../../scripts/oxlint-rule-bench/bench-create-once-rule.ts"
       ],
       "agent-quality-gate/oxlint-rule-bench/create-bench-context": [
         "../../scripts/oxlint-rule-bench/create-bench-context.ts"
@@ -26,5 +26,5 @@
       ]
     }
   },
-  "include": ["tests/**/*.ts", "oxlint/**/*.ts"]
+  "include": ["tests/**/*.ts", "oxlint/**/*.ts", "gate-config.ts"]
 }

@@ -1,5 +1,3 @@
-// Managed by agent-quality-gate. Do not edit; changes are overwritten on verify.
-
 import { afterAll, beforeAll, beforeEach } from 'bun:test';
 import { setEnv } from '@/system/config/environment';
 import {

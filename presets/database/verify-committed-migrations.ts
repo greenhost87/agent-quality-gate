@@ -2,13 +2,6 @@ import { spawnSync, write } from 'bun';
 import { mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
-import type {
-  CommittedMigrationCheck,
-  CommittedMigrationRestore,
-  CommittedMigrationViolation,
-  GitRun,
-} from './verify-committed-migrations.types.ts';
-
 const MIGRATIONS_PATHSPEC = 'migrations';
 export const RESTORED_MIGRATION_DIFF_RELATIVE_PATH = '.aqg/restored-migration.diff';
 
@@ -182,3 +175,20 @@ export function formatCommittedMigrationViolations(
   }
   return lines.join('\n');
 }
+
+export type CommittedMigrationViolation = {
+  path: string;
+};
+
+export type CommittedMigrationCheck =
+  | { ok: true; violations: readonly CommittedMigrationViolation[] }
+  | { ok: false; error: string };
+
+export type CommittedMigrationRestore = { ok: true } | { ok: false; error: string };
+
+export type GitRun = {
+  started: boolean;
+  status: number;
+  stdout: string;
+  stderr: string;
+};

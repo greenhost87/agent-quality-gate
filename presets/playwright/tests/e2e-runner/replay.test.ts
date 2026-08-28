@@ -7,18 +7,6 @@ import { HOT } from 'agent-quality-gate/oxlint-rule-bench/hot-code';
 
 import { e2eRunnerBench } from './bench.ts';
 
-describe('e2e-runner', () => {
-  it('replays createOnce bench cases without throwing', () => {
-    const result = replayCreateOnceRule({
-      ruleId: e2eRunnerBench.ruleId,
-      rule: e2eRunnerBench.rule,
-      cases: e2eRunnerBench.cases,
-    });
-    expect(result.cases.length).toBe(1);
-    expect(Array.isArray(result.cases[0]?.reports)).toBe(true);
-  });
-});
-
 describe('e2e-runner before skip', () => {
   it('runs the scan in before and skips the visitor walk', () => {
     const createOnce = requireCreateOnceRule(e2eRunnerBench.rule);

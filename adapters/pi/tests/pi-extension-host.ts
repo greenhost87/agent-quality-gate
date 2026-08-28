@@ -11,7 +11,7 @@ import type {
   QualityGateExtensionApi,
   QualityGateExtensionContext,
 } from '../extension-api.types.js';
-import type { SessionBranchEntry } from '../session-ask-user.types.js';
+import type { SessionBranchEntry } from '../session-ask-user.js';
 
 const tempDirectories: string[] = [];
 const FIXTURES_ROOT = join(import.meta.dir, '..', '.quality-fixtures', 'extension');

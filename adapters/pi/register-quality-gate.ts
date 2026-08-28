@@ -12,7 +12,7 @@ import {
   followUpForSettledResult,
   toolOutput,
 } from '../../gate/quality-gate-run/quality-gate-run.js';
-import type { RegisterQualityGateOptions } from '../../gate/quality-gate-run/quality-gate-run.types.js';
+import type { RegisterQualityGateOptions } from '../../gate/quality-gate-run/quality-gate-run.js';
 import { VERIFY_TOOL_NAME } from '../hooks/verify-tool-name.js';
 import { branchEndsWithAskUser } from './session-ask-user.js';
 import { activeToolNamesForCwd } from './verify-tool-visibility.js';

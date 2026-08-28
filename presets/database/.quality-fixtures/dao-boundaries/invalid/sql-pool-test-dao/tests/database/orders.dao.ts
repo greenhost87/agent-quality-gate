@@ -1,5 +1,5 @@
-import { getDatabase } from '@/system/database/connection';
+import { sql } from '@/system/database/connection';
 
 export async function ping(): Promise<void> {
-  await getDatabase()`SELECT 1`;
+  await sql`SELECT 1`;
 }

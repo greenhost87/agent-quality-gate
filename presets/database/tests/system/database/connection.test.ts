@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from 'bun:test';
 import { createEnv, getOptionalEnv, setEnv } from '@/system/config/environment';
 
-const { closeDatabase, getDatabase } = await import('@/system/database/connection');
+const { closeDatabase, getDatabaseGeneration, sql } = await import('@/system/database/connection');
 
 const unusedDatabaseUrl = 'postgres://127.0.0.1:1/unused';
 const controlledKeys = ['DATABASE_URL', 'NODE_ENV'] as const;
@@ -25,14 +25,14 @@ describe('database connection pool', () => {
     setEnv('DATABASE_URL', unusedDatabaseUrl);
     setEnv('NODE_ENV', 'test');
 
-    expect(getDatabase().options.max).toBe(1);
+    expect(sql.options.max).toBe(1);
   });
 
   test('uses ten connections outside test', () => {
     setEnv('DATABASE_URL', unusedDatabaseUrl);
     setEnv('NODE_ENV', 'production');
 
-    expect(getDatabase().options.max).toBe(10);
+    expect(sql.options.max).toBe(10);
   });
 
   test('uses ten connections when NODE_ENV is unset', () => {
@@ -40,6 +40,18 @@ describe('database connection pool', () => {
     setEnv('NODE_ENV', undefined);
 
     expect(getOptionalEnv('NODE_ENV')).toBeUndefined();
-    expect(getDatabase().options.max).toBe(10);
+    expect(sql.options.max).toBe(10);
+  });
+
+  test('changes generation only when the active client changes', async () => {
+    setEnv('DATABASE_URL', unusedDatabaseUrl);
+    setEnv('NODE_ENV', 'test');
+
+    const initial = getDatabaseGeneration();
+    expect(getDatabaseGeneration()).toBe(initial);
+
+    await closeDatabase();
+
+    expect(getDatabaseGeneration()).toBeGreaterThan(initial);
   });
 });

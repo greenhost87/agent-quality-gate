@@ -1,4 +1,4 @@
-import type { ToolRunResult } from '../../gate/execute-verify/execute-verify.types.js';
+import type { ToolRunResult } from '../../gate/execute-verify/execute-verify.js';
 
 export type PresetVerifyContext = {
   projectRoot: string;

@@ -41,9 +41,10 @@ Valid layout under each watched directory:
 ```text
 <directory>/<concern>/<file>.ts
 <directory>/<concern>/tests/<file>.ts
+<directory>/tests/**/<file>.ts
 ```
 
-`<concern>` must match `[a-z][a-z0-9-]*`. An optional `tests/` segment is allowed for colocated tests. Other paths deeper than one concern segment are rejected.
+`<concern>` must match `[a-z][a-z0-9-]*`. An optional `tests/` segment is allowed for colocated tests. Other production paths deeper than one concern segment are rejected. A top-level `tests/` tree under the watched directory is exempt at any depth (repository-wide test layout, e.g. `gate/tests/<topic>/<file>.test.ts`).
 
 ## Enable
 

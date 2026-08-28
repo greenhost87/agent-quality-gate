@@ -1,8 +1,11 @@
 import { mkdirSync } from 'node:fs';
 import { join } from 'node:path';
+import * as v from 'valibot';
 
 import { writeBytesFile } from '../../process/files/files.js';
 import { parseGithubRelease, releaseApiUrl, selectReleaseTarballAsset } from './github-release.js';
+
+const ReleasePayloadSchema = v.pipe(v.string(), v.parseJson(), v.looseObject({}));
 
 export async function downloadReleaseTarball(
   version: string | undefined,
@@ -19,10 +22,7 @@ export async function downloadReleaseTarball(
       `GitHub release lookup failed (${String(apiResponse.status)}): ${releaseApiUrl(version)}`,
     );
   }
-  const payload: unknown = (await apiResponse.json()) as unknown;
-  if (typeof payload !== 'object' || payload === null) {
-    throw new Error('GitHub release payload is invalid');
-  }
+  const payload = v.parse(ReleasePayloadSchema, await apiResponse.text());
   const release = parseGithubRelease(payload);
   const asset = selectReleaseTarballAsset(release);
   const tarballResponse = await fetch(asset.browser_download_url, {

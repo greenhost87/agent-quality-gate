@@ -65,13 +65,13 @@ export async function readFallowConfigFile(path: string, name: string): Promise<
   if (!(await pathExists(path))) {
     throw new Error(`${name} must contain valid JSON`);
   }
-  let parsed;
+  let raw: unknown;
   try {
-    parsed = await readJsonFile(path);
+    raw = await readJsonFile(path, v.unknown());
   } catch (error) {
     throw new Error(`${name} must contain valid JSON`, { cause: error });
   }
-  const result = v.safeParse(FallowConfigSchema, parsed);
+  const result = v.safeParse(FallowConfigSchema, raw);
   if (!result.success) {
     throw new Error(`${name} must contain an object`);
   }

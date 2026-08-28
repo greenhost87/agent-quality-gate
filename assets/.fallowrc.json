@@ -4,7 +4,7 @@
     "adapters/pi/*.ts",
     "presets/baseline/oxlint/*.ts",
     "presets/baseline/oxlint/rules/*.ts",
-    "presets/playwright/check.ts",
+    "presets/baseline/gate-config.ts",
     "scripts/*/*.ts",
     "scripts/install-local/*.ts",
     "adapters/hooks/*.ts",
@@ -20,17 +20,12 @@
     "coverage/**",
     "dist/**",
     "node_modules/**",
-    "presets/config/**",
-    "presets/bun-parse/**",
-    "presets/database/**",
-    "presets/playwright/.quality-fixtures/**",
-    "presets/playwright/oxlint/**",
-    "presets/playwright/payload/**",
-    "presets/module-placement/**",
+    "presets/**/*",
+    "!presets/baseline/**",
     "tmp/**",
     "scripts/playwright-web-server.ts"
   ],
-  "ignoreDependencies": [],
+  "ignoreDependencies": ["@oxlint/plugins"],
   "ignoreExports": [],
   "duplicates": {
     "mode": "mild",
@@ -38,7 +33,13 @@
     "minTokens": 30,
     "minLines": 3,
     "threshold": 0.1,
-    "ignore": ["**/*.lock", "**/*.min.js"]
+    "ignore": [
+      "**/*.lock",
+      "**/*.min.js",
+      "presets/**/gate-config.ts",
+      "preset-catalog/load-check/load-preset-check.ts",
+      "preset-catalog/load-gate-config/load-preset-gate-config.ts"
+    ]
   },
   "health": {
     "maxCyclomatic": 20,

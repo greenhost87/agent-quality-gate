@@ -1,14 +1,15 @@
 #!/usr/bin/env bun
 
-import { rejectUnexpectedArgument, reportCommandError } from '../../process/command/command.js';
+import { createCli, reportCommandError, runCli } from '../../process/command/command.js';
 import { executeVerify } from '../../gate/execute-verify/execute-verify.js';
-import type { VerifyResult } from '../../gate/execute-verify/execute-verify.types.js';
+import type { VerifyResult } from '../../gate/execute-verify/execute-verify.js';
 import { formatVerifyOk } from '../../gate/execute-verify/verify-ok-message.js';
-import { localVerifyRequest, writeVerifyStreams } from './cli.js';
+import { localVerifyRequest } from './cli.js';
 import { verifyLocalPresetPackages } from './preset-baseline-verify.js';
 import { rejectCrossPresetImports } from './preset-isolation.js';
 import { verifyLocalPresetPacks } from './preset-pack-run.js';
-import { firstNonZeroResult } from './preset-verify-result.js';
+import { firstNonZeroResult } from '../../gate/public-verify/preset-verify-result.js';
+import { writeVerifyStreams } from '../../gate/public-verify/verify-streams.js';
 import { rejectMisplacedTests } from './test-colocation.js';
 
 function timedOk(label: string, startedAt: number): VerifyResult {
@@ -19,10 +20,8 @@ function timedOk(label: string, startedAt: number): VerifyResult {
   };
 }
 
-if (rejectUnexpectedArgument('verify')) {
-  process.exitCode = 2;
-} else {
-  try {
+try {
+  await runCli(createCli('verify'), process.argv.slice(2), 'Usage: bun run verify', async () => {
     const isolationStartedAt = performance.now();
     const colocationStartedAt = performance.now();
     const [isolation, colocation] = await Promise.all([
@@ -33,22 +32,22 @@ if (rejectUnexpectedArgument('verify')) {
     if (staticFailure !== undefined) {
       writeVerifyStreams(staticFailure);
       process.exitCode = staticFailure.exitCode;
-    } else {
-      writeVerifyStreams(timedOk('preset isolation', isolationStartedAt));
-      writeVerifyStreams(timedOk('test colocation', colocationStartedAt));
-
-      const [repository, packages, packs] = await Promise.all([
-        executeVerify(localVerifyRequest()),
-        verifyLocalPresetPackages(process.cwd()),
-        verifyLocalPresetPacks(process.cwd()),
-      ]);
-      writeVerifyStreams(repository);
-      writeVerifyStreams(packages);
-      writeVerifyStreams(packs);
-      process.exitCode = firstNonZeroResult(repository, packages, packs)?.exitCode ?? 0;
+      return;
     }
-  } catch (error) {
-    reportCommandError('verify', error instanceof Error ? error : String(error));
-    process.exitCode = 2;
-  }
+    writeVerifyStreams(timedOk('preset isolation', isolationStartedAt));
+    writeVerifyStreams(timedOk('test colocation', colocationStartedAt));
+
+    const [repository, packages, packs] = await Promise.all([
+      executeVerify(localVerifyRequest()),
+      verifyLocalPresetPackages(process.cwd()),
+      verifyLocalPresetPacks(process.cwd()),
+    ]);
+    writeVerifyStreams(repository);
+    writeVerifyStreams(packages);
+    writeVerifyStreams(packs);
+    process.exitCode = firstNonZeroResult(repository, packages, packs)?.exitCode ?? 0;
+  });
+} catch (error) {
+  reportCommandError('verify', error instanceof Error ? error : String(error));
+  process.exitCode = 2;
 }

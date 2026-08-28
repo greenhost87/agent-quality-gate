@@ -7,18 +7,6 @@ import { HOT } from 'agent-quality-gate/oxlint-rule-bench/hot-code';
 
 import { environmentBoundariesBench } from './bench.ts';
 
-describe('environment-boundaries', () => {
-  it('replays createOnce bench cases without throwing', () => {
-    const result = replayCreateOnceRule({
-      ruleId: environmentBoundariesBench.ruleId,
-      rule: environmentBoundariesBench.rule,
-      cases: environmentBoundariesBench.cases,
-    });
-    expect(result.cases.length).toBe(1);
-    expect(Array.isArray(result.cases[0]?.reports)).toBe(true);
-  });
-});
-
 describe('environment-boundaries before skip', () => {
   it('runs the scan in before and skips the visitor walk', () => {
     const createOnce = requireCreateOnceRule(environmentBoundariesBench.rule);

@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 
-import type { HarnessPresence, HarnessSelection } from './resolve-harness.types.js';
+import type { HarnessPresence, HarnessSelection } from './resolve-harness.js';
 
 export function piHomePath(home: string = homedir()): string {
   return join(home, '.pi');

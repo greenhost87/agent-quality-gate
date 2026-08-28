@@ -12,6 +12,8 @@
   "rules": {
     "aqg/console-format-placeholders": "error",
     "aqg/max-inline-parameter-object-members": "error",
+    "aqg/no-class": "error",
+    "aqg/no-double-wrapped-expect-equal": "error",
     "aqg/no-inline-multiline-test-data": "error",
     "aqg/no-oxlint-disable-directives": "error"
   },
@@ -27,7 +29,6 @@
         "aqg/no-runtime-in-types-files": "error",
         "aqg/no-thin-forwarders": "error",
         "aqg/no-trivial-const-wrappers": "error",
-        "aqg/no-types-in-runtime-files": "error",
         "aqg/no-unknown-parameters": "error",
         "aqg/no-useless-exported-type-aliases": "error",
         "aqg/no-wide-parameter-unions": "error",

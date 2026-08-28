@@ -10,12 +10,14 @@ import {
   paramUnionType,
   unwrapExpression,
   walkAst,
+  walkAstSkippingTypeAndJsxMarkup,
   walkAstSkippingTypeSubtrees,
+  walkJsxSurfaceNodes,
 } from 'agent-quality-gate/oxlint-walk';
 
-function parseProgram(code: string) {
-  const parsed = parseSync('fixture.ts', code, {
-    lang: 'ts',
+function parseProgram(code: string, lang: 'ts' | 'tsx' = 'ts') {
+  const parsed = parseSync(`fixture.${lang === 'tsx' ? 'tsx' : 'ts'}`, code, {
+    lang,
     sourceType: 'module',
     range: true,
   });
@@ -130,5 +132,32 @@ describe('agent-quality-gate/oxlint-walk', () => {
       unions.push(union.type);
     });
     expect(unions).toEqual(['TSUnionType']);
+  });
+
+  it('walkAstSkippingTypeAndJsxMarkup still reaches runtime code inside JSX braces', () => {
+    const program = parseProgram(
+      'export function f(dao: { run(): void }) { return <button onClick={() => dao.run()} />; }',
+      'tsx',
+    );
+    const types: string[] = [];
+    walkAstSkippingTypeAndJsxMarkup(program, (node) => {
+      types.push(node.type);
+    });
+    expect(types).toContain('CallExpression');
+    expect(types).not.toContain('JSXText');
+    expect(types.filter((type) => type === 'JSXIdentifier').length).toBe(0);
+  });
+
+  it('walkJsxSurfaceNodes visits opening elements and attributes only', () => {
+    const program = parseProgram(
+      'export function f() { return <button className="x" onClick={() => {}} />; }',
+      'tsx',
+    );
+    const types: string[] = [];
+    walkJsxSurfaceNodes(program, (node) => {
+      types.push(node.type);
+    });
+    expect(types).toEqual(['JSXOpeningElement', 'JSXAttribute', 'JSXAttribute']);
+    expect(types).not.toContain('CallExpression');
   });
 });

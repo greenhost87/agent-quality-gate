@@ -1,3 +1,0 @@
-import { beforeAll } from 'bun:test';
-import { ordersDao } from '../../system/database/orders/orders.dao';
-beforeAll(() => { ordersDao.find(1); });

@@ -1,4 +1,5 @@
 import { type ESTree, type Scope, type Variable } from '@oxlint/plugins';
+import * as v from 'valibot';
 
 export function declarationNode(
   statement: ESTree.Node,
@@ -29,7 +30,7 @@ export function directParameterType(node: ESTree.Node): boolean {
   }
   const parameter = annotation.parent;
   const owner = parameter.parent;
-  if (owner == null || !('params' in owner) || !Array.isArray(owner.params)) {
+  if (owner == null || !('params' in owner) || !v.is(v.array(v.unknown()), owner.params)) {
     return false;
   }
   return owner.params.some((param) => param === parameter);

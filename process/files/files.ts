@@ -1,5 +1,6 @@
 import { existsSync } from 'node:fs';
 import { file, mmap, write } from 'bun';
+import * as v from 'valibot';
 
 /** True for files and directories. `Bun.file().exists()` is false for directories. */
 export async function pathExists(path: string): Promise<boolean> {
@@ -10,8 +11,12 @@ export async function readTextFile(path: string): Promise<string> {
   return file(path).text();
 }
 
-export async function readJsonFile(path: string): Promise<unknown> {
-  return file(path).json();
+export async function readJsonFile<const TSchema extends v.GenericSchema>(
+  path: string,
+  schema: TSchema,
+): Promise<v.InferOutput<TSchema>> {
+  const raw: unknown = await file(path).json();
+  return v.parse(schema, raw);
 }
 
 export async function writeTextFile(path: string, contents: string): Promise<number> {

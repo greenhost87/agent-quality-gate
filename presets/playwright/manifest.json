@@ -17,9 +17,9 @@
       }
     ],
     "rules": {
-      "playwright/e2e-runner": "error",
-      "playwright/e2e-black-box": "error",
-      "playwright/config": "error"
+      "playwright/e2e-runner": { "severity": "error", "phase": "boundaries" },
+      "playwright/e2e-black-box": { "severity": "error", "phase": "boundaries" },
+      "playwright/config": { "severity": "error", "phase": "boundaries" }
     },
     "overrides": []
   }

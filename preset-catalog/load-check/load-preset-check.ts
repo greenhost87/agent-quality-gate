@@ -1,8 +1,9 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import * as v from 'valibot';
 
-import type { ToolRunResult } from '../../gate/execute-verify/execute-verify.types.js';
+import type { ToolRunResult } from '../../gate/execute-verify/execute-verify.js';
 import type { ActivatedPreset } from '../contract/preset-contract.types.js';
 import type { PresetCheckModule, PresetVerifyContext } from '../contract/preset-check.types.js';
 import { PRESET_CHECK_MODULE_BASENAMES } from '../contract/preset-check.types.js';
@@ -18,18 +19,22 @@ function checkModulePath(presetRoot: string): string | undefined {
 }
 
 function isPresetCheckModule(value: unknown): value is PresetCheckModule {
-  if (value === null || typeof value !== 'object') {
+  const moduleResult = v.safeParse(v.looseObject({}), value);
+  if (!moduleResult.success) {
     return false;
   }
-  const candidate = value as PresetCheckModule;
-  const preflightOk =
-    candidate.preflight === undefined || typeof candidate.preflight === 'function';
-  const toolChecksOk =
-    candidate.runToolChecks === undefined || typeof candidate.runToolChecks === 'function';
+  const loaded = moduleResult.output;
+  if (!('preflight' in loaded) && !('runToolChecks' in loaded)) {
+    return false;
+  }
+  const preflight = 'preflight' in loaded ? loaded.preflight : undefined;
+  const runToolChecks = 'runToolChecks' in loaded ? loaded.runToolChecks : undefined;
+  const preflightOk = preflight === undefined || typeof preflight === 'function';
+  const toolChecksOk = runToolChecks === undefined || typeof runToolChecks === 'function';
   if (!preflightOk || !toolChecksOk) {
     return false;
   }
-  return candidate.preflight !== undefined || candidate.runToolChecks !== undefined;
+  return preflight !== undefined || runToolChecks !== undefined;
 }
 
 async function importPresetCheckModule(modulePath: string): Promise<PresetCheckModule> {
@@ -74,23 +79,28 @@ export async function runActivePresetPreflights(
   return undefined;
 }
 
+async function runPresetToolChecks(
+  preset: ActivatedPreset,
+  context: PresetVerifyContext,
+): Promise<ToolRunResult[]> {
+  let checkModule: PresetCheckModule | undefined;
+  try {
+    checkModule = await loadPresetCheckModule(preset);
+  } catch (error) {
+    return [failedCheckModuleResult(error instanceof Error ? error : String(error))];
+  }
+  if (checkModule?.runToolChecks === undefined) {
+    return [];
+  }
+  return checkModule.runToolChecks(context);
+}
+
 export async function runActivePresetToolChecks(
   context: PresetVerifyContext,
   activated: readonly ActivatedPreset[],
 ): Promise<ToolRunResult[]> {
-  const results: ToolRunResult[] = [];
-  for (const preset of activated) {
-    let checkModule: PresetCheckModule | undefined;
-    try {
-      checkModule = await loadPresetCheckModule(preset);
-    } catch (error) {
-      results.push(failedCheckModuleResult(error instanceof Error ? error : String(error)));
-      continue;
-    }
-    if (checkModule?.runToolChecks === undefined) {
-      continue;
-    }
-    results.push(...(await checkModule.runToolChecks(context)));
-  }
-  return results;
+  const perPreset = await Promise.all(
+    activated.map(async (preset) => runPresetToolChecks(preset, context)),
+  );
+  return perPreset.flat();
 }

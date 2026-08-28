@@ -1,6 +1,6 @@
 import { defineRule, type Context, type ESTree } from '@oxlint/plugins';
 
-import { walkAst } from '../../../scripts/oxlint-walk/oxlint-walk.ts';
+import { walkAstSkippingTypeAndJsxMarkup } from '../../../scripts/oxlint-walk/oxlint-walk.ts';
 
 const environmentModulePattern =
   /(?:^|\/)(?:system\/config\/environment|gate\/read-env\/read-env)\.[cm]?[jt]s$/u;
@@ -90,7 +90,7 @@ export const environmentBoundaries = defineRule({
         if (environmentModulePattern.test(filename)) {
           return false;
         }
-        walkAst(context.sourceCode.ast, (node) => {
+        walkAstSkippingTypeAndJsxMarkup(context.sourceCode.ast, (node) => {
           inspect(node);
         });
         return false;

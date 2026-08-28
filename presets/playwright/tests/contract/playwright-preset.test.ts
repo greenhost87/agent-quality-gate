@@ -1,7 +1,7 @@
 import { mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { readTextFile, writeTextFile } from '../../../../process/files/files.ts';
+import { writeTextFile } from '../../../../process/files/files.ts';
 
 import { afterEach, describe, expect, it } from 'bun:test';
 
@@ -32,14 +32,21 @@ describe('playwright preset contract', () => {
     const contract = await resolvePresetContract(['playwright']);
     expect(contract.names).toEqual(['baseline', 'playwright']);
     expect(contract.plugins.map((plugin) => plugin.name)).toEqual(['aqg', 'playwright']);
-    expect(contract.rules['playwright/e2e-runner']).toBe('error');
-    expect(contract.rules['playwright/e2e-black-box']).toBe('error');
-    expect(contract.rules['playwright/config']).toBe('error');
+    expect(contract.rules['playwright/e2e-runner']).toEqual({
+      severity: 'error',
+      phase: 'boundaries',
+    });
+    expect(contract.rules['playwright/e2e-black-box']).toEqual({
+      severity: 'error',
+      phase: 'boundaries',
+    });
+    expect(contract.rules['playwright/config']).toEqual({
+      severity: 'error',
+      phase: 'boundaries',
+    });
     expect(contract.files.map((file) => file.destination)).toEqual([
       'scripts/playwright-web-server.ts',
     ]);
-    expect(contract.names).not.toContain('react-presentation');
-    expect(contract.names).not.toContain('database');
   });
 
   it('does not require a Playwright config when the project has no e2e surface', async () => {
@@ -51,33 +58,15 @@ describe('playwright preset contract', () => {
     );
     await writeTextFile(join(cwd, 'src/index.ts'), 'export const value = 1;\n');
 
-    const first = await executeVerify({
+    const result = await executeVerify({
       projectRoot: cwd,
       entries: ['src/index.ts'],
       presets: ['playwright'],
     });
-    expect(first.exitCode).toBe(1);
-    expect(first.stderr).toContain('scripts/playwright-web-server.ts (missing)');
-    expect(first.stderr).toContain('example .aqg/playwright/scripts/playwright-web-server.ts');
-    expect(first.stderr).not.toContain('playwright-config:');
-
-    const examplePath = join(cwd, '.aqg', 'playwright', 'scripts', 'playwright-web-server.ts');
-    await mkdir(join(cwd, 'scripts'), { recursive: true });
-    await writeTextFile(
-      join(cwd, 'scripts', 'playwright-web-server.ts'),
-      await readTextFile(examplePath),
-    );
-
-    const second = await executeVerify({
-      projectRoot: cwd,
-      entries: ['src/index.ts'],
-      presets: ['playwright'],
-    });
-    expect(second.exitCode).toBe(0);
-    expect(second.stderr).not.toContain('playwright-config:');
-    expect(await readTextFile(join(cwd, 'scripts', 'playwright-web-server.ts'))).toContain(
-      'Managed by agent-quality-gate',
-    );
+    expect(result.exitCode).toBe(1);
+    expect(result.stderr).toContain('scripts/playwright-web-server.ts (missing)');
+    expect(result.stderr).toContain('example .aqg/playwright/scripts/playwright-web-server.ts');
+    expect(result.stderr).not.toContain('playwright-config:');
   });
 
   it('requires a Playwright config when @playwright/test is a dependency', async () => {

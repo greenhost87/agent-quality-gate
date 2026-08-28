@@ -11,7 +11,7 @@
       }
     ],
     "rules": {
-      "module-placement/module-placement": "error"
+      "module-placement/module-placement": { "severity": "error", "phase": "boundaries" }
     }
   }
 }

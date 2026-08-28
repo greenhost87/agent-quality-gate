@@ -1,17 +1,20 @@
 import { defineRule, type Context, type ESTree } from '@oxlint/plugins';
 
-import type { DaoScanFlags } from './dao-boundaries.types.ts';
+import type { DaoScanFlags } from './dao-boundaries.ts';
+import {
+  collectFunctionBinding,
+  inspectDaoOperationUsage,
+  programUsesDaoOperations,
+} from './dao-operation-usage.ts';
+import type { FunctionBinding } from './dao-operation-usage.ts';
 import {
   connectionFilePattern,
   daoFilePattern,
+  daoFunctionDefault,
   daoImplementationPattern,
-  daoMethodDefault,
-  exportedDaoClassDeclarations,
-  exportedDaoSingletonClassNames,
   findImportedSpecifier,
   importSource,
   isDaoClassName,
-  isDaoSingletonExport,
   isDatabaseLifecycleImport,
   managedMigratePath,
   managedTestDatabaseBootstrapPath,
@@ -27,7 +30,10 @@ import {
   testFilePattern,
   validDaoPlacementPattern,
 } from './dao-boundaries-shared.ts';
-import { walkAst } from '../../../scripts/oxlint-walk/oxlint-walk.ts';
+import {
+  attachAstParent,
+  walkAstSkippingTypeAndJsxMarkup,
+} from '../../../scripts/oxlint-walk/oxlint-walk.ts';
 
 function reportDaoProgramFlags(context: Context, node: ESTree.Program, flags: DaoScanFlags): void {
   if (flags.isConnectionFile && !flags.isDatabaseFile) {
@@ -41,34 +47,71 @@ function reportDaoProgramFlags(context: Context, node: ESTree.Program, flags: Da
   }
 }
 
-function reportMissingDaoSingletons(context: Context, node: ESTree.Program): void {
-  const singletons = exportedDaoSingletonClassNames(node);
-  for (const declaration of exportedDaoClassDeclarations(node)) {
-    if (declaration.type !== 'ClassDeclaration' || declaration.id?.type !== 'Identifier') {
-      continue;
-    }
-    if (!singletons.has(declaration.id.name)) {
-      context.report({ node: declaration.id, messageId: 'daoSingleton' });
-    }
-  }
-}
-
-function reportIllegalDaoConstruct(
-  context: Context,
-  node: ESTree.NewExpression,
-  flags: DaoScanFlags,
-): void {
+function reportIllegalDaoConstruct(context: Context, node: ESTree.NewExpression): void {
   if (node.callee.type !== 'Identifier' || !isDaoClassName(node.callee.name)) {
     return;
   }
-  if (
-    flags.isProductionDaoImplementation &&
-    node.parent.type === 'VariableDeclarator' &&
-    isDaoSingletonExport(node.parent, node.callee.name)
-  ) {
+  context.report({ node, messageId: 'daoConstruct' });
+}
+
+function isAllowedDaoExport(node: ESTree.ExportNamedDeclaration): boolean {
+  if (node.exportKind === 'type') {
+    return true;
+  }
+  const declaration = node.declaration;
+  if (declaration === null) {
+    return (
+      node.specifiers.length > 0 &&
+      node.specifiers.every((specifier) => specifier.exportKind === 'type')
+    );
+  }
+  return (
+    declaration.type === 'FunctionDeclaration' ||
+    declaration.type === 'ClassDeclaration' ||
+    declaration.type === 'TSInterfaceDeclaration' ||
+    declaration.type === 'TSTypeAliasDeclaration'
+  );
+}
+
+function sourceMayContainDaoViolation(source: string): boolean {
+  return /\b[A-Z][A-Za-z0-9]*Dao\b/u.test(source) || /\b(?:CREATE|ALTER|DROP)\b/iu.test(source);
+}
+
+function requiresBroadDaoScan(
+  context: Context,
+  flags: DaoScanFlags,
+  inspectOperationUsage: boolean,
+): boolean {
+  return (
+    inspectOperationUsage ||
+    flags.isProductionDaoImplementation ||
+    sourceMayContainDaoViolation(context.sourceCode.text)
+  );
+}
+
+function inspectDaoModuleShape(context: Context, node: ESTree.Node, flags: DaoScanFlags): void {
+  if (node.type === 'ClassDeclaration' || node.type === 'ClassExpression') {
+    if (
+      flags.isProductionDaoImplementation ||
+      (node.id?.type === 'Identifier' && isDaoClassName(node.id.name))
+    ) {
+      context.report({ node, messageId: 'daoClass' });
+    }
     return;
   }
-  context.report({ node, messageId: 'daoConstruct' });
+  if (!flags.isProductionDaoImplementation) {
+    return;
+  }
+  if (node.type === 'ExportNamedDeclaration' && !isAllowedDaoExport(node)) {
+    context.report({ node, messageId: 'daoExport' });
+    return;
+  }
+  if (
+    (node.type === 'ExportAllDeclaration' && node.exportKind !== 'type') ||
+    node.type === 'ExportDefaultDeclaration'
+  ) {
+    context.report({ node, messageId: 'daoExport' });
+  }
 }
 
 export const daoBoundaries = defineRule({
@@ -80,12 +123,16 @@ export const daoBoundaries = defineRule({
       connection:
         'Import only database lifecycle functions from system/database/connection outside system/database.',
       connectionPlacement: 'Connection files must be inside system/database.',
-      databaseAccess: 'Import getDatabase only from production *.dao.ts database implementations.',
-      daoConstruct:
-        'Construct DAO classes only as the exported module singleton inside their production *.dao.ts file.',
-      daoDefault: 'DAO methods must not use default parameter values.',
-      daoSingleton:
-        'Export a module singleton const matching the DAO class name in camelCase (OrdersDao → ordersDao).',
+      databaseAccess: 'Import sql only from production *.dao.ts database implementations.',
+      legacyDatabaseAccess: 'Import sql instead of the removed getDatabase accessor.',
+      daoClass: 'Use named DAO functions instead of classes.',
+      daoConstruct: 'Do not construct DAO classes; import named DAO functions.',
+      daoDefault: 'DAO functions must not use default parameter values.',
+      daoExport:
+        'DAO implementation modules may export only named function declarations and types.',
+      daoOperationFacade: 'Do not export object facades backed by DAO operations.',
+      daoOperationValue:
+        'Invoke DAO operations directly; do not expose them as values or re-export them.',
       database:
         'Import the database driver only from system/database or tests/setup/testDatabase.ts or tests/setup/testDatabase.bootstrap.ts.',
       placement:
@@ -97,7 +144,8 @@ export const daoBoundaries = defineRule({
   createOnce(context) {
     function inspectImportDeclaration(node: ESTree.ImportDeclaration, flags: DaoScanFlags): void {
       const source = importSource(node);
-      const databaseAccessSpecifier = findImportedSpecifier(node, 'getDatabase');
+      const databaseAccessSpecifier = findImportedSpecifier(node, 'sql');
+      const legacyDatabaseAccessSpecifier = findImportedSpecifier(node, 'getDatabase');
       const isLifecycleImport = isDatabaseLifecycleImport(node);
       const databaseAccessIsInvalid =
         Boolean(databaseAccessSpecifier) && !flags.isProductionDaoImplementation;
@@ -115,21 +163,28 @@ export const daoBoundaries = defineRule({
         databaseAccessIsInvalid,
         'databaseAccess',
       );
+      reportInvalidImportSpecifier(
+        context,
+        legacyDatabaseAccessSpecifier,
+        Boolean(legacyDatabaseAccessSpecifier),
+        'legacyDatabaseAccess',
+      );
       reportConnectionImport(
         context,
         node,
         source,
         flags.isDatabaseFile,
         isLifecycleImport,
-        databaseAccessIsInvalid,
+        databaseAccessIsInvalid || Boolean(legacyDatabaseAccessSpecifier),
       );
       reportDaoImport(context, node, source, flags.isProductionDaoImplementation);
     }
 
     function inspect(node: ESTree.Node, flags: DaoScanFlags): void {
+      inspectDaoModuleShape(context, node, flags);
       switch (node.type) {
         case 'AssignmentPattern':
-          if (flags.isProductionDaoImplementation && daoMethodDefault(node)) {
+          if (flags.isProductionDaoImplementation && daoFunctionDefault(node)) {
             context.report({ node, messageId: 'daoDefault' });
           }
           break;
@@ -146,7 +201,7 @@ export const daoBoundaries = defineRule({
           );
           break;
         case 'NewExpression':
-          reportIllegalDaoConstruct(context, node, flags);
+          reportIllegalDaoConstruct(context, node);
           break;
         case 'TemplateElement':
           reportSqlDdl(
@@ -191,17 +246,42 @@ export const daoBoundaries = defineRule({
           isMigrationPath: migrationPathPattern.test(relativePath),
         };
 
-        walkAst(context.sourceCode.ast, (node, parent) => {
-          node.parent = parent;
-          if (node.type === 'Program') {
-            reportDaoProgramFlags(context, node, flags);
-            if (flags.isProductionDaoImplementation) {
-              reportMissingDaoSingletons(context, node);
+        const program = context.sourceCode.ast;
+        const inspectOperationUsage = programUsesDaoOperations(program);
+        reportDaoProgramFlags(context, program, flags);
+        for (const statement of program.body) {
+          if (statement.type === 'ImportDeclaration') {
+            inspectImportDeclaration(statement, flags);
+          }
+        }
+        if (!requiresBroadDaoScan(context, flags, inspectOperationUsage)) {
+          return false;
+        }
+
+        const functionBindings: FunctionBinding[] = [];
+        walkAstSkippingTypeAndJsxMarkup(program, (node, parent) => {
+          if (inspectOperationUsage) {
+            attachAstParent(node, parent);
+          }
+          if (node.type === 'Program' || node.type === 'ImportDeclaration') {
+            return;
+          }
+          inspect(node, flags);
+          if (inspectOperationUsage) {
+            const binding = collectFunctionBinding(context, node);
+            if (binding != null) {
+              functionBindings.push(binding);
             }
-          } else {
-            inspect(node, flags);
           }
         });
+        if (inspectOperationUsage) {
+          inspectDaoOperationUsage(
+            context,
+            context.sourceCode.ast,
+            flags.isTestFile,
+            functionBindings,
+          );
+        }
         return false;
       },
       Program() {},

@@ -10,7 +10,6 @@ import type {
 import { parsePresetManifest } from '../../preset-catalog/manifest/parse-preset-manifest.js';
 import { pathExists, readBytesFileSync, writeTextFile } from '../../process/files/files.js';
 import { runRequired } from '../run-required/run-required.js';
-import type { PackagePresetRootOptions } from './package-preset-root.types.js';
 
 function buildEsmBundle(
   entry: string,
@@ -68,12 +67,17 @@ export async function copyOptionalPresetReadme(
   }
 }
 
-function packageCheckModule(sourceRoot: string, destinationRoot: string, bundleCwd: string): void {
-  const checkSource = join(sourceRoot, 'check.ts');
-  if (!existsSync(checkSource)) {
+function packageOptionalTsBundle(
+  sourceRoot: string,
+  destinationRoot: string,
+  bundleCwd: string,
+  basename: string,
+): void {
+  const source = join(sourceRoot, `${basename}.ts`);
+  if (!existsSync(source)) {
     return;
   }
-  buildCheckModuleBundle(checkSource, join(destinationRoot, 'check.js'), bundleCwd);
+  buildCheckModuleBundle(source, join(destinationRoot, `${basename}.js`), bundleCwd);
 }
 
 function packagedPluginSpecifier(specifier: string): string {
@@ -129,13 +133,17 @@ function packageManagedFiles(
   });
 }
 
-/** Package one preset source root into a destination root (manifest, payload, oxlint, check.js). */
+/** Package one preset source root into a destination root (manifest, payload, oxlint, check.js, gate-config.js). */
 export async function packagePresetRoot(
   options: PackagePresetRootOptions,
 ): Promise<{ name: string }> {
   const { sourceRoot, destinationRoot } = options;
   const bundleCwd = options.bundleCwd ?? sourceRoot;
   const { parsed: sourceManifest, name } = await readManifest(sourceRoot);
+  const examplesMarkdownBuilder = join(sourceRoot, 'build-examples-md.ts');
+  if (existsSync(examplesMarkdownBuilder)) {
+    runRequired('bun', [examplesMarkdownBuilder], sourceRoot, true);
+  }
   await mkdir(destinationRoot, { recursive: true });
   await copyOptionalPresetReadme(sourceRoot, destinationRoot);
   const payloadSource = join(sourceRoot, 'payload');
@@ -151,6 +159,14 @@ export async function packagePresetRoot(
     join(destinationRoot, 'manifest.json'),
     `${JSON.stringify(packagedManifest, null, 2)}\n`,
   );
-  packageCheckModule(sourceRoot, destinationRoot, bundleCwd);
+  packageOptionalTsBundle(sourceRoot, destinationRoot, bundleCwd, 'check');
+  packageOptionalTsBundle(sourceRoot, destinationRoot, bundleCwd, 'gate-config');
   return { name };
 }
+
+export type PackagePresetRootOptions = {
+  sourceRoot: string;
+  destinationRoot: string;
+  /** Working directory for bundling `check.ts` (module resolution). Defaults to `sourceRoot`. */
+  bundleCwd?: string;
+};

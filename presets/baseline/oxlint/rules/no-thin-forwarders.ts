@@ -225,6 +225,25 @@ function thinForwarder(
   return positionalThinForward(call, node.params) || objectAdapterThinForward(call, node.params);
 }
 
+function objectPropertyFunction(property: ESTree.ObjectPropertyKind): {
+  name: string;
+  reportNode: ESTree.Node;
+  value: ESTree.ArrowFunctionExpression | ESTree.Function;
+} | null {
+  if (property.type !== 'Property' || property.kind === 'get' || property.kind === 'set') {
+    return null;
+  }
+  const name = simpleObjectPropertyKeyName(property.key, property.computed);
+  if (name === null || !isFunctionLike(property.value)) {
+    return null;
+  }
+  return {
+    name,
+    reportNode: property.key,
+    value: property.value,
+  };
+}
+
 export default defineRule({
   meta: {
     type: 'problem',
@@ -234,7 +253,15 @@ export default defineRule({
     },
   },
   createOnce(context) {
-    function checkProgram(program: ESTree.Program): void {
+    function reportThinForwarder(node: ESTree.Node, name: string): void {
+      context.report({
+        node,
+        messageId: 'thinForwarder',
+        data: { name },
+      });
+    }
+
+    function checkTopLevelForwarders(program: ESTree.Program): void {
       const exportedNames = collectExportedNames(program);
       for (const statement of program.body) {
         const declaration = declarationNode(statement);
@@ -244,11 +271,7 @@ export default defineRule({
           !exportedNames.has(declaration.id.name) &&
           thinForwarder(declaration, declaration.id.name)
         ) {
-          context.report({
-            node: declaration.id,
-            messageId: 'thinForwarder',
-            data: { name: declaration.id.name },
-          });
+          reportThinForwarder(declaration.id, declaration.id.name);
         }
         if (declaration?.type !== 'VariableDeclaration') {
           continue;
@@ -261,18 +284,33 @@ export default defineRule({
             !exportedNames.has(item.id.name) &&
             thinForwarder(item.init, item.id.name)
           ) {
-            context.report({
-              node: item.id,
-              messageId: 'thinForwarder',
-              data: { name: item.id.name },
-            });
+            reportThinForwarder(item.id, item.id.name);
           }
         }
       }
     }
 
+    function checkObjectPropertyForwarders(program: ESTree.Program): void {
+      walkAst(program, (node) => {
+        if (node.type !== 'ObjectExpression') {
+          return;
+        }
+        for (const property of node.properties) {
+          const candidate = objectPropertyFunction(property);
+          if (candidate && thinForwarder(candidate.value, candidate.name)) {
+            reportThinForwarder(candidate.reportNode, candidate.name);
+          }
+        }
+      });
+    }
+
+    function checkProgram(program: ESTree.Program): void {
+      checkTopLevelForwarders(program);
+      checkObjectPropertyForwarders(program);
+    }
+
     return {
-      // Top-level scan only; skip the visitor walk after reporting.
+      // Program scan only; skip the visitor walk after reporting.
       // Empty Program keeps the rule interested in Program nodes so oxlint
       // still invokes `before` under interest-based skipping.
       before() {

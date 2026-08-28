@@ -1,7 +1,7 @@
 import { createInterface } from 'node:readline/promises';
 import { createReadStream, createWriteStream } from 'node:fs';
 
-import type { HarnessChoice } from './resolve-harness.types.js';
+import type { HarnessChoice } from './resolve-harness.js';
 
 function parseChoice(raw: string): HarnessChoice | undefined {
   const value = raw.trim().toLowerCase();

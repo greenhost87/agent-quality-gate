@@ -2,6 +2,8 @@ import { benchCreateOnceRules } from 'agent-quality-gate/oxlint-rule-bench';
 
 import { consoleFormatPlaceholdersBench } from '../console-format-placeholders/bench.ts';
 import { maxInlineParameterObjectMembersBench } from '../max-inline-parameter-object-members/bench.ts';
+import { noClassBench } from '../no-class/bench.ts';
+import { noDoubleWrappedExpectEqualBench } from '../no-double-wrapped-expect-equal/bench.ts';
 import { noEmptyExtendedInterfacesBench } from '../no-empty-extended-interfaces/bench.ts';
 import { noIdentityAliasesBench } from '../no-identity-aliases/bench.ts';
 import { noIndexedAccessTypesBench } from '../no-indexed-access-types/bench.ts';
@@ -11,7 +13,6 @@ import { noNullUndefinedParameterUnionBench } from '../no-null-undefined-paramet
 import { noRuntimeInTypesFilesBench } from '../no-runtime-in-types-files/bench.ts';
 import { noThinForwardersBench } from '../no-thin-forwarders/bench.ts';
 import { noTrivialConstWrappersBench } from '../no-trivial-const-wrappers/bench.ts';
-import { noTypesInRuntimeFilesBench } from '../no-types-in-runtime-files/bench.ts';
 import { noUnknownParametersBench } from '../no-unknown-parameters/bench.ts';
 import { noUselessExportedTypeAliasesBench } from '../no-useless-exported-type-aliases/bench.ts';
 import { noWideParameterUnionsBench } from '../no-wide-parameter-unions/bench.ts';
@@ -20,6 +21,8 @@ import { requireExportStringLiteralCatalogsAsConstBench } from '../require-expor
 await benchCreateOnceRules([
   consoleFormatPlaceholdersBench,
   maxInlineParameterObjectMembersBench,
+  noClassBench,
+  noDoubleWrappedExpectEqualBench,
   noEmptyExtendedInterfacesBench,
   noIdentityAliasesBench,
   noIndexedAccessTypesBench,
@@ -29,7 +32,6 @@ await benchCreateOnceRules([
   noRuntimeInTypesFilesBench,
   noThinForwardersBench,
   noTrivialConstWrappersBench,
-  noTypesInRuntimeFilesBench,
   noUnknownParametersBench,
   noUselessExportedTypeAliasesBench,
   noWideParameterUnionsBench,

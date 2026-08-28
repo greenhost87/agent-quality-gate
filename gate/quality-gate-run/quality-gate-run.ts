@@ -1,9 +1,10 @@
 import { mkdirSync } from 'node:fs';
+import { unlink } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 
 import { agentQualityGateHome } from '../../config/agent-quality-gate-home/agent-quality-gate-home.js';
 import { executeVerify } from '../execute-verify/execute-verify.js';
-import type { VerifyResult } from '../execute-verify/execute-verify.types.js';
+import type { VerifyResult } from '../execute-verify/execute-verify.js';
 import {
   findProjectForCwd,
   readGlobalQualityGateConfig,
@@ -11,13 +12,13 @@ import {
 import { resolveLinkedCheckoutRoot } from '../../config/linked-checkout/linked-checkout.js';
 import { writeTextFile } from '../../process/files/files.js';
 import { scheduleVerifyRunStats } from '../run-stats/verify-run-stats.js';
-import { PARSE_EXAMPLE_RELATIVE_PATH, PARSE_EXAMPLE_SOURCE } from './parse-example-hint.js';
-import type {
-  CompactHintFlags,
-  FollowUpDecision,
-  QualityGateRun,
-  RegisterQualityGateOptions,
-} from './quality-gate-run.types.js';
+import {
+  materializeHintDocs,
+  parseHintDocId,
+  shortDevDepInProdHint,
+  shortHint,
+  type HintDocId,
+} from './hint-docs.js';
 
 export const QUALITY_GATE_FOLLOW_UP_BUDGET = 3;
 
@@ -32,11 +33,9 @@ export const VERIFY_UNAVAILABLE_AGENT_MESSAGE =
 
 export const VERIFY_FAILURE_REMEDIATION = [
   'Fix only the violations listed below (and any hint: lines), in the listed source files or package.json.',
-  'Do not investigate why the gate complains; apply the fix implied by each violation and hint.',
-  'Do not dig into prior verify fixes, agent transcripts, other chat sessions, or git history to recover old patches or "known patterns".',
-  'Do not search for verify binaries, fallow/jscpd config, agent-quality-gate packages, or restore deleted quality-gate files.',
-  'When those fixes are done, make another native or MCP tool call (tool use) to verify.',
-  'Do not consider the task complete until that tool call / tool use passes.',
+  'Apply fixes directly; do not investigate the gate or search prior fixes, transcripts, chats, git history, or gate tooling/config/packages.',
+  'Do not restore deleted quality-gate files.',
+  'Then call native or MCP verify again. Do not finish until it passes.',
 ].join(' ');
 
 const FOLLOW_UP_ESCALATION = 'Retry budget exhausted. Stop and report the blocker to the user.';
@@ -44,11 +43,15 @@ const FOLLOW_UP_ESCALATION = 'Retry budget exhausted. Stop and report the blocke
 const COMPACT_OUTPUT_HINTS = [
   {
     pattern: /(?:^|\n)\s*live-ui-surface:/u,
-    hint: 'hint:live-ui-surface - remove the dead UI option from its prop type, CVA branch, render branch, and associated classes; for an unused theme token remove its @theme mapping and unreferenced backing variables. Do not add artificial call sites.',
+    hint: shortHint('live-ui-surface'),
   },
   {
     pattern: /(?:^|\n)\s*database-committed-migration\b/u,
-    hint: 'hint:database-committed-migration — edited migration files were restored; copy the change from .aqg/restored-migration.diff into a new migration.',
+    hint: shortHint('database-committed-migration'),
+  },
+  {
+    pattern: /(?:^|\n)\s*single-consumer:/u,
+    hint: shortHint('single-consumer'),
   },
 ] as const;
 
@@ -87,8 +90,16 @@ const HANDMADE_JSON_MARKERS = [
   'bun-parse(no-handmade-json-types)',
 ] as const;
 
-export const HANDMADE_JSON_HINT =
-  'hint:bun-parse-handmade-json — to fix this, look at .aqg/parse_example.ts';
+const BUN_PARSE_JSON_MARKERS = [
+  'bun-parse/no-raw-json-parse',
+  'bun-parse(no-raw-json-parse)',
+  'bun-parse/no-typeof-object',
+  'bun-parse(no-typeof-object)',
+  'bun-parse/scripts-boundaries',
+  'bun-parse(scripts-boundaries)',
+] as const;
+
+const LEGACY_PARSE_EXAMPLE_RELATIVE_PATH = '.aqg/parse_example.ts';
 
 function recordCompactHintFlags(trimmed: string, flags: CompactHintFlags): void {
   if (trimmed.startsWith('presentation-duplication:')) {
@@ -111,7 +122,10 @@ function recordCompactHintFlags(trimmed: string, flags: CompactHintFlags): void 
     flags.playwrightE2e = true;
   }
   if (lineContainsMarker(trimmed, HANDMADE_JSON_MARKERS)) {
-    flags.handmadeJson = true;
+    flags.bunParseJson = true;
+  }
+  if (lineContainsMarker(trimmed, BUN_PARSE_JSON_MARKERS)) {
+    flags.bunParseJson = true;
   }
 }
 
@@ -122,51 +136,69 @@ function collectCompactHints(output: string): string[] {
     presentationDuplication: false,
     databaseBoundary: false,
     playwrightE2e: false,
-    handmadeJson: false,
+    bunParseJson: false,
   };
   for (const line of output.split('\n')) {
     const trimmed = line.trim();
     const devDepInProd = /^dev-dep-in-prod:(.+)$/u.exec(trimmed);
     if (devDepInProd?.[1] !== undefined) {
-      const name = devDepInProd[1];
-      hints.push(
-        `hint:dev-dep-in-prod:${name} — move "${name}" from devDependencies to dependencies; production code imports it.`,
-      );
+      hints.push(shortDevDepInProdHint(devDepInProd[1]));
       continue;
     }
     recordCompactHintFlags(trimmed, flags);
   }
   if (flags.presentationDuplication) {
-    hints.push(
-      'hint:presentation-duplication — reuse the existing shared primitive at each call site with explicit props (for example Button with variant, or Input with type and step). Add a new shared component only when a smaller interface hides real composition or behavior; do not create a presentation adapter that only renames or re-lists props of Button/Input. Do not change detector thresholds or copy the markup elsewhere.',
-    );
+    hints.push(shortHint('presentation-duplication'));
   }
   hints.push(...prefixOutputHints(output));
   if (flags.duplication) {
-    hints.push(
-      'hint:code-duplication — deduplicate the listed file ranges (extract shared helpers). Do not change duplication thresholds or search for jscpd.',
-    );
+    hints.push(shortHint('code-duplication'));
   }
   if (flags.databaseBoundary) {
-    hints.push(
-      'hint:database-boundary - use an already production-reachable module for Arrange and observation; do not create or expand a DAO solely for a test; when no production path exists, stop and report the missing path as a blocker.',
-    );
+    hints.push(shortHint('database-boundary'));
   }
   if (flags.playwrightE2e) {
-    hints.push(
-      'hint:playwright-e2e — use Playwright Test (tests/e2e/*.pw.ts, page fixture, webServer and baseURL in playwright.config.ts). For Postgres, follow the Playwright webServer note in scripts/playwright-web-server.ts.',
-    );
+    hints.push(shortHint('playwright-e2e'));
   }
-  if (flags.handmadeJson) {
-    hints.push(HANDMADE_JSON_HINT);
+  if (flags.bunParseJson) {
+    hints.push(shortHint('bun-parse-json'));
   }
   return hints;
 }
 
-async function writeParseExampleHint(projectRoot: string): Promise<void> {
-  const path = join(projectRoot, PARSE_EXAMPLE_RELATIVE_PATH);
-  mkdirSync(dirname(path), { recursive: true });
-  await writeTextFile(path, PARSE_EXAMPLE_SOURCE);
+function hintDocIdsFromLines(lines: readonly string[]): HintDocId[] {
+  const ids: HintDocId[] = [];
+  for (const line of lines) {
+    const id = parseHintDocId(line);
+    if (id !== undefined) {
+      ids.push(id);
+    }
+  }
+  return ids;
+}
+
+async function removeLegacyParseExample(projectRoot: string): Promise<void> {
+  try {
+    await unlink(join(projectRoot, LEGACY_PARSE_EXAMPLE_RELATIVE_PATH));
+  } catch {
+    // Legacy cleanup is best-effort; hint materialization must still succeed.
+  }
+}
+
+async function materializeFollowUpArtifacts(
+  projectRoot: string,
+  hints: readonly string[],
+  diagnostics: string,
+): Promise<void> {
+  if (
+    diagnostics.split('\n').some((line) => lineContainsMarker(line.trim(), HANDMADE_JSON_MARKERS))
+  ) {
+    await removeLegacyParseExample(projectRoot);
+  }
+  await materializeHintDocs(projectRoot, [
+    ...hintDocIdsFromLines(hints),
+    ...hintDocIdsFromLines(diagnostics.split('\n')),
+  ]);
 }
 
 function formatDiagnostics(result: VerifyResult): string {
@@ -249,11 +281,30 @@ export async function executeQualityGateForCwd(
       entries: project.entries,
       presets: project.presets,
       ignorePatterns: project.ignorePatterns,
-      packageBoundaries: project.packageBoundaries,
-      modulePlacement: project.modulePlacement,
-      baseline: project.baseline,
+      presetConfig: project.presetConfig,
+      ...(config.verify === undefined
+        ? {}
+        : {
+            ...(config.verify.lintGroups === undefined
+              ? {}
+              : { lintGroups: config.verify.lintGroups }),
+            ...(config.verify.boundaryPluginPriority === undefined
+              ? {}
+              : { boundaryPluginPriority: config.verify.boundaryPluginPriority }),
+          }),
     });
-    return { kind: 'ran', projectRoot, result };
+    if (project.warnings.length === 0) {
+      return { kind: 'ran', projectRoot, result };
+    }
+    const warningBlock = `${project.warnings.join('\n')}\n`;
+    return {
+      kind: 'ran',
+      projectRoot,
+      result: {
+        ...result,
+        stderr: `${warningBlock}${result.stderr}`,
+      },
+    };
   } catch (error) {
     const logPath = await logQualityGateInternalFailure(
       error instanceof Error ? error : String(error),
@@ -269,9 +320,7 @@ export async function followUpForSettledResult(run: QualityGateRun): Promise<str
   }
   const diagnostics = formatDiagnostics(run.result);
   const hints = collectCompactHints(diagnostics);
-  if (hints.includes(HANDMADE_JSON_HINT)) {
-    await writeParseExampleHint(run.projectRoot);
-  }
+  await materializeFollowUpArtifacts(run.projectRoot, hints, diagnostics);
   return [
     `verify failed with exit code ${String(run.result.exitCode)}.`,
     VERIFY_FAILURE_REMEDIATION,
@@ -311,3 +360,24 @@ export async function toolOutput(run: QualityGateRun): Promise<string> {
   }
   return (await followUpForSettledResult(run)) ?? formatDiagnostics(run.result);
 }
+
+export type QualityGateRun =
+  | { kind: 'skipped'; message: string }
+  | { kind: 'unavailable'; logPath: string }
+  | { kind: 'ran'; projectRoot: string; result: VerifyResult };
+
+export type FollowUpDecision =
+  | { action: 'none' }
+  | { action: 'continue' | 'escalate'; message: string };
+
+export type RegisterQualityGateOptions = {
+  configPath?: string;
+};
+
+export type CompactHintFlags = {
+  duplication: boolean;
+  presentationDuplication: boolean;
+  databaseBoundary: boolean;
+  playwrightE2e: boolean;
+  bunParseJson: boolean;
+};

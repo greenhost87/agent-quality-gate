@@ -1,8 +1,7 @@
 import { resolve } from 'node:path';
 
 import { executeQualityGateForCwd, toolOutput } from '../quality-gate-run/quality-gate-run.js';
-import type { RegisterQualityGateOptions } from '../quality-gate-run/quality-gate-run.types.js';
-import type { McpVerifyResult } from './mcp-verify.types.js';
+import type { RegisterQualityGateOptions } from '../quality-gate-run/quality-gate-run.js';
 
 export async function runMcpVerify(
   cwd: string,
@@ -15,3 +14,8 @@ export async function runMcpVerify(
   }
   return { text, isError: run.result.exitCode !== 0 };
 }
+
+export type McpVerifyResult = {
+  text: string;
+  isError: boolean;
+};

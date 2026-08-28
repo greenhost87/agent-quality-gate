@@ -1,4 +1,4 @@
-import type { VerifyRequest } from './execute-verify.types.js';
+import type { VerifyRequest } from './execute-verify.js';
 
 const BASELINE_PRESET_REPOSITORY_ENTRIES = [
   'live-ui-surface/check.ts',

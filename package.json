@@ -1,6 +1,6 @@
 {
   "name": "agent-quality-gate",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "private": true,
   "description": "Locked Oxlint and Fallow quality gate for AI-assisted TypeScript and JavaScript workflows",
   "keywords": [
@@ -28,39 +28,43 @@
     "./preset-runtime": "./gate/preset-runtime/preset-runtime.ts",
     "./verify": "./gate/public-verify/public-verify.ts",
     "./oxlint-rule-bench": "./scripts/oxlint-rule-bench/bench-create-once-rule.ts",
-    "./oxlint-rule-bench/types": "./scripts/oxlint-rule-bench/bench-create-once-rule.types.ts",
+    "./oxlint-rule-bench/types": "./scripts/oxlint-rule-bench/bench-create-once-rule.ts",
     "./oxlint-rule-bench/create-bench-context": "./scripts/oxlint-rule-bench/create-bench-context.ts",
     "./oxlint-rule-bench/require-create-once-rule": "./scripts/oxlint-rule-bench/require-create-once-rule.ts",
     "./oxlint-rule-bench/hot-code": "./scripts/oxlint-rule-bench/hot-code.ts",
-    "./oxlint-walk": "./scripts/oxlint-walk/oxlint-walk.ts"
+    "./oxlint-walk": "./scripts/oxlint-walk/oxlint-walk.ts",
+    "./apply-configured-rule": "./preset-catalog/oxlint-config/apply-configured-rule.ts",
+    "./oxlint-config-types": "./preset-catalog/oxlint-config/write-oxlint-config.ts"
   },
   "scripts": {
     "build:release": "bun ./scripts/build-release/build-release-package.ts",
     "bench:baseline": "bun ./presets/baseline/tests/all/baseline.bench.ts",
+    "bump-version": "bun ./scripts/bump-version/bump-version.ts",
+    "collapse-types": "bun ./scripts/collapse-type-files/cli.ts",
     "fmt": "bun ./scripts/self-fmt/self-fmt.ts",
-    "install:local": "bun ./scripts/install-local/install-local.ts",
     "outdated": "bun ./scripts/outdated/outdated.ts",
     "verify": "bun ./scripts/self-verify/self-verify.ts",
     "verify:cwd": "bun ./scripts/verify-cwd/verify-cwd.ts",
-    "install:preset": "bun ./scripts/install-preset/install-preset.ts",
+    "aqg-install": "bun ./install.ts",
     "test": "bun ./scripts/self-test/self-test.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.30.0",
-    "@oxlint/plugins": "1.79.0",
-    "fallow": "3.17.0",
+    "@oxlint/plugins": "1.80.0",
+    "commander": "15.0.0",
+    "fallow": "3.18.0",
     "mitata": "1.0.34",
-    "oxc-parser": "0.146.0",
-    "oxlint": "1.79.0",
-    "oxlint-plugin-eslint": "1.79.0",
+    "oxc-parser": "0.147.0",
+    "oxlint": "1.80.0",
+    "oxlint-plugin-eslint": "1.80.0",
     "oxlint-tsgolint": "7.0.2001",
-    "typebox": "1.3.16",
+    "typebox": "1.3.18",
     "valibot": "1.4.2"
   },
   "devDependencies": {
     "@testcontainers/postgresql": "12.1.0",
     "@types/bun": "1.4.0",
-    "oxfmt": "0.64.0",
+    "oxfmt": "0.65.0",
     "testcontainers": "12.1.0"
   },
   "peerDependencies": {

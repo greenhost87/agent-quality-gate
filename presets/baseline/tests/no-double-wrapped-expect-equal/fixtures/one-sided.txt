@@ -1,0 +1,7 @@
+declare function toJsonValue(value: object): unknown;
+declare function singleNodeDefinition(): object;
+
+const again = { definition: {} };
+
+expect(toJsonValue(again.definition)).toEqual(singleNodeDefinition());
+expect(again.definition).toEqual(singleNodeDefinition());

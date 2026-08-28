@@ -1,9 +1,5 @@
-import { defineRule } from '@oxlint/plugins';
+import { defineRule, type ESTree } from '@oxlint/plugins';
 
-import {
-  reportHandmadeFunctionDeclaration,
-  reportHandmadeVariableDeclarator,
-} from './handmade-json-guards.ts';
 import { collectTypeTables, findHandmadeJsonTypeNames } from './handmade-json-shape.ts';
 
 export const noHandmadeJsonTypes = defineRule({
@@ -11,14 +7,10 @@ export const noHandmadeJsonTypes = defineRule({
     type: 'problem',
     schema: [],
     messages: {
-      handmadeType:
-        'Do not invent a recursive JSON type. Parse with Bun + valibot and take types from v.InferOutput.',
-      handmadeGuard:
-        'Do not invent a plain-object JSON type guard. Parse with Bun + valibot and take types from v.InferOutput.',
+      handmadeType: 'Replace recursive JSON types with v.InferOutput<typeof Schema>.',
     },
   },
   createOnce(context) {
-    let handmadeNames: ReadonlySet<string> = new Set();
     return {
       before() {
         const tables = collectTypeTables(context.sourceCode.ast);
@@ -26,14 +18,29 @@ export const noHandmadeJsonTypes = defineRule({
         for (const id of handmade.values()) {
           context.report({ node: id, messageId: 'handmadeType' });
         }
-        handmadeNames = new Set(handmade.keys());
+        return false;
       },
-      FunctionDeclaration(node) {
-        reportHandmadeFunctionDeclaration(context, node, handmadeNames);
-      },
-      VariableDeclarator(node) {
-        reportHandmadeVariableDeclarator(context, node, handmadeNames);
-      },
+      Program() {},
     };
   },
 });
+
+export type TypeAliasEntry = {
+  id: ESTree.BindingIdentifier;
+  annotation: ESTree.TSType;
+};
+
+export type InterfaceEntry = {
+  id: ESTree.BindingIdentifier;
+  body: ESTree.TSInterfaceBody;
+};
+
+export type TypeTables = {
+  aliases: Map<string, TypeAliasEntry>;
+  interfaces: Map<string, InterfaceEntry>;
+};
+
+export type UnionShape = {
+  handmade: boolean;
+  partners: Set<string>;
+};
