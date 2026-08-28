@@ -124,8 +124,10 @@ Do not scan transcripts or git history for prior fixes — apply the recipes bel
 ## Banned (outside \`tests/\`)
 
 - \`JSON.parse\`, \`request.json()\`, \`response.json()\`
+- \`v.parse(v.pipe(v.string(), v.parseJson()), …)\` without a domain schema in the same pipe
 - \`typeof value === 'object'\` (and \`Array.isArray(value)\` when \`presetConfig.bun-parse.typeofObjectMode\` is \`strict\`, the default), plus the combo \`typeof … && … !== null && !Array.isArray(…)\`
 - Recursive JSON type aliases (\`type JsonValue = … | JsonValue[]\`)
+- \`v.record(v.string(), v.unknown())\`, \`readJsonObject\`, and exported \`object\` / \`Record<string, unknown>\` parse helpers
 - Importing from \`scripts/\` in production code
 
 ## Replace handmade JSON types
@@ -153,6 +155,28 @@ export async function readExample(path: string): Promise<Example> {
 \`\`\`
 
 Never hand-roll \`JsonValue\` / \`JsonObject\` unions.
+
+## Client fetch responses
+
+Do not use \`readJsonObject\`, \`v.record(v.string(), v.unknown())\`, or \`isPlainObject\` to accept arbitrary JSON and then read fields with \`Reflect.get\`. Define the API response schema and parse in one step:
+
+\`\`\`ts
+const MailingListResponseSchema = v.object({
+  items: v.array(
+    v.object({
+      id: v.string(),
+      title: v.string(),
+      status: v.string(),
+    }),
+  ),
+  total: v.number(),
+  pages: v.number(),
+});
+
+const body = parseJsonText(await response.text(), MailingListResponseSchema);
+\`\`\`
+
+Export \`type MailingListResponse = v.InferOutput<typeof MailingListResponseSchema>\` when the type is shared.
 
 ## Fix typeof / Array.isArray (server **and** client)
 
@@ -203,20 +227,18 @@ export async function parseJsonBody<const TSchema extends v.GenericSchema>(
   request: Request,
   schema: TSchema,
 ): Promise<v.InferOutput<TSchema>> {
-  const raw = v.parse(v.pipe(v.string(), v.parseJson()), await request.text());
-  return v.parse(schema, raw);
+  return v.parse(v.pipe(v.string(), v.parseJson(), schema), await request.text());
 }
 
 export async function parseJsonResponse<const TSchema extends v.GenericSchema>(
   response: Response,
   schema: TSchema,
 ): Promise<v.InferOutput<TSchema>> {
-  const raw = v.parse(v.pipe(v.string(), v.parseJson()), await response.text());
-  return v.parse(schema, raw);
+  return v.parse(v.pipe(v.string(), v.parseJson(), schema), await response.text());
 }
 \`\`\`
 
-Keep one shared helper in a production module (for example \`system/\` or a domain package). Never under \`scripts/\`.
+Keep one shared helper in a production module (for example \`system/\` or a domain package). Never under \`scripts/\`. Do not split JSON text parsing and domain validation into two \`v.parse\` calls.
 
 ## Client (\`'use client'\`, browser bundles)
 

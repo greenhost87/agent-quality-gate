@@ -46,7 +46,8 @@
     "verify": "bun ./scripts/self-verify/self-verify.ts",
     "verify:cwd": "bun ./scripts/verify-cwd/verify-cwd.ts",
     "aqg-install": "bun ./install.ts",
-    "test": "bun ./scripts/self-test/self-test.ts"
+    "test": "bun ./scripts/self-test/self-test.ts",
+    "self-aqg": "bun run fmt && bun run verify && bun run test && bun run test -- --integration"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "1.30.0",

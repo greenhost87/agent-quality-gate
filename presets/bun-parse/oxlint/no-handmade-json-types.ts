@@ -1,5 +1,7 @@
 import { defineRule, type ESTree } from '@oxlint/plugins';
 
+import { findHandmadeJsonExportedReturns } from './handmade-export-returns.ts';
+import { findHandmadeJsonSchemaNames } from './handmade-json-schema.ts';
 import { collectTypeTables, findHandmadeJsonTypeNames } from './handmade-json-shape.ts';
 
 export const noHandmadeJsonTypes = defineRule({
@@ -7,16 +9,30 @@ export const noHandmadeJsonTypes = defineRule({
     type: 'problem',
     schema: [],
     messages: {
-      handmadeType: 'Replace recursive JSON types with v.InferOutput<typeof Schema>.',
+      handmadeType: 'Replace generic JSON types and schemas with v.InferOutput<typeof Schema>.',
     },
   },
   createOnce(context) {
     return {
       before() {
-        const tables = collectTypeTables(context.sourceCode.ast);
-        const handmade = findHandmadeJsonTypeNames(tables);
-        for (const id of handmade.values()) {
-          context.report({ node: id, messageId: 'handmadeType' });
+        const program = context.sourceCode.ast;
+        const tables = collectTypeTables(program);
+        const reported = new Set<ESTree.Node>();
+        const report = (node: ESTree.Node): void => {
+          if (reported.has(node)) {
+            return;
+          }
+          reported.add(node);
+          context.report({ node, messageId: 'handmadeType' });
+        };
+        for (const id of findHandmadeJsonTypeNames(tables).values()) {
+          report(id);
+        }
+        for (const id of findHandmadeJsonSchemaNames(program).values()) {
+          report(id);
+        }
+        for (const id of findHandmadeJsonExportedReturns(program, tables).values()) {
+          report(id);
         }
         return false;
       },

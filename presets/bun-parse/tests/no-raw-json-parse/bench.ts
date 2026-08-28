@@ -33,6 +33,17 @@ export const noRawJsonParseBench: BenchCreateOnceRuleInput = {
         `}`,
       ]),
     },
+    {
+      name: 'hot-bare-parse-json-text',
+      filename: '/bench/http/parse-json.ts',
+      cwd: '/bench',
+      code: repeat((index) => [
+        `import * as v from 'valibot';`,
+        `export function parse${index}(text: string): unknown {`,
+        `  return v.parse(v.pipe(v.string(), v.parseJson()), text);`,
+        `}`,
+      ]),
+    },
   ],
 };
 

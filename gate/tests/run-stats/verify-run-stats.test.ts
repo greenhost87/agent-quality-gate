@@ -15,7 +15,18 @@ import { runMcpVerify } from '../../mcp-verify/mcp-verify.js';
 import { useIsolatedAgentQualityGateHome } from '../../../tests/support/isolated-home.js';
 import * as v from 'valibot';
 
-const StatsRecordSchema = v.record(v.string(), v.unknown());
+const StatsRecordSchema = v.object({
+  t: v.number(),
+  r: v.union([v.literal(0), v.literal(1), v.literal(-1)]),
+  ms: v.number(),
+  path: v.string(),
+  c: v.optional(v.number()),
+  b: v.optional(v.number()),
+  l: v.optional(v.number()),
+  h: v.optional(v.number()),
+  x: v.optional(v.number()),
+  pr: v.optional(v.number()),
+});
 const StatsRecordJsonSchema = v.pipe(v.string(), v.parseJson(), StatsRecordSchema);
 const FlatTimingSchema = v.object({
   c: v.number(),
@@ -77,7 +88,7 @@ async function createCleanProject(): Promise<string> {
 async function waitForStatsRecord(
   projectRoot: string,
   timeoutMs = 2000,
-): Promise<Record<string, unknown>> {
+): Promise<v.InferOutput<typeof StatsRecordSchema>> {
   const statsPath = join(agentQualityGateHome(), 'stats', 'verify-runs.jsonl');
   const expectedRoot = resolve(projectRoot);
   const deadline = Date.now() + timeoutMs;
@@ -143,8 +154,8 @@ describe('verify run stats', () => {
     expect(timings.h).toBeGreaterThanOrEqual(0);
     expect(timings.x).toBeGreaterThanOrEqual(0);
     expect(timings.pr).toBeGreaterThanOrEqual(0);
-    expect(record.phases).toBeUndefined();
-    expect(record.ph).toBeUndefined();
+    expect(Object.hasOwn(record, 'phases')).toBe(false);
+    expect(Object.hasOwn(record, 'ph')).toBe(false);
   });
 
   it('records early validation failures', async () => {

@@ -1,8 +1,11 @@
 import type { ESTree } from '@oxlint/plugins';
 
 import { astParentOf, unwrapExpression } from '../../../scripts/oxlint-walk/oxlint-walk.ts';
-import { forEachImportSpecifierFrom } from './for-each-import-from.ts';
-import { importedName } from './import-specifier-name.ts';
+import {
+  collectParseValibotBindings,
+  noteParseValibotImportSpecifier,
+  type ParseValibotBindings,
+} from './valibot-bindings.ts';
 import { memberName } from './member-name.ts';
 
 const FUNCTION_TYPES = new Set([
@@ -23,38 +26,26 @@ const RAW_VALUE_WRAPPERS = new Set([
   'TSTypeAssertion',
 ]);
 
-function noteValibotImportSpecifier(specifier: ESTree.Node, bindings: ValibotBindings): void {
-  if (specifier.type === 'ImportNamespaceSpecifier') {
-    bindings.namespaces.add(specifier.local.name);
-  } else if (
-    specifier.type === 'ImportSpecifier' &&
-    (importedName(specifier) === 'parse' || importedName(specifier) === 'safeParse')
-  ) {
-    bindings.named.add(specifier.local.name);
-  }
-}
-
 export function noteValibotBindingsFromImport(
   node: ESTree.ImportDeclaration,
-  bindings: ValibotBindings,
+  bindings: ParseValibotBindings,
 ): void {
   if (node.source.value !== 'valibot') {
     return;
   }
   for (const specifier of node.specifiers) {
-    noteValibotImportSpecifier(specifier, bindings);
+    noteParseValibotImportSpecifier(specifier, bindings);
   }
 }
 
-export function collectValibotBindings(root: ESTree.Node): ValibotBindings {
-  const bindings: ValibotBindings = { named: new Set(), namespaces: new Set() };
-  forEachImportSpecifierFrom(root, 'valibot', (specifier) => {
-    noteValibotImportSpecifier(specifier, bindings);
-  });
-  return bindings;
+export function collectValibotBindings(root: ESTree.Node): ParseValibotBindings {
+  return collectParseValibotBindings(root);
 }
 
-function isValibotParseCall(node: ESTree.CallExpression, bindings: ValibotBindings): boolean {
+export function isValibotParseCall(
+  node: ESTree.CallExpression,
+  bindings: ParseValibotBindings,
+): boolean {
   const callee = unwrapExpression(node.callee);
   if (callee.type === 'Identifier') {
     return bindings.named.has(callee.name);
@@ -80,7 +71,7 @@ function enclosingFunction(node: ESTree.Node): ESTree.Node | null {
   return null;
 }
 
-export function isValidationInput(node: ESTree.Node, bindings: ValibotBindings): boolean {
+export function isValidationInput(node: ESTree.Node, bindings: ParseValibotBindings): boolean {
   let current = node;
   for (;;) {
     const parent = astParentOf(current);
@@ -160,7 +151,7 @@ export function registerDeferredRawJsonValidation(
 
 export function noteTrackedRawJsonIdentifier(
   node: ESTree.Node,
-  bindings: ValibotBindings,
+  bindings: ParseValibotBindings,
   tracker: RawJsonValidationTracker,
 ): void {
   if (node.type !== 'Identifier') {
@@ -199,8 +190,3 @@ export function trackedRawJsonEntries(tracker: RawJsonValidationTracker): RawJso
   }
   return entries;
 }
-
-export type ValibotBindings = {
-  named: Set<string>;
-  namespaces: Set<string>;
-};

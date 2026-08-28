@@ -9,7 +9,11 @@ const FallowDiscoveredFilesSchema = v.pipe(
   v.check((value) => value.file_count === value.files.length, 'file_count must match files length'),
 );
 
-const FallowDiscoveredFilesJsonSchema = v.pipe(v.string(), v.parseJson());
+const FallowDiscoveredFilesFromStdoutSchema = v.pipe(
+  v.string(),
+  v.parseJson(),
+  FallowDiscoveredFilesSchema,
+);
 
 export function fallowCacheEnvironment(projectRoot: string): Record<string, string> {
   return {
@@ -21,13 +25,9 @@ export function parseFallowDiscoveredFiles(
   stdout: string,
   diagnosticPrefix: string,
 ): DiscoveredFilesOutput {
-  const parsed = v.safeParse(FallowDiscoveredFilesJsonSchema, stdout);
-  if (!parsed.success) {
-    throw new Error(`${diagnosticPrefix}fallow list returned malformed JSON`);
-  }
-  const result = v.safeParse(FallowDiscoveredFilesSchema, parsed.output);
+  const result = v.safeParse(FallowDiscoveredFilesFromStdoutSchema, stdout);
   if (!result.success) {
-    throw new Error(`${diagnosticPrefix}fallow list files schema is unsupported`);
+    throw new Error(`${diagnosticPrefix}fallow list returned malformed JSON`);
   }
   return result.output;
 }
