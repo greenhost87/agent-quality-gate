@@ -70,6 +70,20 @@ function isHandmadeLooseObjectReturn(
   return handmadeExportedReturnType(exportReturnAnnotation(annotation), tables);
 }
 
+function skipExportedReturnScan(annotation: ESTree.TSType | undefined): boolean {
+  if (annotation == null) {
+    return true;
+  }
+  if (annotation.type !== 'TSTypePredicate') {
+    return false;
+  }
+  const effective = exportReturnAnnotation(annotation);
+  if (isLooseObjectType(effective) || isLooseStringIndexType(effective)) {
+    return false;
+  }
+  return effective.type === 'TSTypeReference' && effective.typeName.type === 'Identifier';
+}
+
 function reportHandmadeReturn(
   id: ESTree.BindingIdentifier,
   annotation: ESTree.TSType | undefined,
@@ -77,7 +91,7 @@ function reportHandmadeReturn(
   looseSchemaNames: ReadonlySet<string>,
   reported: Map<string, ESTree.BindingIdentifier>,
 ): void {
-  if (annotation === undefined) {
+  if (skipExportedReturnScan(annotation) || annotation == null) {
     return;
   }
   if (isHandmadeLooseObjectReturn(annotation, tables, looseSchemaNames)) {
@@ -139,9 +153,10 @@ function collectExportedReturnReports(
 export function findHandmadeJsonExportedReturns(
   program: ESTree.Program,
   tables: TypeTables,
+  sourceText?: string,
 ): Map<string, ESTree.BindingIdentifier> {
   const reported = new Map<string, ESTree.BindingIdentifier>();
-  const looseSchemaNames = collectLooseRecordSchemaNames(program);
+  const looseSchemaNames = collectLooseRecordSchemaNames(program, sourceText);
   collectExportedReturnReports(program, tables, looseSchemaNames, reported);
   return reported;
 }

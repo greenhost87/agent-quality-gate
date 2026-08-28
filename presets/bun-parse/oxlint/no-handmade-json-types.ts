@@ -16,6 +16,7 @@ export const noHandmadeJsonTypes = defineRule({
     return {
       before() {
         const program = context.sourceCode.ast;
+        const sourceText = context.sourceCode.text;
         const tables = collectTypeTables(program);
         const reported = new Set<ESTree.Node>();
         const report = (node: ESTree.Node): void => {
@@ -28,10 +29,10 @@ export const noHandmadeJsonTypes = defineRule({
         for (const id of findHandmadeJsonTypeNames(tables).values()) {
           report(id);
         }
-        for (const id of findHandmadeJsonSchemaNames(program).values()) {
+        for (const id of findHandmadeJsonSchemaNames(program, sourceText).values()) {
           report(id);
         }
-        for (const id of findHandmadeJsonExportedReturns(program, tables).values()) {
+        for (const id of findHandmadeJsonExportedReturns(program, tables, sourceText).values()) {
           report(id);
         }
         return false;
