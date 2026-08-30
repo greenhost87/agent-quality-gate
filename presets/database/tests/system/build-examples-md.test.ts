@@ -7,6 +7,8 @@ test('database examples markdown embeds gated example sources', async () => {
   expect(markdown).toContain('# Database preset examples');
   expect(markdown).toContain('createDatabaseAccessor');
   expect(markdown).toContain('export async function listOrders');
+  expect(markdown).toContain('export async function deleteOrder');
+  expect(markdown).toContain('RETURNING id');
   expect(markdown).toContain('useIsolatedTestDatabase');
   expect(markdown).toContain('syncCachesToDatabaseGeneration');
 });

@@ -116,6 +116,15 @@ test('DAO boundaries reject connection files outside system/database', async () 
   ]);
 });
 
+test('DAO boundaries reject migrate satellite files', async () => {
+  const message =
+    'Keep the migration runner in system/database/migrate.ts; do not create satellite files such as migrate-cli.ts or migrate.types.ts.';
+  await Promise.all([
+    expectRejected('migrate-types-split', 'system/database/migrate.types.ts', message),
+    expectRejected('migrate-cli-split', 'system/database/migrate-cli.ts', message),
+  ]);
+});
+
 test('DAO boundaries allow connection files inside system/database', async () => {
   await Promise.all([
     expectAllowed('connection-inside', 'system/database/connection.ts'),

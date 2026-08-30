@@ -10,6 +10,7 @@ After verify in a target project, read this file at `.aqg/database/database-exam
 - Cache/lifecycle side effects belong in helpers such as `system/database/caches.ts`, keyed by `getDatabaseGeneration()`.
 - Outside `system/database/`, import only `closeDatabase` from connection (app bootstrap / shutdown).
 - Integration tests observe production-reachable named DAO functions only.
+- `DELETE` in DAOs uses `RETURNING` plus `rows.length === 0` for not-found — no shared result-helper modules.
 
 ## Shared cache helper
 
@@ -63,6 +64,7 @@ Copy to `system/database/<domain>/<name>.dao.ts`.
 - Exactly one domain segment under `system/database/`.
 - Import lazy `sql` from `@/system/database/connection` and call it directly.
 - Export only named function declarations and types — no classes, default exports, or object bags.
+- For `DELETE`, use `RETURNING` and treat `rows.length === 0` as not found — do not add `dao-result.ts` helpers or rely on Bun-specific `count` metadata.
 - Baseline gate still applies: keep modules small, avoid banned patterns, no `oxlint-disable` escapes.
 
 ```ts
@@ -122,6 +124,18 @@ export async function createOrder(input: CreateOrderInput): Promise<Order> {
   return rows[0];
 }
 
+export async function deleteOrder(id: number): Promise<void> {
+  const rows = await sql<{ id: number }[]>`
+    DELETE FROM orders
+    WHERE id = ${id}
+    RETURNING id
+  `;
+  if (rows.length === 0) {
+    throw new Error(`Order ${id} was not found`);
+  }
+  invalidateOrderListCache();
+}
+
 export async function createOrderThenFail(input: CreateOrderInput): Promise<void> {
   await sql.begin(async (tx) => {
     await tx`
@@ -155,6 +169,7 @@ import { describe, expect, test } from 'bun:test';
 import {
   createOrder,
   createOrderThenFail,
+  deleteOrder,
   getOrderById,
   listOrders,
 } from '@/system/database/orders/orders.dao';
@@ -176,6 +191,14 @@ describe('orders database integration', () => {
       id: created.id,
       status: 'confirmed',
     });
+  });
+
+  test('deletes an order', async () => {
+    const created = await createOrder({ status: 'to-delete' });
+
+    await deleteOrder(created.id);
+
+    expect(await getOrderById(created.id)).toBeNull();
   });
 
   test('does not leak changes from another test', async () => {
