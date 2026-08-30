@@ -3,6 +3,8 @@ import { join, resolve } from 'node:path';
 import { SQL, file } from 'bun';
 import { getRequiredEnv, isNodeEnvironment } from '@/system/config/environment';
 
+type MigrationLedger = 'pgmigrations' | 'schema_migrations';
+
 function migrationIdentity(name: string): string {
   return name.endsWith('.sql') ? name.slice(0, -'.sql'.length) : name;
 }
@@ -104,6 +106,6 @@ export async function runDatabaseMigrations(dir = 'migrations'): Promise<void> {
   }
 }
 
-export const migrationLedgers = ['pgmigrations', 'schema_migrations'] as const;
-
-export type MigrationLedger = (typeof migrationLedgers)[number];
+if (import.meta.main) {
+  await runDatabaseMigrations();
+}

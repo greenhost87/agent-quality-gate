@@ -11,6 +11,7 @@ import { describe, expect, test } from 'bun:test';
 import {
   createOrder,
   createOrderThenFail,
+  deleteOrder,
   getOrderById,
   listOrders,
 } from '@/system/database/orders/orders.dao';
@@ -32,6 +33,14 @@ describe('orders database integration', () => {
       id: created.id,
       status: 'confirmed',
     });
+  });
+
+  test('deletes an order', async () => {
+    const created = await createOrder({ status: 'to-delete' });
+
+    await deleteOrder(created.id);
+
+    expect(await getOrderById(created.id)).toBeNull();
   });
 
   test('does not leak changes from another test', async () => {

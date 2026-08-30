@@ -17,6 +17,7 @@ import {
   isDaoClassName,
   isDatabaseLifecycleImport,
   managedMigratePath,
+  managedMigrateSatellitePattern,
   managedTestDatabaseBootstrapPath,
   managedTestDatabasePath,
   migrationPathPattern,
@@ -36,6 +37,9 @@ import {
 } from '../../../scripts/oxlint-walk/oxlint-walk.ts';
 
 function reportDaoProgramFlags(context: Context, node: ESTree.Program, flags: DaoScanFlags): void {
+  if (flags.isManagedMigrateSatellite) {
+    context.report({ node, messageId: 'migrateSatellite' });
+  }
   if (flags.isConnectionFile && !flags.isDatabaseFile) {
     context.report({ node, messageId: 'connectionPlacement' });
   }
@@ -123,6 +127,8 @@ export const daoBoundaries = defineRule({
       connection:
         'Import only database lifecycle functions from system/database/connection outside system/database.',
       connectionPlacement: 'Connection files must be inside system/database.',
+      migrateSatellite:
+        'Keep the migration runner in system/database/migrate.ts; do not create satellite files such as migrate-cli.ts or migrate.types.ts.',
       databaseAccess: 'Import sql only from production *.dao.ts database implementations.',
       legacyDatabaseAccess: 'Import sql instead of the removed getDatabase accessor.',
       daoClass: 'Use named DAO functions instead of classes.',
@@ -234,6 +240,7 @@ export const daoBoundaries = defineRule({
             relativePath === managedTestDatabasePath ||
             relativePath === managedTestDatabaseBootstrapPath,
           isManagedMigrate: relativePath === managedMigratePath,
+          isManagedMigrateSatellite: managedMigrateSatellitePattern.test(relativePath),
           isTestFile: testFilePattern.test(filename),
           isDaoFile: !testFilePattern.test(filename) && daoFilePattern.test(filename),
           isProductionDaoImplementation:

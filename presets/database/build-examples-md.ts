@@ -25,6 +25,7 @@ const sections: readonly ExampleSection[] = [
       'Exactly one domain segment under `system/database/`.',
       'Import lazy `sql` from `@/system/database/connection` and call it directly.',
       'Export only named function declarations and types — no classes, default exports, or object bags.',
+      'For `DELETE`, use `RETURNING` and treat `rows.length === 0` as not found — do not add `dao-result.ts` helpers or rely on Bun-specific `count` metadata.',
       'Baseline gate still applies: keep modules small, avoid banned patterns, no `oxlint-disable` escapes.',
     ],
   },
@@ -87,6 +88,7 @@ After verify in a target project, read this file at \`.aqg/database/database-exa
 - Cache/lifecycle side effects belong in helpers such as \`system/database/caches.ts\`, keyed by \`getDatabaseGeneration()\`.
 - Outside \`system/database/\`, import only \`closeDatabase\` from connection (app bootstrap / shutdown).
 - Integration tests observe production-reachable named DAO functions only.
+- \`DELETE\` in DAOs uses \`RETURNING\` plus \`rows.length === 0\` for not-found — no shared result-helper modules.
 
 ${renderedSections.join('\n')}
 `;

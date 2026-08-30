@@ -9,6 +9,7 @@ export const databaseConnectionImportPattern = /(?:^|\/)database\/connection(?:\
 export const managedTestDatabasePath = 'tests/setup/testDatabase.ts';
 export const managedTestDatabaseBootstrapPath = 'tests/setup/testDatabase.bootstrap.ts';
 export const managedMigratePath = 'system/database/migrate.ts';
+export const managedMigrateSatellitePattern = /^system\/database\/migrate[-.].+\.ts$/u;
 export const testFilePattern = /(?:^|\/)(?:specs|tests|__tests__)(?:\/|$)|\.(?:spec|test)\.[^/]+$/u;
 export const validDaoPlacementPattern = /^[^/]+\/[^/]+\.dao(?:\.[^/]+)*\.ts$/u;
 export const testsDirectoryPattern = /(?:^|\/)tests\//u;

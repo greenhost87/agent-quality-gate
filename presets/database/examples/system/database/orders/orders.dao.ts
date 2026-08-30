@@ -60,6 +60,18 @@ export async function createOrder(input: CreateOrderInput): Promise<Order> {
   return rows[0];
 }
 
+export async function deleteOrder(id: number): Promise<void> {
+  const rows = await sql<{ id: number }[]>`
+    DELETE FROM orders
+    WHERE id = ${id}
+    RETURNING id
+  `;
+  if (rows.length === 0) {
+    throw new Error(`Order ${id} was not found`);
+  }
+  invalidateOrderListCache();
+}
+
 export async function createOrderThenFail(input: CreateOrderInput): Promise<void> {
   await sql.begin(async (tx) => {
     await tx`
