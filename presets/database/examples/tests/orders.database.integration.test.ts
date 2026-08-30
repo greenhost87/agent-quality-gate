@@ -14,6 +14,9 @@ import {
   deleteOrder,
   getOrderById,
   listOrders,
+  listOrdersByIds,
+  searchOrders,
+  updateOrderStatus,
 } from '@/system/database/orders/orders.dao';
 import { useIsolatedTestDatabase } from '@/tests/setup/testDatabase';
 
@@ -35,12 +38,33 @@ describe('orders database integration', () => {
     });
   });
 
+  test('handles an empty SQL value list before building the query', async () => {
+    expect(await listOrdersByIds([])).toEqual([]);
+  });
+
   test('deletes an order', async () => {
     const created = await createOrder({ status: 'to-delete' });
 
     await deleteOrder(created.id);
 
     expect(await getOrderById(created.id)).toBeNull();
+  });
+
+  test('updates an order', async () => {
+    const created = await createOrder({ status: 'before-update' });
+
+    await updateOrderStatus(created.id, 'after-update');
+
+    expect(await getOrderById(created.id)).toEqual({ id: created.id, status: 'after-update' });
+  });
+
+  test('filters and sorts orders with SQL fragments', async () => {
+    await createOrder({ status: 'review-z' });
+    await createOrder({ status: 'review-a' });
+
+    const orders = await searchOrders({ statusQuery: 'review', sort: 'status' });
+
+    expect(orders.map((order) => order.status)).toEqual(['review-a', 'review-z']);
   });
 
   test('does not leak changes from another test', async () => {

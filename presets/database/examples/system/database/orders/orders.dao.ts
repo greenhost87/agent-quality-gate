@@ -39,11 +39,28 @@ export async function getOrderById(id: number): Promise<Order | null> {
 }
 
 export async function listOrdersByIds(ids: number[]): Promise<Order[]> {
+  if (ids.length === 0) {
+    return [];
+  }
   return await sql<Order[]>`
     SELECT id, status
     FROM orders
     WHERE id IN ${sql(ids)}
     ORDER BY id
+  `;
+}
+
+export async function searchOrders(query: SearchOrdersQuery): Promise<Order[]> {
+  const trimmedStatus = query.statusQuery?.trim();
+  const statusPattern = trimmedStatus ? `%${trimmedStatus}%` : null;
+  const statusFilter = statusPattern === null ? sql`` : sql`WHERE status ILIKE ${statusPattern}`;
+  const orderBy = query.sort === 'status' ? sql`status ASC, id ASC` : sql`id ASC`;
+
+  return await sql<Order[]>`
+    SELECT id, status
+    FROM orders
+    ${statusFilter}
+    ORDER BY ${orderBy}
   `;
 }
 
@@ -58,6 +75,19 @@ export async function createOrder(input: CreateOrderInput): Promise<Order> {
   }
   invalidateOrderListCache();
   return rows[0];
+}
+
+export async function updateOrderStatus(id: number, status: string): Promise<void> {
+  const rows = await sql<{ id: number }[]>`
+    UPDATE orders
+    SET status = ${status}
+    WHERE id = ${id}
+    RETURNING id
+  `;
+  if (rows.length === 0) {
+    throw new Error(`Order ${id} was not found`);
+  }
+  invalidateOrderListCache();
 }
 
 export async function deleteOrder(id: number): Promise<void> {
@@ -89,4 +119,9 @@ export type Order = {
 
 export type CreateOrderInput = {
   status: string;
+};
+
+export type SearchOrdersQuery = {
+  readonly statusQuery?: string;
+  readonly sort?: 'id' | 'status';
 };

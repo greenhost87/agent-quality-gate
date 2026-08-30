@@ -125,6 +125,42 @@ test('DAO boundaries reject migrate satellite files', async () => {
   ]);
 });
 
+test('DAO boundaries reject database result-helper modules', async () => {
+  const message =
+    'Do not create database result-helper modules. Inline rows[0] ?? null in the DAO; for mutation not-found checks, use RETURNING and rows.length.';
+  await Promise.all([
+    expectRejected('dao-result-helper', 'system/database/dao-result.ts', message),
+    expectRejected('map-first-row-helper', 'system/database/map-first-row.ts', message),
+  ]);
+});
+
+test('DAO boundaries reject Bun SQL count metadata and allow canonical inline results', async () => {
+  await Promise.all([
+    expectRejected(
+      'sql-count-metadata',
+      'system/database/orders/orders.dao.ts',
+      'Do not rely on Bun SQL count metadata. Add RETURNING to the mutation and inspect the returned rows.',
+    ),
+    expectRejected(
+      'renamed-count-helper',
+      'system/database/mutation-result.ts',
+      'Do not rely on Bun SQL count metadata. Add RETURNING to the mutation and inspect the returned rows.',
+    ),
+    expectAllowed('inline-dao-results', 'system/database/orders/orders.dao.ts'),
+  ]);
+});
+
+test('DAO boundaries reject Bun SQL unsafe outside managed database infrastructure', async () => {
+  const message =
+    'Do not use Bun SQL unsafe outside managed database infrastructure. Use tagged templates and SQL fragments.';
+  await Promise.all([
+    expectRejected('sql-unsafe-dao', 'system/database/orders/orders.dao.ts', message),
+    expectRejected('sql-unsafe-service', 'system/orders/service.ts', message),
+    expectAllowed('sql-unsafe-managed-migrate', 'system/database/migrate.ts'),
+    expectAllowed('sql-unsafe-managed-test-database', 'tests/setup/testDatabase.bootstrap.ts'),
+  ]);
+});
+
 test('DAO boundaries allow connection files inside system/database', async () => {
   await Promise.all([
     expectAllowed('connection-inside', 'system/database/connection.ts'),

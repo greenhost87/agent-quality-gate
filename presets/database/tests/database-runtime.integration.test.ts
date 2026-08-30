@@ -31,6 +31,7 @@ describe('database runtime integration', () => {
   test('starts from migrated baseline seed data', async () => {
     const items = await listRuntimeItems();
     expect(items.map((item) => item.name)).toEqual(['seed']);
+    expect(await listRuntimeItemsByIds([])).toEqual([]);
     expect(await listRuntimeItemsByIds([1])).toEqual([{ id: 1, name: 'seed' }]);
   });
 

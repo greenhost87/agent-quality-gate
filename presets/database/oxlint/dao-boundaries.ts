@@ -21,6 +21,7 @@ export interface DaoScanFlags {
   isTestDatabaseSetup: boolean;
   isManagedMigrate: boolean;
   isManagedMigrateSatellite: boolean;
+  isDatabaseResultHelper: boolean;
   isTestFile: boolean;
   isDaoFile: boolean;
   isProductionDaoImplementation: boolean;

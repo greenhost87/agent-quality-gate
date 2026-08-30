@@ -10,6 +10,9 @@ export async function listRuntimeItems(): Promise<RuntimeItem[]> {
 }
 
 export async function listRuntimeItemsByIds(ids: number[]): Promise<RuntimeItem[]> {
+  if (ids.length === 0) {
+    return [];
+  }
   return await sql<RuntimeItem[]>`
     SELECT id, name FROM runtime_items WHERE id IN ${sql(ids)} ORDER BY id
   `;
@@ -29,9 +32,10 @@ export async function insertRuntimeItem(name: string): Promise<RuntimeItem> {
 }
 
 export async function countRuntimeItems(): Promise<number> {
-  const rows = await sql.unsafe<{ count: string }[]>(
-    'SELECT COUNT(*)::text AS count FROM runtime_items',
-  );
+  const rows = await sql<{ count: string }[]>`
+    SELECT COUNT(*)::text AS count
+    FROM runtime_items
+  `;
   return Number(rows[0]?.count ?? 0);
 }
 
