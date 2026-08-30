@@ -40,6 +40,10 @@ Do not create or expand a DAO solely for a test.
 
 When no production path exists, stop and report the missing path as a blocker.
 
+Keep query-result handling in the DAO. Use \`rows[0] ?? null\` for optional reads. For \`UPDATE\` / \`DELETE\` not-found checks, add \`RETURNING\` and inspect \`rows.length\`; do not create result-helper modules or use Bun SQL \`count\` metadata.
+
+Before passing a dynamic value list to \`sql(values)\` / \`tx(values)\`, define empty-list semantics in the DAO. Return an empty result or no-op for match-none semantics, or omit the conditional SQL fragment when empty means no filter. Prove the empty case through the production DAO against the isolated PostgreSQL database.
+
 Also see \`.aqg/database/database-examples.md\` for DAO / cache / integration-test shape.
 `;
 

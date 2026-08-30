@@ -7,10 +7,13 @@ After verify in a target project, read this file at `.aqg/database/database-exam
 ## Rules of thumb
 
 - `sql` from `@/system/database/connection` is already a lazy Proxy — call it directly in `*.dao.ts`.
+- Build dynamic filtering and sorting with tagged SQL fragments. Bun SQL `.unsafe()` is reserved for managed database infrastructure.
+- Define empty-list semantics in the DAO before calling `sql(values)` / `tx(values)`; return an empty result or no-op for match-none semantics, or omit the clause when empty means no filter.
 - Cache/lifecycle side effects belong in helpers such as `system/database/caches.ts`, keyed by `getDatabaseGeneration()`.
 - Outside `system/database/`, import only `closeDatabase` from connection (app bootstrap / shutdown).
 - Integration tests observe production-reachable named DAO functions only.
-- `DELETE` in DAOs uses `RETURNING` plus `rows.length === 0` for not-found — no shared result-helper modules.
+- Optional DAO reads use `rows[0] ?? null`; mapped reads inspect and map the first row inline.
+- `UPDATE` / `DELETE` not-found checks use `RETURNING` plus `rows.length === 0` — no `dao-result.ts` / `map-first-row.ts` modules or Bun SQL `count` metadata.
 
 ## Shared cache helper
 
@@ -63,8 +66,11 @@ Copy to `system/database/<domain>/<name>.dao.ts`.
 
 - Exactly one domain segment under `system/database/`.
 - Import lazy `sql` from `@/system/database/connection` and call it directly.
+- Build dynamic filtering and sorting with tagged SQL fragments; never use `.unsafe()` outside managed database infrastructure.
+- Before passing a dynamic value list to `sql(values)` / `tx(values)`, handle empty input explicitly: return an empty result or no-op for match-none semantics, or omit the clause when empty means no filter.
 - Export only named function declarations and types — no classes, default exports, or object bags.
-- For `DELETE`, use `RETURNING` and treat `rows.length === 0` as not found — do not add `dao-result.ts` helpers or rely on Bun-specific `count` metadata.
+- For optional reads, use `rows[0] ?? null`; map the first row inline when needed.
+- For `UPDATE` / `DELETE` not-found checks, use `RETURNING` and `rows.length === 0` — no result-helper modules or Bun-specific `count` metadata.
 - Baseline gate still applies: keep modules small, avoid banned patterns, no `oxlint-disable` escapes.
 
 ```ts
@@ -103,11 +109,28 @@ export async function getOrderById(id: number): Promise<Order | null> {
 }
 
 export async function listOrdersByIds(ids: number[]): Promise<Order[]> {
+  if (ids.length === 0) {
+    return [];
+  }
   return await sql<Order[]>`
     SELECT id, status
     FROM orders
     WHERE id IN ${sql(ids)}
     ORDER BY id
+  `;
+}
+
+export async function searchOrders(query: SearchOrdersQuery): Promise<Order[]> {
+  const trimmedStatus = query.statusQuery?.trim();
+  const statusPattern = trimmedStatus ? `%${trimmedStatus}%` : null;
+  const statusFilter = statusPattern === null ? sql`` : sql`WHERE status ILIKE ${statusPattern}`;
+  const orderBy = query.sort === 'status' ? sql`status ASC, id ASC` : sql`id ASC`;
+
+  return await sql<Order[]>`
+    SELECT id, status
+    FROM orders
+    ${statusFilter}
+    ORDER BY ${orderBy}
   `;
 }
 
@@ -122,6 +145,19 @@ export async function createOrder(input: CreateOrderInput): Promise<Order> {
   }
   invalidateOrderListCache();
   return rows[0];
+}
+
+export async function updateOrderStatus(id: number, status: string): Promise<void> {
+  const rows = await sql<{ id: number }[]>`
+    UPDATE orders
+    SET status = ${status}
+    WHERE id = ${id}
+    RETURNING id
+  `;
+  if (rows.length === 0) {
+    throw new Error(`Order ${id} was not found`);
+  }
+  invalidateOrderListCache();
 }
 
 export async function deleteOrder(id: number): Promise<void> {
@@ -154,6 +190,11 @@ export type Order = {
 export type CreateOrderInput = {
   status: string;
 };
+
+export type SearchOrdersQuery = {
+  readonly statusQuery?: string;
+  readonly sort?: 'id' | 'status';
+};
 ```
 
 ## Database integration test
@@ -172,6 +213,9 @@ import {
   deleteOrder,
   getOrderById,
   listOrders,
+  listOrdersByIds,
+  searchOrders,
+  updateOrderStatus,
 } from '@/system/database/orders/orders.dao';
 import { useIsolatedTestDatabase } from '@/tests/setup/testDatabase';
 
@@ -193,12 +237,33 @@ describe('orders database integration', () => {
     });
   });
 
+  test('handles an empty SQL value list before building the query', async () => {
+    expect(await listOrdersByIds([])).toEqual([]);
+  });
+
   test('deletes an order', async () => {
     const created = await createOrder({ status: 'to-delete' });
 
     await deleteOrder(created.id);
 
     expect(await getOrderById(created.id)).toBeNull();
+  });
+
+  test('updates an order', async () => {
+    const created = await createOrder({ status: 'before-update' });
+
+    await updateOrderStatus(created.id, 'after-update');
+
+    expect(await getOrderById(created.id)).toEqual({ id: created.id, status: 'after-update' });
+  });
+
+  test('filters and sorts orders with SQL fragments', async () => {
+    await createOrder({ status: 'review-z' });
+    await createOrder({ status: 'review-a' });
+
+    const orders = await searchOrders({ statusQuery: 'review', sort: 'status' });
+
+    expect(orders.map((order) => order.status)).toEqual(['review-a', 'review-z']);
   });
 
   test('does not leak changes from another test', async () => {

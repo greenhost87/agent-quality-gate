@@ -9,6 +9,7 @@ import {
 import type { FunctionBinding } from './dao-operation-usage.ts';
 import {
   connectionFilePattern,
+  databaseResultHelperPattern,
   daoFilePattern,
   daoFunctionDefault,
   daoImplementationPattern,
@@ -16,6 +17,7 @@ import {
   importSource,
   isDaoClassName,
   isDatabaseLifecycleImport,
+  isUnsafeSqlMember,
   managedMigratePath,
   managedMigrateSatellitePattern,
   managedTestDatabaseBootstrapPath,
@@ -28,6 +30,7 @@ import {
   reportDatabaseDriverImport,
   reportInvalidImportSpecifier,
   reportSqlDdl,
+  sqlResultUsesCountMetadata,
   testFilePattern,
   validDaoPlacementPattern,
 } from './dao-boundaries-shared.ts';
@@ -37,6 +40,9 @@ import {
 } from '../../../scripts/oxlint-walk/oxlint-walk.ts';
 
 function reportDaoProgramFlags(context: Context, node: ESTree.Program, flags: DaoScanFlags): void {
+  if (flags.isDatabaseResultHelper) {
+    context.report({ node, messageId: 'daoResultHelper' });
+  }
   if (flags.isManagedMigrateSatellite) {
     context.report({ node, messageId: 'migrateSatellite' });
   }
@@ -78,7 +84,11 @@ function isAllowedDaoExport(node: ESTree.ExportNamedDeclaration): boolean {
 }
 
 function sourceMayContainDaoViolation(source: string): boolean {
-  return /\b[A-Z][A-Za-z0-9]*Dao\b/u.test(source) || /\b(?:CREATE|ALTER|DROP)\b/iu.test(source);
+  return (
+    /\b[A-Z][A-Za-z0-9]*Dao\b/u.test(source) ||
+    /\b(?:CREATE|ALTER|DROP)\b/iu.test(source) ||
+    /\bunsafe\b/u.test(source)
+  );
 }
 
 function requiresBroadDaoScan(
@@ -88,6 +98,7 @@ function requiresBroadDaoScan(
 ): boolean {
   return (
     inspectOperationUsage ||
+    flags.isDatabaseFile ||
     flags.isProductionDaoImplementation ||
     sourceMayContainDaoViolation(context.sourceCode.text)
   );
@@ -139,6 +150,12 @@ export const daoBoundaries = defineRule({
       daoOperationFacade: 'Do not export object facades backed by DAO operations.',
       daoOperationValue:
         'Invoke DAO operations directly; do not expose them as values or re-export them.',
+      daoResultHelper:
+        'Do not create database result-helper modules. Inline rows[0] ?? null in the DAO; for mutation not-found checks, use RETURNING and rows.length.',
+      sqlCountMetadata:
+        'Do not rely on Bun SQL count metadata. Add RETURNING to the mutation and inspect the returned rows.',
+      unsafeSql:
+        'Do not use Bun SQL unsafe outside managed database infrastructure. Use tagged templates and SQL fragments.',
       database:
         'Import the database driver only from system/database or tests/setup/testDatabase.ts or tests/setup/testDatabase.bootstrap.ts.',
       placement:
@@ -206,6 +223,11 @@ export const daoBoundaries = defineRule({
             flags.isManagedMigrate,
           );
           break;
+        case 'MemberExpression':
+          if (!flags.isManagedMigrate && !flags.isTestDatabaseSetup && isUnsafeSqlMember(node)) {
+            context.report({ node, messageId: 'unsafeSql' });
+          }
+          break;
         case 'NewExpression':
           reportIllegalDaoConstruct(context, node);
           break;
@@ -217,6 +239,16 @@ export const daoBoundaries = defineRule({
             flags.isTestDatabaseSetup,
             flags.isManagedMigrate,
           );
+          break;
+        case 'TaggedTemplateExpression':
+          if (
+            flags.isDatabaseFile &&
+            !flags.isConnectionFile &&
+            !flags.isManagedMigrate &&
+            sqlResultUsesCountMetadata(node)
+          ) {
+            context.report({ node, messageId: 'sqlCountMetadata' });
+          }
           break;
         default:
           break;
@@ -241,6 +273,7 @@ export const daoBoundaries = defineRule({
             relativePath === managedTestDatabaseBootstrapPath,
           isManagedMigrate: relativePath === managedMigratePath,
           isManagedMigrateSatellite: managedMigrateSatellitePattern.test(relativePath),
+          isDatabaseResultHelper: databaseResultHelperPattern.test(relativePath),
           isTestFile: testFilePattern.test(filename),
           isDaoFile: !testFilePattern.test(filename) && daoFilePattern.test(filename),
           isProductionDaoImplementation:

@@ -18,5 +18,13 @@
     "aqg/no-oxlint-disable-directives": "error",
     "database/dao-boundaries": "error",
     "database/test-database-boundaries": "error"
-  }
+  },
+  "overrides": [
+    {
+      "files": ["tests/database-runtime.integration.test.ts"],
+      "rules": {
+        "database/dao-boundaries": "off"
+      }
+    }
+  ]
 }

@@ -24,8 +24,11 @@ const sections: readonly ExampleSection[] = [
     notes: [
       'Exactly one domain segment under `system/database/`.',
       'Import lazy `sql` from `@/system/database/connection` and call it directly.',
+      'Build dynamic filtering and sorting with tagged SQL fragments; never use `.unsafe()` outside managed database infrastructure.',
+      'Before passing a dynamic value list to `sql(values)` / `tx(values)`, handle empty input explicitly: return an empty result or no-op for match-none semantics, or omit the clause when empty means no filter.',
       'Export only named function declarations and types — no classes, default exports, or object bags.',
-      'For `DELETE`, use `RETURNING` and treat `rows.length === 0` as not found — do not add `dao-result.ts` helpers or rely on Bun-specific `count` metadata.',
+      'For optional reads, use `rows[0] ?? null`; map the first row inline when needed.',
+      'For `UPDATE` / `DELETE` not-found checks, use `RETURNING` and `rows.length === 0` — no result-helper modules or Bun-specific `count` metadata.',
       'Baseline gate still applies: keep modules small, avoid banned patterns, no `oxlint-disable` escapes.',
     ],
   },
@@ -85,10 +88,13 @@ After verify in a target project, read this file at \`.aqg/database/database-exa
 ## Rules of thumb
 
 - \`sql\` from \`@/system/database/connection\` is already a lazy Proxy — call it directly in \`*.dao.ts\`.
+- Build dynamic filtering and sorting with tagged SQL fragments. Bun SQL \`.unsafe()\` is reserved for managed database infrastructure.
+- Define empty-list semantics in the DAO before calling \`sql(values)\` / \`tx(values)\`; return an empty result or no-op for match-none semantics, or omit the clause when empty means no filter.
 - Cache/lifecycle side effects belong in helpers such as \`system/database/caches.ts\`, keyed by \`getDatabaseGeneration()\`.
 - Outside \`system/database/\`, import only \`closeDatabase\` from connection (app bootstrap / shutdown).
 - Integration tests observe production-reachable named DAO functions only.
-- \`DELETE\` in DAOs uses \`RETURNING\` plus \`rows.length === 0\` for not-found — no shared result-helper modules.
+- Optional DAO reads use \`rows[0] ?? null\`; mapped reads inspect and map the first row inline.
+- \`UPDATE\` / \`DELETE\` not-found checks use \`RETURNING\` plus \`rows.length === 0\` — no \`dao-result.ts\` / \`map-first-row.ts\` modules or Bun SQL \`count\` metadata.
 
 ${renderedSections.join('\n')}
 `;

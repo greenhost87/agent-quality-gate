@@ -10,6 +10,8 @@ export const managedTestDatabasePath = 'tests/setup/testDatabase.ts';
 export const managedTestDatabaseBootstrapPath = 'tests/setup/testDatabase.bootstrap.ts';
 export const managedMigratePath = 'system/database/migrate.ts';
 export const managedMigrateSatellitePattern = /^system\/database\/migrate[-.].+\.ts$/u;
+export const databaseResultHelperPattern =
+  /^system\/database\/(?:dao-result|map-first-row)(?:\.[cm]?[jt]s)?$/u;
 export const testFilePattern = /(?:^|\/)(?:specs|tests|__tests__)(?:\/|$)|\.(?:spec|test)\.[^/]+$/u;
 export const validDaoPlacementPattern = /^[^/]+\/[^/]+\.dao(?:\.[^/]+)*\.ts$/u;
 export const testsDirectoryPattern = /(?:^|\/)tests\//u;
@@ -75,6 +77,30 @@ export function importSpecifierName(specifier: ESTree.Node): string | null {
 
 export function importSource(node: ESTree.ImportDeclaration): string | null {
   return typeof node.source.value === 'string' ? node.source.value : null;
+}
+
+export function sqlResultUsesCountMetadata(node: ESTree.TaggedTemplateExpression): boolean {
+  if (node.tag.type !== 'Identifier' || node.tag.name !== 'sql') {
+    return false;
+  }
+  const resultType = node.typeArguments?.params[0];
+  if (resultType?.type !== 'TSTypeLiteral') {
+    return false;
+  }
+  return resultType.members.some(
+    (member) =>
+      member.type === 'TSPropertySignature' &&
+      !member.computed &&
+      member.key.type === 'Identifier' &&
+      member.key.name === 'count',
+  );
+}
+
+export function isUnsafeSqlMember(node: ESTree.MemberExpression): boolean {
+  if (!node.computed) {
+    return node.property.type === 'Identifier' && node.property.name === 'unsafe';
+  }
+  return node.property.type === 'Literal' && node.property.value === 'unsafe';
 }
 
 export function findImportedSpecifier(
