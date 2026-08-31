@@ -1,6 +1,10 @@
 import { SQL } from 'bun';
 import * as v from 'valibot';
-import { getRequiredEnv, isNodeEnvironment } from '@/system/config/environment';
+import {
+  getPositiveIntegerEnv,
+  getRequiredEnv,
+  isNodeEnvironment,
+} from '@/system/config/environment';
 
 // Process-global registry key only — not a package name or import path.
 const SHARED_DATABASE_CONNECTION_STATE_KEY = Symbol.for('system.database.connection-state.v2');
@@ -8,6 +12,7 @@ const SHARED_DATABASE_CONNECTION_STATE_KEY = Symbol.for('system.database.connect
 const ActiveConnectionSchema = v.object({
   client: v.unknown(),
   url: v.string(),
+  poolSize: v.pipe(v.number(), v.integer(), v.minValue(1)),
 });
 
 const SharedDatabaseConnectionStateSchema = v.object({
@@ -17,7 +22,7 @@ const SharedDatabaseConnectionStateSchema = v.object({
 });
 
 function createSharedDatabaseConnectionState(): {
-  active: { client: SQL; url: string } | null;
+  active: { client: SQL; url: string; poolSize: number } | null;
   retiring: Set<Promise<void>>;
   generation: number;
 } {
@@ -68,10 +73,15 @@ function retireDatabaseClient(
   );
 }
 
+function resolveDatabasePoolSize(): number {
+  return getPositiveIntegerEnv('DATABASE_POOL_SIZE') ?? (isNodeEnvironment('test') ? 1 : 5);
+}
+
 function resolveDatabase(): SQL {
   const state = getSharedDatabaseConnectionState();
   const url = getRequiredEnv('DATABASE_URL');
-  if (state.active?.url === url) {
+  const poolSize = resolveDatabasePoolSize();
+  if (state.active?.url === url && state.active.poolSize === poolSize) {
     return state.active.client;
   }
 
@@ -83,10 +93,10 @@ function resolveDatabase(): SQL {
 
   const client = new SQL({
     url,
-    max: isNodeEnvironment('test') ? 1 : 10,
+    max: poolSize,
   });
   state.generation += 1;
-  state.active = { client, url };
+  state.active = { client, url, poolSize };
   return client;
 }
 
