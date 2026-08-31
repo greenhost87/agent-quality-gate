@@ -1,3 +1,7 @@
+<p align="center">
+  <img src=".github/readme-banner.jpg" alt="Agent Quality Gate banner" width="100%">
+</p>
+
 # Agent quality gate (AQG)
 
 [![CI](https://github.com/greenhost87/agent-quality-gate/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/greenhost87/agent-quality-gate/actions/workflows/ci.yml)
