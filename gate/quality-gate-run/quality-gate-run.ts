@@ -11,7 +11,11 @@ import {
 } from '../../config/global-config/global-config.js';
 import { resolveLinkedCheckoutRoot } from '../../config/linked-checkout/linked-checkout.js';
 import { writeTextFile } from '../../process/files/files.js';
-import { scheduleVerifyRunStats } from '../run-stats/verify-run-stats.js';
+import {
+  scheduleVerifyRunStats,
+  optionalWorkspaceRootSourceField,
+} from '../run-stats/verify-run-stats.js';
+import type { WorkspaceRootSource } from '../run-stats/workspace-root-source.js';
 import {
   materializeHintDocs,
   parseHintDocId,
@@ -289,6 +293,7 @@ export async function executeQualityGateForCwd(
         r: -1,
         ms: Math.round(performance.now() - startedAt),
         path: resolvedCwd,
+        ...optionalWorkspaceRootSourceField(options.workspaceRootSource),
       });
       return {
         kind: 'skipped',
@@ -302,6 +307,7 @@ export async function executeQualityGateForCwd(
       presets: project.presets,
       ignorePatterns: project.ignorePatterns,
       presetConfig: project.presetConfig,
+      workspaceRootSource: options.workspaceRootSource,
       ...(config.verify === undefined
         ? {}
         : {
@@ -392,6 +398,7 @@ export type FollowUpDecision =
 
 export type RegisterQualityGateOptions = {
   configPath?: string;
+  workspaceRootSource?: WorkspaceRootSource;
 };
 
 export type CompactHintFlags = {

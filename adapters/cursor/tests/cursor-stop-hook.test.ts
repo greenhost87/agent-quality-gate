@@ -267,7 +267,7 @@ describe('cursor stop hook', () => {
     expect(output.followup_message).toContain('eslint(no-debugger)');
   });
 
-  it('selects the configured workspace root among multiple roots', async () => {
+  it('skips a configured workspace root when the workspace has multiple roots', async () => {
     const configured = await createProject('clean-function');
     const other = await makeTempDirectory('quality-gate-cursor-unlisted-');
     const configPath = await writeGlobalConfig(
@@ -277,6 +277,33 @@ describe('cursor stop hook', () => {
       },
     );
 
-    expect(await selectWorkspaceCwd([other, configured], { configPath })).toBe(configured);
+    expect(await selectWorkspaceCwd([other, configured], { configPath })).toBeUndefined();
+  });
+
+  it('skips a parent workspace containing a configured project', async () => {
+    const workspace = await makeTempDirectory('quality-gate-cursor-parent-');
+    const configured = join(workspace, 'configured-project');
+    await mkdir(configured);
+    const configPath = await writeGlobalConfig(
+      await makeTempDirectory('quality-gate-cursor-parent-config-'),
+      {
+        projects: [{ root: configured, entries: ['src/index.ts'] }],
+      },
+    );
+
+    expect(await selectWorkspaceCwd([workspace], { configPath })).toBeUndefined();
+  });
+
+  it('skips a workspace rooted inside a configured project', async () => {
+    const configured = await createProject('clean-function');
+    const nested = join(configured, 'src');
+    const configPath = await writeGlobalConfig(
+      await makeTempDirectory('quality-gate-cursor-nested-config-'),
+      {
+        projects: [{ root: configured, entries: ['src/index.ts'] }],
+      },
+    );
+
+    expect(await selectWorkspaceCwd([nested], { configPath })).toBeUndefined();
   });
 });

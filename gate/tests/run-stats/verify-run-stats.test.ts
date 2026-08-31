@@ -9,6 +9,7 @@ import { spawn } from 'bun';
 import { YAML } from 'bun';
 
 import { agentQualityGateHome } from '../../../config/agent-quality-gate-home/agent-quality-gate-home.js';
+import { canonicalizePath } from '../../../process/files/paths.js';
 import { createEnv } from '../../read-env/read-env.js';
 import { executeVerify } from '../../execute-verify/execute-verify.js';
 import { runMcpVerify } from '../../mcp-verify/mcp-verify.js';
@@ -20,6 +21,7 @@ const StatsRecordSchema = v.object({
   r: v.union([v.literal(0), v.literal(1), v.literal(-1)]),
   ms: v.number(),
   path: v.string(),
+  ws: v.optional(v.picklist(['mr', 'hc', 'pc'])),
   c: v.optional(v.number()),
   b: v.optional(v.number()),
   l: v.optional(v.number()),
@@ -259,6 +261,26 @@ describe('verify run stats', () => {
     expect(msIndex).toBeLessThan(pathIndex);
   });
 
+  it('records workspace root source for configured MCP verify', async () => {
+    const cwd = await createCleanProject();
+    const projectRoot = canonicalizePath(cwd);
+    const configDir = await mkdtemp(join(tmpdir(), 'verify-run-stats-config-'));
+    tempDirectories.push(configDir);
+    const configPath = join(configDir, 'config.yaml');
+    await writeTextFile(
+      configPath,
+      YAML.stringify({ projects: [{ root: projectRoot, entries: ['src/index.ts'] }] }, null, 2),
+    );
+
+    const result = await runMcpVerify(cwd, { configPath, workspaceRootSource: 'mr' });
+    expect(result.isError).toBe(false);
+    expect(result.text).toMatch(/^verify: ok \(\d+ms\)$/);
+
+    const record = await waitForStatsRecord(projectRoot);
+    expect(record.r).toBe(0);
+    expect(record.ws).toBe('mr');
+  });
+
   it('records MCP verify for an unconfigured workspace', async () => {
     const cwd = await createCleanProject();
     const other = await createCleanProject();
@@ -270,13 +292,14 @@ describe('verify run stats', () => {
       YAML.stringify({ projects: [{ root: other, entries: ['src/index.ts'] }] }, null, 2),
     );
 
-    const result = await runMcpVerify(cwd, { configPath });
+    const result = await runMcpVerify(cwd, { configPath, workspaceRootSource: 'hc' });
     expect(result.isError).toBe(false);
     expect(result.text).toContain('No configured agent-quality-gate project');
 
     const { output: record } = await waitForStatsRecord(cwd);
     expect(record.path).toBe(resolve(cwd));
     expect(record.r).toBe(-1);
+    expect(record.ws).toBe('hc');
     expect(typeof record.t).toBe('number');
     expect(typeof record.ms).toBe('number');
     expect(record.ms).toBeGreaterThanOrEqual(0);

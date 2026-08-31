@@ -2,6 +2,7 @@ import { appendFile, mkdir } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 
 import { agentQualityGateHome } from '../../config/agent-quality-gate-home/agent-quality-gate-home.js';
+import type { WorkspaceRootSource } from './workspace-root-source.js';
 
 export function verifyRunStatsPath(): string {
   return join(agentQualityGateHome(), 'stats', 'verify-runs.jsonl');
@@ -27,6 +28,7 @@ async function writeVerifyRunStats(record: VerifyRunStatsRecord): Promise<void> 
       ...(record.h === undefined ? {} : { h: record.h }),
       ...(record.x === undefined ? {} : { x: record.x }),
       ...(record.pr === undefined ? {} : { pr: record.pr }),
+      ...(record.ws === undefined ? {} : { ws: record.ws }),
     });
     await appendFile(path, `${line}\n`, 'utf8');
   } catch {
@@ -38,7 +40,7 @@ export type VerifyRunStatsResult = 0 | 1 | -1;
 
 /**
  * One JSONL line in `$AGENT_QUALITY_GATE_HOME/stats/verify-runs.jsonl`.
- * Flat compact keys: `{"t":1777,"r":0,"ms":942,"path":"/...","c":80,"b":120,"l":820,"h":170,"x":90,"pr":12}`.
+ * Flat compact keys: `{"t":1777,"r":0,"ms":942,"path":"/...","ws":"hc","c":80,"b":120,"l":820,"h":170,"x":90,"pr":12}`.
  */
 export type VerifyRunStatsRecord = {
   /** unix seconds */
@@ -60,4 +62,12 @@ export type VerifyRunStatsRecord = {
   x?: number;
   /** presets */
   pr?: number;
+  /** workspace root source (`mr`, `hc`, `pc`) */
+  ws?: WorkspaceRootSource;
 };
+
+export function optionalWorkspaceRootSourceField(
+  source: WorkspaceRootSource | undefined,
+): { ws: WorkspaceRootSource } | Record<string, never> {
+  return source === undefined ? {} : { ws: source };
+}

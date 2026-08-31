@@ -1,15 +1,13 @@
 #!/usr/bin/env bun
 
-import {
-  findProjectForCwd,
-  readGlobalQualityGateConfig,
-} from '../../config/global-config/global-config.js';
+import { readGlobalQualityGateConfig } from '../../config/global-config/global-config.js';
 import {
   decideFollowUp,
   executeQualityGateForCwd,
   followUpForSettledResult,
 } from '../../gate/quality-gate-run/quality-gate-run.js';
 import type { RegisterQualityGateOptions } from '../../gate/quality-gate-run/quality-gate-run.js';
+import { canonicalizePath } from '../../process/files/paths.js';
 import { runStdinJsonHook } from '../hooks/stdin-json-hook.js';
 
 import { transcriptEndsWithAskQuestion } from './transcript-ask-question.js';
@@ -32,18 +30,15 @@ export async function selectWorkspaceCwd(
   workspaceRoots: readonly string[],
   options: RegisterQualityGateOptions = {},
 ): Promise<string | undefined> {
-  const config = await readGlobalQualityGateConfig(options.configPath);
-  let match: { cwd: string; projectRootLength: number } | undefined;
-  for (const cwd of workspaceRoots) {
-    const project = findProjectForCwd(cwd, config.projects);
-    if (project === undefined) {
-      continue;
-    }
-    if (match === undefined || project.root.length > match.projectRootLength) {
-      match = { cwd, projectRootLength: project.root.length };
-    }
+  const workspaceRootInput = workspaceRoots[0];
+  if (workspaceRoots.length !== 1 || workspaceRootInput === undefined) {
+    return undefined;
   }
-  return match?.cwd;
+  const workspaceRoot = canonicalizePath(workspaceRootInput);
+  const config = await readGlobalQualityGateConfig(options.configPath);
+  return config.projects.some((project) => project.root === workspaceRoot)
+    ? workspaceRoot
+    : undefined;
 }
 
 export async function handleCursorStop(

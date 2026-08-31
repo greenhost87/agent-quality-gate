@@ -190,7 +190,6 @@ async function runExecuteVerifyBody(
     verifyFallowConfigPathForProject(projectRoot),
   );
   ephemeral.fallowConfigPaths.push(fallowConfigPath);
-  const skipPresetChecks = request.skipPresetProjectChecks === true;
   const phasesStartedAt = performance.now();
   const runFallow = async (configPath: string, extraPrefix: readonly string[]) => {
     return await timedTool(async () => {
@@ -227,10 +226,16 @@ async function runExecuteVerifyBody(
     };
   }
 
-  // Phases 2+3 - oxlint and remaining Fallow boundaries in parallel. Boundary
-  // findings from oxlint fail immediately; semantic-lint boundary findings are
+  // Phases 2+3 - oxlint, preset boundary checks, and Fallow boundaries in parallel.
+  // Boundary findings from oxlint fail immediately; semantic-lint boundary findings are
   // held until the Fallow boundary check has passed.
-  const [oxlintRun, boundariesRun] = await Promise.all([
+  const presetBoundaryContext = {
+    projectRoot,
+    entries: request.entries,
+    ignorePatterns,
+    fallowConfigPath,
+  };
+  const [oxlintRun, boundariesRun, presetBoundariesTimed] = await Promise.all([
     runOxlintVirtualPhases(run, projectRoot, {
       args: oxlintInvocation.args,
       environment: oxlintInvocation.environment,
@@ -239,11 +244,28 @@ async function runExecuteVerifyBody(
       lintGroups: preflight.lintGroups,
     }),
     runFallow(fallowConfigPath, ['dead-code', '--boundary-violations']),
+    timedTool(async () => {
+      try {
+        const checks = await runActivePresetToolChecks(
+          presetBoundaryContext,
+          preflight.activated,
+          request.presetConfig ?? {},
+        );
+        return {
+          exitCode: Math.max(0, ...checks.map((check) => check.exitCode)),
+          stdout: joinStreams(checks.map((check) => check.stdout)),
+          stderr: joinStreams(checks.map((check) => check.stderr)),
+        };
+      } catch (error) {
+        return throwInternalVerifyFailure(error instanceof Error ? error : String(error));
+      }
+    }),
   ]);
   const lintTimings: PhaseTimings = {
     ...cyclesTimings,
     lintMs: oxlintRun.ms,
     boundariesMs: boundariesRun.ms,
+    presetsMs: presetBoundariesTimed.ms,
   };
   const immediateOxlintFailure = oxlintFailurePrecedingFallow(
     oxlintRun.result,
@@ -252,6 +274,12 @@ async function runExecuteVerifyBody(
   if (immediateOxlintFailure !== undefined) {
     return {
       result: withVerifyTiming(immediateOxlintFailure, lintTimings, phasesStartedAt),
+      timings: lintTimings,
+    };
+  }
+  if (presetBoundariesTimed.result.exitCode !== 0) {
+    return {
+      result: withVerifyTiming(presetBoundariesTimed.result, lintTimings, phasesStartedAt),
       timings: lintTimings,
     };
   }
@@ -276,39 +304,14 @@ async function runExecuteVerifyBody(
     };
   }
 
-  // Phases 4+5 and preset tool checks are independent; run them together and
-  // preserve fail-fast priority: hygiene, then complexity, then presets.
+  // Phases 4+5 - hygiene and complexity.
   const postBoundaryTimings: PhaseTimings = { ...lintTimings };
-  const [hygieneRun, complexityRun, presetsTimed] = await Promise.all([
+  const [hygieneRun, complexityRun] = await Promise.all([
     runFallow(fallowConfigPath, ['--skip', 'health']),
     runFallow(fallowConfigPath, ['health', '--complexity']),
-    timedTool(async () => {
-      if (skipPresetChecks) {
-        return { exitCode: 0, stdout: '', stderr: '' };
-      }
-      try {
-        const checks = await runActivePresetToolChecks(
-          {
-            projectRoot,
-            entries: request.entries,
-            ignorePatterns,
-            fallowConfigPath,
-          },
-          preflight.activated,
-        );
-        return {
-          exitCode: Math.max(0, ...checks.map((check) => check.exitCode)),
-          stdout: joinStreams(checks.map((check) => check.stdout)),
-          stderr: joinStreams(checks.map((check) => check.stderr)),
-        };
-      } catch (error) {
-        return throwInternalVerifyFailure(error instanceof Error ? error : String(error));
-      }
-    }),
   ]);
   postBoundaryTimings.hygieneMs = hygieneRun.ms;
   postBoundaryTimings.complexityMs = complexityRun.ms;
-  postBoundaryTimings.presetsMs = presetsTimed.ms;
   if (hygieneRun.result.exitCode !== 0) {
     return {
       result: withVerifyTiming(
@@ -337,16 +340,10 @@ async function runExecuteVerifyBody(
       timings: postBoundaryTimings,
     };
   }
-  if (presetsTimed.result.exitCode !== 0) {
-    return {
-      result: withVerifyTiming(presetsTimed.result, postBoundaryTimings, phasesStartedAt),
-      timings: postBoundaryTimings,
-    };
-  }
 
   return {
     result: withVerifyTiming(
-      { exitCode: 0, stdout: '', stderr: presetsTimed.result.stderr },
+      { exitCode: 0, stdout: '', stderr: '' },
       postBoundaryTimings,
       phasesStartedAt,
     ),

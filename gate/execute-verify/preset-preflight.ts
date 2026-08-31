@@ -43,6 +43,7 @@ function throwInternalVerifyFailure(error: Error | string): never {
 async function verifyPresetProjectPreconditions(
   projectRoot: string,
   contract: Awaited<ReturnType<typeof resolvePresetContract>>,
+  presetConfig: Readonly<Record<string, object>>,
 ): Promise<VerifyResult | undefined> {
   const dependencies = await verifyPresetDependencies(
     projectRoot,
@@ -65,7 +66,11 @@ async function verifyPresetProjectPreconditions(
 
   let presetPreflight;
   try {
-    presetPreflight = await runActivePresetPreflights(projectRoot, contract.activated);
+    presetPreflight = await runActivePresetPreflights(
+      projectRoot,
+      contract.activated,
+      presetConfig,
+    );
   } catch (error) {
     throwInternalVerifyFailure(error instanceof Error ? error : String(error));
   }
@@ -110,7 +115,11 @@ export async function runPresetPreflight(
   }
 
   if (!skipPresetProjectChecks) {
-    const preconditions = await verifyPresetProjectPreconditions(projectRoot, contract);
+    const preconditions = await verifyPresetProjectPreconditions(
+      projectRoot,
+      contract,
+      presetConfig,
+    );
     if (preconditions !== undefined) {
       return preconditions;
     }
