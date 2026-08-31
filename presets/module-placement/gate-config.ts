@@ -8,35 +8,53 @@ const StringArraySchema = v.pipe(
   v.transform((items) => items.filter((item): item is string => typeof item === 'string')),
 );
 
-function normalizeModulePlacementDirectory(directory: string): string {
-  return directory.replace(/\/+$/u, '');
+function isProjectRelativePath(path: string): boolean {
+  return path.length > 0 && !path.startsWith('/') && !path.includes('..');
 }
 
-function isProjectRelativeDirectory(directory: string): boolean {
-  return directory.length > 0 && !directory.startsWith('/') && !directory.includes('..');
+const DirectoryListSchema = v.pipe(
+  v.optional(v.array(v.unknown()), []),
+  v.transform((directories) =>
+    directories
+      .filter((directory): directory is string => typeof directory === 'string')
+      .filter(isProjectRelativePath)
+      .map((directory) => directory.replace(/\/+$/u, '')),
+  ),
+);
+
+function parseDirectoryLimits(raw: object, directories: readonly string[]): Record<string, number> {
+  const limits: Record<string, number> = {};
+  for (const [directory, limit] of Object.entries(raw)) {
+    const normalized = directory.replace(/\/+$/u, '');
+    if (
+      directories.includes(normalized) &&
+      typeof limit === 'number' &&
+      Number.isSafeInteger(limit) &&
+      limit > 0
+    ) {
+      limits[normalized] = limit;
+    }
+  }
+  return limits;
 }
 
 const ModulePlacementSchema = v.pipe(
   v.looseObject({
     directories: v.optional(v.array(v.unknown())),
     rootExceptions: v.optional(v.record(v.string(), v.array(v.unknown()))),
+    forbidConcernPrefix: v.optional(v.array(v.unknown())),
+    maxDepth: v.optional(v.record(v.string(), v.unknown())),
+    maxFilesPerDirectory: v.optional(v.record(v.string(), v.unknown())),
+    routeCompositionRoots: v.optional(v.record(v.string(), v.unknown())),
   }),
   v.transform((raw): ModulePlacementGateConfig | undefined => {
-    const directories: string[] = [];
-    for (const directory of raw.directories ?? []) {
-      if (typeof directory === 'string' && isProjectRelativeDirectory(directory)) {
-        directories.push(normalizeModulePlacementDirectory(directory));
-      }
-    }
+    const directories = v.parse(DirectoryListSchema, raw.directories);
     if (directories.length === 0) {
       return undefined;
     }
     const rootExceptions: Record<string, string[]> = {};
     for (const [directory, exceptions] of Object.entries(raw.rootExceptions ?? {})) {
-      if (!isProjectRelativeDirectory(directory)) {
-        continue;
-      }
-      const normalized = normalizeModulePlacementDirectory(directory);
+      const normalized = directory.replace(/\/+$/u, '');
       if (!directories.includes(normalized)) {
         continue;
       }
@@ -45,7 +63,41 @@ const ModulePlacementSchema = v.pipe(
         rootExceptions[normalized] = parsed.output;
       }
     }
-    return { directories, rootExceptions };
+    const forbidConcernPrefix = v
+      .parse(DirectoryListSchema, raw.forbidConcernPrefix)
+      .filter((directory) => directories.includes(directory));
+    const maxDepth = parseDirectoryLimits(raw.maxDepth ?? {}, directories);
+    const maxFilesPerDirectory = parseDirectoryLimits(raw.maxFilesPerDirectory ?? {}, directories);
+    const routeCompositionRoots: Record<string, RouteCompositionRootConfig> = {};
+    for (const [directory, value] of Object.entries(raw.routeCompositionRoots ?? {})) {
+      const normalized = directory.replace(/\/+$/u, '');
+      const parsed = v.safeParse(
+        v.looseObject({ manifest: v.unknown(), presentationRoot: v.unknown() }),
+        value,
+      );
+      if (
+        !directories.includes(normalized) ||
+        !parsed.success ||
+        typeof parsed.output.manifest !== 'string' ||
+        !isProjectRelativePath(parsed.output.manifest) ||
+        typeof parsed.output.presentationRoot !== 'string' ||
+        !isProjectRelativePath(parsed.output.presentationRoot)
+      ) {
+        continue;
+      }
+      routeCompositionRoots[normalized] = {
+        manifest: parsed.output.manifest,
+        presentationRoot: parsed.output.presentationRoot.replace(/\/+$/u, ''),
+      };
+    }
+    return {
+      directories,
+      rootExceptions,
+      forbidConcernPrefix,
+      maxDepth,
+      maxFilesPerDirectory,
+      routeCompositionRoots,
+    };
   }),
 );
 
@@ -73,10 +125,21 @@ export function applyConfiguredRules(
         [...exceptions],
       ]),
     ),
+    forbidConcernPrefix: [...placement.forbidConcernPrefix],
+    maxDepth: { ...placement.maxDepth },
   });
 }
 
 export type ModulePlacementGateConfig = {
   directories: string[];
   rootExceptions: Record<string, string[]>;
+  forbidConcernPrefix: string[];
+  maxDepth: Record<string, number>;
+  maxFilesPerDirectory: Record<string, number>;
+  routeCompositionRoots: Record<string, RouteCompositionRootConfig>;
+};
+
+export type RouteCompositionRootConfig = {
+  manifest: string;
+  presentationRoot: string;
 };

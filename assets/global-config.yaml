@@ -46,7 +46,10 @@
 #
 # presetConfig.module-placement watches directories and requires production modules
 # one concern level deeper (<directory>/<concern>/). Without that section the
-# module-placement preset is a no-op.
+# module-placement preset is a no-op. Optional maxDepth controls nested concern
+# depth, maxFilesPerDirectory prevents flat source piles, and forbidConcernPrefix
+# rejects basenames copied from any ancestor concern. routeCompositionRoots keeps
+# route roots limited to modules referenced by their route manifest.
 
 # Example - this project with the database preset (transitively activates config):
 # projects:
