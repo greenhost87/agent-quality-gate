@@ -10,8 +10,9 @@ export type PresetVerifyContext = {
 export type PresetCheckModule = {
   preflight?: (
     projectRoot: string,
+    presetConfig?: object,
   ) => ToolRunResult | undefined | Promise<ToolRunResult | undefined>;
-  runToolChecks?: (context: PresetVerifyContext) => Promise<ToolRunResult[]>;
+  runToolChecks?: (context: PresetVerifyContext, presetConfig?: object) => Promise<ToolRunResult[]>;
 };
 
 export const PRESET_CHECK_MODULE_BASENAMES = ['check.js', 'check.ts'] as const;
