@@ -149,10 +149,6 @@ export default defineConfig({
             message: 'require() is forbidden. Use static ESM imports.',
           },
           {
-            selector: 'ImportExpression',
-            message: 'Dynamic import() is forbidden. Use static ESM imports.',
-          },
-          {
             selector: 'ExportNamedDeclaration > ExportSpecifier',
             message:
               'Do not create export proxy declarations. Export symbols where they are declared.',
@@ -277,10 +273,6 @@ export default defineConfig({
             message: 'require() is forbidden. Use static ESM imports.',
           },
           {
-            selector: 'ImportExpression',
-            message: 'Dynamic import() is forbidden. Use static ESM imports.',
-          },
-          {
             selector: 'ExportNamedDeclaration > ExportSpecifier',
             message:
               'Do not create export proxy declarations. Export symbols where they are declared.',
@@ -321,6 +313,16 @@ export default defineConfig({
               'Do not use JSON.parse(JSON.stringify(...)) to normalize values. Compare with toEqual directly, or transform only the received value when persistence changed its shape.',
           },
         ],
+      },
+    },
+    {
+      files: [
+        '**/load-preset-check.ts',
+        '**/load-preset-gate-config.ts',
+        '**/tests/setup/testDatabase.ts',
+      ],
+      rules: {
+        'aqg/no-dynamic-import': 'off',
       },
     },
     {

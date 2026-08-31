@@ -24,6 +24,8 @@ presets:
 
 Omitting `presets` or using `presets: []` still runs baseline.
 
+`aqg/no-dynamic-import` forbids `import()` by default. Configure exact project-relative runtime-boundary files through `presetConfig.baseline.literalDynamicImportFiles`; those files may use relative string-literal imports such as `import('./node-runtime')`. Computed and package-specifier imports remain forbidden.
+
 ## Hints on verify failure
 
 When baseline flags micro-split smells, verify also emits `hint:avoid-micro-splits — .aqg/hints/avoid-micro-splits.md` and writes that file under `.aqg/hints/`.

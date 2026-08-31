@@ -37,6 +37,10 @@
 #     - database
 #     - playwright
 #
+# presetConfig.baseline.literalDynamicImportFiles lists exact project-relative
+# runtime-boundary files where relative string-literal import() calls are allowed.
+# Computed and package-specifier imports remain forbidden.
+#
 # presetConfig.baseline.maxInlineParameterObjectMembers limits inline object types
 # in parameters. -1 disables the check (default when omitted). 3 allows up to three.
 #
