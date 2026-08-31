@@ -1,7 +1,11 @@
 import { resolve } from 'node:path';
 
 import { runNodeProcess } from '../../process/run-node-tool/run-node-tool.js';
-import { scheduleVerifyRunStats } from '../run-stats/verify-run-stats.js';
+import {
+  scheduleVerifyRunStats,
+  optionalWorkspaceRootSourceField,
+} from '../run-stats/verify-run-stats.js';
+import type { WorkspaceRootSource } from '../run-stats/workspace-root-source.js';
 import { formatVerifyOk } from './verify-ok-message.js';
 import { runExecuteVerify } from './run-execute-verify-body.js';
 
@@ -37,6 +41,7 @@ export async function executeVerify(
       r: outcome.result.exitCode === 0 ? 0 : 1,
       ms: durationMs,
       path: projectRoot,
+      ...optionalWorkspaceRootSourceField(request.workspaceRootSource),
       ...(outcome.timings === undefined ? {} : timingFieldsFromPhases(outcome.timings)),
     });
     if (outcome.result.exitCode === 0) {
@@ -52,6 +57,7 @@ export async function executeVerify(
       r: 1,
       ms: Math.round(performance.now() - startedAt),
       path: projectRoot,
+      ...optionalWorkspaceRootSourceField(request.workspaceRootSource),
     });
     throw error;
   }
@@ -102,6 +108,7 @@ export type VerifyRequest = {
   boundaryPluginPriority?: readonly string[];
   /** Label after `verify: ok` on success (duration is appended by executeVerify). */
   okLabel?: string;
+  workspaceRootSource?: WorkspaceRootSource;
 };
 
 export type VerifyResult = {

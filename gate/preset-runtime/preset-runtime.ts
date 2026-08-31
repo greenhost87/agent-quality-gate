@@ -7,9 +7,14 @@ export type { FallowConfig } from '../../config/verify-config-files/verify-confi
 export type { ToolRunResult } from '../execute-verify/execute-verify.js';
 export {
   fallowCacheEnvironment,
+  listFallowDiscoveredFiles,
   parseFallowDiscoveredFiles,
 } from '../preflight/fallow-analysis.js';
-export type { DiscoveredFilesOutput } from '../preflight/fallow-analysis.js';
+export type {
+  DiscoveredFilesOutput,
+  ListFallowDiscoveredFilesOptions,
+  ListFallowDiscoveredFilesResult,
+} from '../preflight/fallow-analysis.js';
 export {
   projectScopedArtifactPath,
   projectStableArtifactPath,
