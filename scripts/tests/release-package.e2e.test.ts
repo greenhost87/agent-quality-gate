@@ -278,6 +278,7 @@ describe('release package', () => {
     const transport = new StdioClientTransport({
       command: 'bun',
       args: [mcpServerPath],
+      cwd,
       env,
     });
     const client = new Client({ name: 'release-package-mcp-verify', version: '0.0.0' });
@@ -285,7 +286,7 @@ describe('release package', () => {
     try {
       const result = await client.callTool({
         name: 'verify',
-        arguments: { cwd },
+        arguments: {},
       });
       const content = Array.isArray(result.content) ? result.content : String(result.content);
       const text = mcpToolResultText(content);
@@ -342,6 +343,7 @@ describe('release package', () => {
     const transport = new StdioClientTransport({
       command: 'bun',
       args: [mcpServerPath],
+      cwd,
       env,
     });
     const client = new Client({ name: 'release-package-claude-mcp-verify', version: '0.0.0' });
@@ -349,7 +351,7 @@ describe('release package', () => {
     try {
       const result = await client.callTool({
         name: 'verify',
-        arguments: { cwd },
+        arguments: {},
       });
       const content = Array.isArray(result.content) ? result.content : String(result.content);
       const text = mcpToolResultText(content);
