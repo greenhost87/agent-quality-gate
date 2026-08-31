@@ -4,6 +4,7 @@ import { consoleFormatPlaceholdersBench } from '../console-format-placeholders/b
 import { maxInlineParameterObjectMembersBench } from '../max-inline-parameter-object-members/bench.ts';
 import { noClassBench } from '../no-class/bench.ts';
 import { noDoubleWrappedExpectEqualBench } from '../no-double-wrapped-expect-equal/bench.ts';
+import { noDynamicImportBench } from '../no-dynamic-import/bench.ts';
 import { noEmptyExtendedInterfacesBench } from '../no-empty-extended-interfaces/bench.ts';
 import { noIdentityAliasesBench } from '../no-identity-aliases/bench.ts';
 import { noIndexedAccessTypesBench } from '../no-indexed-access-types/bench.ts';
@@ -23,6 +24,7 @@ await benchCreateOnceRules([
   maxInlineParameterObjectMembersBench,
   noClassBench,
   noDoubleWrappedExpectEqualBench,
+  noDynamicImportBench,
   noEmptyExtendedInterfacesBench,
   noIdentityAliasesBench,
   noIndexedAccessTypesBench,

@@ -138,6 +138,7 @@ projects:
       # packages   # home-installed only (see below)
     presetConfig:
       baseline:
+        literalDynamicImportFiles: [instrumentation.ts, src/instrumentation.ts]
         maxInlineParameterObjectMembers: 3
         noClassSuffixes: [Error, Element]
       module-placement:
@@ -158,6 +159,7 @@ projects:
 - `ignorePatterns` is an optional list of project-relative globs merged into the packaged Fallow/Oxlint ignore list for that project.
 - `presets` is an optional list of shipped names from `presets/*/manifest.json` and home-installed names from `$AGENT_QUALITY_GATE_HOME/presets/<name>/` (install with `bun ./install.ts preset <absolute-source-root>` or `aqg-presets` `bun run install`). Resolution order: shipped, then home install. `baseline` is always active (listing it is redundant; omitting `presets` still runs it). Required optional presets are activated transitively (for example `database` pulls in `config`). Unknown names fail config load (including absolute filesystem paths). Details live in each shipped preset's README under `presets/<name>/`.
 - `presetConfig` is an optional bag of per-preset options. Each preset owns its schema and maps it to Oxlint rules via `gate-config.ts` (`parsePresetConfig` / `applyConfiguredRules`). Unknown presets or keys are ignored.
+  - `presetConfig.baseline.literalDynamicImportFiles` lists exact project-relative runtime-boundary files where `aqg/no-dynamic-import` permits relative string-literal imports such as `import('./node-runtime')`. Dynamic imports remain forbidden elsewhere; computed and package-specifier imports remain forbidden in listed files.
   - `presetConfig.baseline.maxInlineParameterObjectMembers` caps members on inline object types in parameters (`aqg/max-inline-parameter-object-members`). Omit or use `-1` to leave the rule inactive; a non-negative integer enables the cap.
   - `presetConfig.baseline.noClassSuffixes` enables `aqg/no-class`. Omit to leave it inactive; `[]` bans every runtime class, `["Error", "Element"]` allows those suffixes.
   - `presetConfig.module-placement` is honored when `presets` includes `module-placement`. It lists watched directories and optional per-directory root filenames. Without this section the preset is a no-op.
@@ -166,14 +168,14 @@ projects:
 
 ### Shipped presets
 
-| Preset                 | `presetConfig.<name>` options                        | Hardcoded contract (not remappable from config)                                     |
-| ---------------------- | ---------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| `baseline` (always on) | `maxInlineParameterObjectMembers`, `noClassSuffixes` | TypeScript house rules (type-only files, aliases, unions, …)                        |
-| `bun-parse`            | `typeofObjectMode`                                   | Ban recursive handmade JSON ADTs / plain-object typeof guards; prefer Bun + valibot |
-| `config`               | none                                                 | Env access only via managed `system/config/environment.ts`                          |
-| `database`             | none                                                 | `system/database/`, `tests/setup/testDatabase*.ts`, `migrations/`, DAO layout       |
-| `playwright`           | none                                                 | `tests/e2e/**/*.pw.ts`; blocks DAO / `system/database` imports                      |
-| `module-placement`     | `directories`, `rootExceptions`                      | Concern-depth rule under configured directories                                     |
+| Preset                 | `presetConfig.<name>` options                                                     | Hardcoded contract (not remappable from config)                                     |
+| ---------------------- | --------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| `baseline` (always on) | `literalDynamicImportFiles`, `maxInlineParameterObjectMembers`, `noClassSuffixes` | TypeScript house rules (type-only files, aliases, unions, …)                        |
+| `bun-parse`            | `typeofObjectMode`                                                                | Ban recursive handmade JSON ADTs / plain-object typeof guards; prefer Bun + valibot |
+| `config`               | none                                                                              | Env access only via managed `system/config/environment.ts`                          |
+| `database`             | none                                                                              | `system/database/`, `tests/setup/testDatabase*.ts`, `migrations/`, DAO layout       |
+| `playwright`           | none                                                                              | `tests/e2e/**/*.pw.ts`; blocks DAO / `system/database` imports                      |
+| `module-placement`     | `directories`, `rootExceptions`                                                   | Concern-depth rule under configured directories                                     |
 
 Home-installed only (for example from `aqg-presets`): `packages` (`presetConfig.packages` with `allowedRootModules` and `declaredDependencies`). Manifest destinations cannot be remapped from `config.yaml`.
 

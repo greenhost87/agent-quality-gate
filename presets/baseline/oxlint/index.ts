@@ -4,6 +4,7 @@ import consoleFormatPlaceholders from './rules/console-format-placeholders.ts';
 import maxInlineParameterObjectMembers from './rules/max-inline-parameter-object-members.ts';
 import noClass from './rules/no-class.ts';
 import noDoubleWrappedExpectEqual from './rules/no-double-wrapped-expect-equal.ts';
+import noDynamicImport from './rules/no-dynamic-import.ts';
 import noEmptyExtendedInterfaces from './rules/no-empty-extended-interfaces.ts';
 import noIdentityAliases from './rules/no-identity-aliases.ts';
 import noIndexedAccessTypes from './rules/no-indexed-access-types.ts';
@@ -24,6 +25,7 @@ const rules = {
   'max-inline-parameter-object-members': maxInlineParameterObjectMembers,
   'no-class': noClass,
   'no-double-wrapped-expect-equal': noDoubleWrappedExpectEqual,
+  'no-dynamic-import': noDynamicImport,
   'no-empty-extended-interfaces': noEmptyExtendedInterfaces,
   'no-identity-aliases': noIdentityAliases,
   'no-indexed-access-types': noIndexedAccessTypes,
