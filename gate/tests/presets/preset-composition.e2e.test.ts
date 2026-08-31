@@ -152,6 +152,9 @@ describe('preset composition', () => {
         projectRoot: cwd,
         entries,
         presets,
+        presetConfig: presets.includes('test-colocation')
+          ? { 'test-colocation': { policy: 'application' } }
+          : {},
         fallowIgnoreDependencies: ['valibot', '@testcontainers/postgresql', 'testcontainers'],
       });
       expect(verified.exitCode, `${contract.names.join(' + ')}: ${JSON.stringify(verified)}`).toBe(

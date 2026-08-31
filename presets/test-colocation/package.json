@@ -1,0 +1,19 @@
+{
+  "name": "@agent-quality-gate/preset-test-colocation",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "fmt": "oxfmt",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "bun ../../scripts/self-test/run-preset-tests.ts tests",
+    "verify": "bun run typecheck"
+  },
+  "devDependencies": {
+    "@types/bun": "1.4.0",
+    "oxfmt": "0.65.0",
+    "typescript": "7.0.2",
+    "valibot": "1.4.2"
+  },
+  "packageManager": "bun@1.4.0"
+}
