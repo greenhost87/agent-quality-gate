@@ -63,6 +63,7 @@ async function loadPresetCheckModule(
 export async function runActivePresetPreflights(
   projectRoot: string,
   activated: readonly ActivatedPreset[],
+  presetConfig: Readonly<Record<string, object>> = {},
 ): Promise<ToolRunResult | undefined> {
   for (const preset of activated) {
     let checkModule: PresetCheckModule | undefined;
@@ -71,7 +72,7 @@ export async function runActivePresetPreflights(
     } catch (error) {
       return failedCheckModuleResult(error instanceof Error ? error : String(error));
     }
-    const result = await checkModule?.preflight?.(projectRoot);
+    const result = await checkModule?.preflight?.(projectRoot, presetConfig[preset.name]);
     if (result !== undefined && result.exitCode !== 0) {
       return result;
     }
@@ -82,6 +83,7 @@ export async function runActivePresetPreflights(
 async function runPresetToolChecks(
   preset: ActivatedPreset,
   context: PresetVerifyContext,
+  presetConfig?: object,
 ): Promise<ToolRunResult[]> {
   let checkModule: PresetCheckModule | undefined;
   try {
@@ -92,15 +94,18 @@ async function runPresetToolChecks(
   if (checkModule?.runToolChecks === undefined) {
     return [];
   }
-  return checkModule.runToolChecks(context);
+  return checkModule.runToolChecks(context, presetConfig);
 }
 
 export async function runActivePresetToolChecks(
   context: PresetVerifyContext,
   activated: readonly ActivatedPreset[],
+  presetConfig: Readonly<Record<string, object>> = {},
 ): Promise<ToolRunResult[]> {
   const perPreset = await Promise.all(
-    activated.map(async (preset) => runPresetToolChecks(preset, context)),
+    activated.map(async (preset) =>
+      runPresetToolChecks(preset, context, presetConfig[preset.name]),
+    ),
   );
   return perPreset.flat();
 }
