@@ -24,6 +24,7 @@ const LOCAL_PRESETS = [
   'database',
   'module-placement',
   'playwright',
+  'test-colocation',
 ] as const;
 
 const LOCAL_MODULE_PLACEMENT = {
@@ -56,6 +57,7 @@ export function localVerifyRequest(): VerifyRequest {
         rootExceptions: { ...LOCAL_MODULE_PLACEMENT.rootExceptions },
       },
       baseline: { maxInlineParameterObjectMembers: 3 },
+      'test-colocation': { policy: 'aqg-repository' },
     },
     fallowIgnoreDependencies: ['@testcontainers/postgresql', 'testcontainers', '@oxlint/plugins'],
     okLabel: 'repository',

@@ -10,7 +10,6 @@ import { rejectCrossPresetImports } from './preset-isolation.js';
 import { verifyLocalPresetPacks } from './preset-pack-run.js';
 import { firstNonZeroResult } from '../../gate/public-verify/preset-verify-result.js';
 import { writeVerifyStreams } from '../../gate/public-verify/verify-streams.js';
-import { rejectMisplacedTests } from './test-colocation.js';
 
 function timedOk(label: string, startedAt: number): VerifyResult {
   return {
@@ -23,19 +22,13 @@ function timedOk(label: string, startedAt: number): VerifyResult {
 try {
   await runCli(createCli('verify'), process.argv.slice(2), 'Usage: bun run verify', async () => {
     const isolationStartedAt = performance.now();
-    const colocationStartedAt = performance.now();
-    const [isolation, colocation] = await Promise.all([
-      Promise.resolve(rejectCrossPresetImports(process.cwd())),
-      Promise.resolve(rejectMisplacedTests(process.cwd())),
-    ]);
-    const staticFailure = firstNonZeroResult(isolation, colocation);
-    if (staticFailure !== undefined) {
-      writeVerifyStreams(staticFailure);
-      process.exitCode = staticFailure.exitCode;
+    const isolation = rejectCrossPresetImports(process.cwd());
+    if (isolation.exitCode !== 0) {
+      writeVerifyStreams(isolation);
+      process.exitCode = isolation.exitCode;
       return;
     }
     writeVerifyStreams(timedOk('preset isolation', isolationStartedAt));
-    writeVerifyStreams(timedOk('test colocation', colocationStartedAt));
 
     const [repository, packages, packs] = await Promise.all([
       executeVerify(localVerifyRequest()),

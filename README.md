@@ -71,15 +71,15 @@ Adjust the `cli.js` path if your global install lives elsewhere. Official Bun-co
 
 ### Cursor
 
-Run `bun ./install.ts` (or install from a GitHub Release tarball) so MCP and the stop hook point at the installed `dist/cursor/` bundles. The MCP tool is `verify` and requires an absolute workspace `cwd`. The stop hook may return a `followup_message` until the gate passes or the follow-up budget is exhausted.
+Run `bun ./install.ts` (or install from a GitHub Release tarball) so MCP and the stop hook point at the installed `dist/cursor/` bundles. The MCP tool is `verify` with empty input. It binds to the client's single MCP Root when available, otherwise to the host-controlled MCP process cwd, and is exposed only when that path exactly matches a configured project root. The stop hook may return a `followup_message` until the gate passes or the follow-up budget is exhausted.
 
 ### Claude Code
 
-Run `bun ./install.ts` (or install from a GitHub Release tarball) so user-scope MCP and the Stop hook point at the installed `dist/claude/` bundles. The MCP tool is `verify` and requires an absolute workspace `cwd`. On a failing Stop run, the hook continues the session with `hookSpecificOutput.additionalContext` until the gate passes or the follow-up budget is exhausted. Wiring writes `~/.claude.json` and `~/.claude/settings.json` only when `~/.claude` already exists.
+Run `bun ./install.ts` (or install from a GitHub Release tarball) so user-scope MCP and the Stop hook point at the installed `dist/claude/` bundles. The MCP tool is `verify` with empty input and the same exact-root binding described above. On a failing Stop run, the hook continues the session with `hookSpecificOutput.additionalContext` until the gate passes or the follow-up budget is exhausted. Wiring writes `~/.claude.json` and `~/.claude/settings.json` only when `~/.claude` already exists.
 
 ### Codex
 
-Run `bun ./install.ts` (or install from a GitHub Release tarball) so user-scope MCP and the Stop hook point at the installed `dist/codex/` bundles. The MCP tool is `verify` and requires an absolute workspace `cwd`. On a failing Stop run, the hook continues the session with `decision: "block"` and a `reason` until the gate passes or the follow-up budget is exhausted. Wiring writes `~/.codex/config.toml` and `~/.codex/hooks.json` only when `~/.codex` already exists.
+Run `bun ./install.ts` (or install from a GitHub Release tarball) so user-scope MCP and the Stop hook point at the installed `dist/codex/` bundles. The MCP tool is `verify` with empty input and the same exact-root binding described above. On a failing Stop run, the hook continues the session with `decision: "block"` and a `reason` until the gate passes or the follow-up budget is exhausted. Wiring writes `~/.codex/config.toml` and `~/.codex/hooks.json` only when `~/.codex` already exists.
 
 ## Usage
 

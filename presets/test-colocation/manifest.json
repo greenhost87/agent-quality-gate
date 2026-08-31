@@ -1,0 +1,10 @@
+{
+  "name": "test-colocation",
+  "requires": [],
+  "files": [],
+  "dependencies": [],
+  "oxlint": {
+    "plugins": [],
+    "rules": {}
+  }
+}

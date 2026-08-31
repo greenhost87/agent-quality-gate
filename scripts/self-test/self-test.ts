@@ -14,6 +14,10 @@ import {
 import { runCapturedProcess } from '../../process/run-command/run-command.js';
 import { runRequired } from '../run-required/run-required.js';
 import { resolveBunTestTimeoutMs } from './bun-test-timeout.js';
+import {
+  containerRuntimeUnavailableResult,
+  isContainerRuntimeAvailable,
+} from './container-runtime.js';
 
 const ROOT_TEST_ARGS = [
   'test',
@@ -89,6 +93,9 @@ async function runUnitSelfTest(projectRoot: string): Promise<number> {
 }
 
 async function runIntegrationSelfTest(projectRoot: string): Promise<number> {
+  if (!isContainerRuntimeAvailable()) {
+    return exitCodeAfterWritingResults(containerRuntimeUnavailableResult());
+  }
   return exitCodeAfterWritingResults(await testLocalPresetPackIntegrations(projectRoot));
 }
 
