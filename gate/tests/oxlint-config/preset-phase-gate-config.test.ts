@@ -64,8 +64,17 @@ describe('preset phase + gate-config options', () => {
     const rules = { ...contract.rules };
     await applyPresetGateConfig(rules, contract.activated, {
       'module-placement': {
-        directories: ['system/agents'],
+        directories: ['system/agents', 'app/components/ui'],
         rootExceptions: { 'system/agents': ['agents.types.ts'] },
+        forbidConcernPrefix: ['system/agents'],
+        maxDepth: { 'app/components/ui': 2 },
+        maxFilesPerDirectory: { 'app/components/ui': 12 },
+        routeCompositionRoots: {
+          'system/agents': {
+            manifest: 'app/routes.ts',
+            presentationRoot: 'app/components/ui',
+          },
+        },
       },
     });
     const setting = rules['module-placement/module-placement'];
@@ -75,8 +84,10 @@ describe('preset phase + gate-config options', () => {
     }
     expect(oxlintRulePhaseOf(setting)).toBe('boundaries');
     expect(ruleOptions(setting)).toEqual({
-      directories: ['system/agents'],
+      directories: ['system/agents', 'app/components/ui'],
       rootExceptions: { 'system/agents': ['agents.types.ts'] },
+      forbidConcernPrefix: ['system/agents'],
+      maxDepth: { 'app/components/ui': 2 },
     });
     const groups = oxlintVirtualGroupsFromRules(rules, contract.overrides);
     expect(groupIdForRule(groups, 'module-placement/module-placement')).toBe(

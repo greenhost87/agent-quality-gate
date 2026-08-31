@@ -57,7 +57,21 @@ export const piForemanOptions: ModulePlacementOptions = {
   },
 };
 
+export const agentTaskRunnerOptions: ModulePlacementOptions = {
+  directories: ['app/app', 'app/components/ui'],
+  forbidConcernPrefix: ['app/app', 'app/components/ui'],
+  maxDepth: {
+    'app/app': 2,
+    'app/components/ui': 2,
+  },
+  rootExceptions: {
+    'app/app': ['favicon.ts'],
+  },
+};
+
 export type ModulePlacementOptions = {
   directories?: string[];
   rootExceptions?: Record<string, string[]>;
+  forbidConcernPrefix?: string[];
+  maxDepth?: Record<string, number>;
 };
