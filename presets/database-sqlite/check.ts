@@ -1,17 +1,11 @@
-import type { ToolRunResult } from '../../gate/execute-verify/execute-verify.ts';
 import type { PresetCheckModule } from '../../preset-catalog/contract/preset-check.types.ts';
 import { committedMigrationsPreflight } from '../../preset-catalog/database/committed-migrations-preflight.ts';
 import { databaseConcurrencyPreflight } from '../../preset-catalog/database/database-concurrency-preflight.ts';
 
-async function databasePreflight(projectRoot: string): Promise<ToolRunResult | undefined> {
-  return (
-    (await databaseConcurrencyPreflight(projectRoot)) ??
-    (await committedMigrationsPreflight(projectRoot))
-  );
-}
-
 const checkModule: PresetCheckModule = {
-  preflight: databasePreflight,
+  preflight: async (projectRoot) =>
+    (await databaseConcurrencyPreflight(projectRoot)) ??
+    (await committedMigrationsPreflight(projectRoot)),
 };
 
 export const preflight = checkModule.preflight;

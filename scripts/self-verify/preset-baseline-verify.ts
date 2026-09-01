@@ -22,6 +22,16 @@ export const LOCAL_PRESET_PACKAGE_VERIFY_PRESETS = [
   'playwright',
 ] as const;
 
+function packageVerifyPresets(presetName: string): string[] {
+  if (presetName === 'database-sqlite') {
+    return [
+      ...LOCAL_PRESET_PACKAGE_VERIFY_PRESETS.filter((name) => name !== 'database'),
+      'database-sqlite',
+    ];
+  }
+  return [...LOCAL_PRESET_PACKAGE_VERIFY_PRESETS];
+}
+
 const PRESET_PACKAGE_ENTRIES = [
   'check.ts',
   'gate-config.ts',
@@ -62,7 +72,7 @@ export async function localPresetPackageVerifyRequest(
     entries: [...PRESET_PACKAGE_ENTRIES],
     ignorePatterns: [...PRESET_PACKAGE_IGNORE_PATTERNS],
     fallowIgnoreDependencies: [...PRESET_PACKAGE_FALLOW_IGNORE_DEPENDENCIES],
-    presets: [...LOCAL_PRESET_PACKAGE_VERIFY_PRESETS],
+    presets: packageVerifyPresets(presetName),
     skipPresetProjectChecks: true,
     presetConfig: {
       baseline: { maxInlineParameterObjectMembers: 3 },

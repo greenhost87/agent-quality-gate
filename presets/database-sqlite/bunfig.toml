@@ -1,0 +1,6 @@
+[install]
+linker = "isolated"
+globalStore = true
+
+[test]
+concurrentTestGlob = "**/system/oxlint/**/*.test.ts"

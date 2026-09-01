@@ -7,7 +7,13 @@ import type { OxlintRuleSetting } from '../../preset-catalog/oxlint-config/write
 import type { OxlintGroupOrderOptions, OxlintOutputGroup } from './execute-verify.js';
 
 /** Boundary plugin order inside the boundaries phase; unknown plugins sort after, alphabetically. */
-const BOUNDARY_PLUGIN_PRIORITY = ['module-placement', 'config', 'database', 'playwright'] as const;
+const BOUNDARY_PLUGIN_PRIORITY = [
+  'module-placement',
+  'config',
+  'database',
+  'database-sqlite',
+  'playwright',
+] as const;
 
 /** Canonical group order used when config.yaml does not define one; `lint` is always appended last. */
 const DEFAULT_GROUP_ORDER = ['boundaries', 'contracts', 'ui'] as const;

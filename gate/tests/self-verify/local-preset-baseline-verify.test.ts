@@ -25,6 +25,17 @@ describe('local preset package verify', () => {
     expect(request.entries).toContain('payload/**/*.ts');
     expect(request.ignorePatterns).toContain('.quality-fixtures/**');
   });
+
+  it('does not apply the incompatible PostgreSQL preset to the SQLite package', async () => {
+    const request = await localPresetPackageVerifyRequest(REPO_ROOT, 'database-sqlite');
+    expect(request.presets).not.toContain('database');
+    expect(request.presets).toContain('database-sqlite');
+    expect(request.presets).toContain('config');
+    expect(request.ignoreOxlintRuleIds).toEqual([
+      'database-sqlite/boundaries',
+      'database-sqlite/test-boundaries',
+    ]);
+  });
 });
 
 describe('filterOxlintAgentOutput', () => {
