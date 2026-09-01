@@ -79,6 +79,13 @@ export function importSource(node: ESTree.ImportDeclaration): string | null {
   return typeof node.source.value === 'string' ? node.source.value : null;
 }
 
+function isCountPropertyKey(key: ESTree.Expression | ESTree.PrivateIdentifier): boolean {
+  if (key.type === 'Identifier') {
+    return key.name === 'count';
+  }
+  return key.type === 'Literal' && key.value === 'count';
+}
+
 export function sqlResultUsesCountMetadata(node: ESTree.TaggedTemplateExpression): boolean {
   if (node.tag.type !== 'Identifier' || node.tag.name !== 'sql') {
     return false;
@@ -89,18 +96,47 @@ export function sqlResultUsesCountMetadata(node: ESTree.TaggedTemplateExpression
   }
   return resultType.members.some(
     (member) =>
-      member.type === 'TSPropertySignature' &&
-      !member.computed &&
-      member.key.type === 'Identifier' &&
-      member.key.name === 'count',
+      member.type === 'TSPropertySignature' && !member.computed && isCountPropertyKey(member.key),
   );
 }
 
-export function isUnsafeSqlMember(node: ESTree.MemberExpression): boolean {
-  if (!node.computed) {
-    return node.property.type === 'Identifier' && node.property.name === 'unsafe';
+export function collectSqlLocalNames(program: ESTree.Program): ReadonlySet<string> {
+  const names = new Set<string>();
+  for (const statement of program.body) {
+    if (statement.type !== 'ImportDeclaration') {
+      continue;
+    }
+    for (const specifier of statement.specifiers) {
+      if (
+        specifier.type === 'ImportSpecifier' &&
+        specifier.imported.type === 'Identifier' &&
+        specifier.imported.name === 'sql'
+      ) {
+        names.add(specifier.local.name);
+      }
+    }
   }
-  return node.property.type === 'Literal' && node.property.value === 'unsafe';
+  return names;
+}
+
+function isSqlReceiver(
+  receiver: ESTree.Expression | ESTree.Super,
+  sqlLocalNames: ReadonlySet<string>,
+): boolean {
+  return receiver.type === 'Identifier' && sqlLocalNames.has(receiver.name);
+}
+
+export function isUnsafeSqlMember(
+  node: ESTree.MemberExpression,
+  sqlLocalNames: ReadonlySet<string>,
+): boolean {
+  const isUnsafeProperty = node.computed
+    ? node.property.type === 'Literal' && node.property.value === 'unsafe'
+    : node.property.type === 'Identifier' && node.property.name === 'unsafe';
+  if (!isUnsafeProperty) {
+    return false;
+  }
+  return isSqlReceiver(node.object, sqlLocalNames);
 }
 
 export function findImportedSpecifier(
