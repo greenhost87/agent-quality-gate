@@ -173,7 +173,7 @@ const MailingListResponseSchema = v.object({
   pages: v.number(),
 });
 
-const body = parseJsonText(await response.text(), MailingListResponseSchema);
+const body = await parseJsonResponse(response, MailingListResponseSchema);
 \`\`\`
 
 Export \`type MailingListResponse = v.InferOutput<typeof MailingListResponseSchema>\` when the type is shared.

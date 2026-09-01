@@ -1,5 +1,5 @@
 export function sourceImportsValibot(text: string): boolean {
-  return /from\s+['"]valibot['"]/u.test(text);
+  return /\bvalibot\b/u.test(text);
 }
 
 export function sourceUsesParseJson(text: string): boolean {

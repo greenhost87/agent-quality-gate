@@ -13,13 +13,14 @@ import {
 
 export function typeReferenceName(node: ESTree.TSType): string | null {
   const unwrapped = unwrapType(node);
-  if (unwrapped.type !== 'TSTypeReference' || unwrapped.typeName.type !== 'Identifier') {
+  if (unwrapped.type !== 'TSTypeReference' || unwrapped.typeArguments != null) {
     return null;
   }
-  if (unwrapped.typeArguments != null) {
-    return null;
+  const typeName = unwrapped.typeName;
+  if (typeName.type === 'Identifier') {
+    return typeName.name;
   }
-  return unwrapped.typeName.name;
+  return typeName.type === 'TSQualifiedName' ? typeName.right.name : null;
 }
 
 function arrayElementType(node: ESTree.TSType): ESTree.TSType | null {

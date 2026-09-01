@@ -27,7 +27,11 @@ export function parseFallowDiscoveredFiles(
 ): DiscoveredFilesOutput {
   const result = v.safeParse(FallowDiscoveredFilesFromStdoutSchema, stdout);
   if (!result.success) {
-    throw new Error(`${diagnosticPrefix}fallow list returned malformed JSON`);
+    const malformedJson = result.issues.some((issue) => issue.type === 'parse_json');
+    const detail = malformedJson
+      ? 'fallow list returned malformed JSON'
+      : 'fallow list returned JSON that does not match the discovered-files schema';
+    throw new Error(`${diagnosticPrefix}${detail}`);
   }
   return result.output;
 }

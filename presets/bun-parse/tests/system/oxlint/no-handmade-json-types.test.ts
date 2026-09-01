@@ -67,6 +67,16 @@ test('no-handmade-json-types rejects loose v.record string unknown schema', asyn
   await expectRejected('loose-record-schema', [typeMessage]);
 });
 
+test('no-handmade-json-types rejects qualified InferOutput of a loose schema', async () => {
+  const result = await runOxlintFixture(
+    'no-handmade-json-types/invalid/qualified-infer-output',
+    'schema.ts',
+    rule,
+  );
+  expect(result.status).not.toBe(0);
+  expect(result.output.split(typeMessage)).toHaveLength(3);
+});
+
 test('no-handmade-json-types rejects valibot isPlainObject predicate', async () => {
   await expectRejected('plain-object-predicate', [typeMessage]);
 });
@@ -81,4 +91,12 @@ test('no-handmade-json-types allows record with primitive values', async () => {
 
 test('no-handmade-json-types allows nested domain record fields', async () => {
   await expectAllowed('nested-domain-record');
+});
+
+test('no-handmade-json-types handles an incomplete union call', async () => {
+  await expectAllowed('incomplete-union');
+});
+
+test('no-handmade-json-types terminates on cyclic schema aliases', async () => {
+  await expectAllowed('cyclic-schema-aliases');
 });
