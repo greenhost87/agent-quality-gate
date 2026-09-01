@@ -56,6 +56,9 @@ describe('preset verification', () => {
     expect(resolvePresetContract(['react-presentation'])).rejects.toThrow('unknown preset');
     expect(resolvePresetContract(['react-duplication'])).rejects.toThrow('unknown preset');
     expect(resolvePresetContract(['live-ui-surface'])).rejects.toThrow('unknown preset');
+    expect(resolvePresetContract(['database', 'database-sqlite'])).rejects.toThrow(
+      'mutually exclusive database drivers',
+    );
   });
 
   it('accepts config without deps and rejects incompatible database dependency ranges', async () => {

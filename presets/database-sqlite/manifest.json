@@ -1,0 +1,41 @@
+{
+  "name": "database-sqlite",
+  "requires": ["config"],
+  "files": [
+    {
+      "destination": "system/database/connection.ts",
+      "source": "payload/system/database/connection.ts"
+    },
+    {
+      "destination": "system/database/migrate.ts",
+      "source": "payload/system/database/migrate.ts"
+    },
+    {
+      "destination": "tests/setup/testDatabase.ts",
+      "source": "payload/tests/setup/testDatabase.ts"
+    },
+    {
+      "destination": "scripts/sync-database-sqlite-managed.ts",
+      "source": "payload/scripts/sync-database-sqlite-managed.ts",
+      "exampleOnly": true
+    },
+    {
+      "destination": "database-examples.md",
+      "source": "payload/database-examples.md",
+      "exampleOnly": true
+    }
+  ],
+  "dependencies": [],
+  "oxlint": {
+    "plugins": [
+      {
+        "name": "database-sqlite",
+        "specifier": "oxlint/database-sqlite.ts"
+      }
+    ],
+    "rules": {
+      "database-sqlite/boundaries": { "severity": "error", "phase": "boundaries" },
+      "database-sqlite/test-boundaries": { "severity": "error", "phase": "boundaries" }
+    }
+  }
+}

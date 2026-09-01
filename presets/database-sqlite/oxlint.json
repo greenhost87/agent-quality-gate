@@ -1,0 +1,30 @@
+{
+  "categories": {
+    "correctness": "off"
+  },
+  "ignorePatterns": ["node_modules/**", ".*/**"],
+  "jsPlugins": [
+    {
+      "name": "aqg",
+      "specifier": "../baseline/oxlint/index.ts"
+    },
+    {
+      "name": "database-sqlite",
+      "specifier": "./oxlint/database-sqlite.ts"
+    }
+  ],
+  "rules": {
+    "aqg/no-inline-multiline-test-data": "error",
+    "aqg/no-oxlint-disable-directives": "error",
+    "database-sqlite/boundaries": "error",
+    "database-sqlite/test-boundaries": "error"
+  },
+  "overrides": [
+    {
+      "files": ["tests/system/oxlint/database-sqlite.test.ts"],
+      "rules": {
+        "database-sqlite/boundaries": "off"
+      }
+    }
+  ]
+}

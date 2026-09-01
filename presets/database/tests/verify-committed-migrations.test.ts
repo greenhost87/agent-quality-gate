@@ -13,7 +13,7 @@ import {
   restoreCommittedMigrations,
   verifyCommittedMigrations,
   writeCommittedMigrationDiff,
-} from '../verify-committed-migrations.ts';
+} from '../../../preset-catalog/database/verify-committed-migrations.ts';
 
 const tempDirectories: string[] = [];
 

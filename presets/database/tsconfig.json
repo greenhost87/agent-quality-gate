@@ -39,6 +39,6 @@
     "tests/**/*.ts",
     "oxlint/**/*.ts",
     "build-examples-md.ts",
-    "verify-committed-migrations.ts"
+    "../../preset-catalog/database/**/*.ts"
   ]
 }

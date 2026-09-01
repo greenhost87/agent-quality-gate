@@ -39,11 +39,18 @@ function dependencySections(dependencies: readonly PresetProjectDependency[]): {
 }
 
 function compositionCases(): string[][] {
-  return [[...SHIPPED_PRESET_NAMES], ['config', 'database']];
+  return [
+    SHIPPED_PRESET_NAMES.filter((name) => name !== 'database-sqlite'),
+    SHIPPED_PRESET_NAMES.filter((name) => name !== 'database'),
+    ['config', 'database'],
+    ['config', 'database-sqlite'],
+  ];
 }
 
 async function installSharedDependencies(root: string): Promise<void> {
-  const contract = await resolvePresetContract(SHIPPED_PRESET_NAMES);
+  const contract = await resolvePresetContract(
+    SHIPPED_PRESET_NAMES.filter((name) => name !== 'database-sqlite'),
+  );
   const sections = dependencySections(contract.dependencies);
   sections.devDependencies['bun-types'] = '1.4.0';
   await writeTextFile(
@@ -103,10 +110,13 @@ async function createProject(root: string, presets: readonly string[]): Promise<
           skipLibCheck: true,
           strict: true,
           target: 'ES2022',
-          ...(contract.dependencies.length > 0
+          ...(contract.dependencies.length > 0 || contract.names.includes('database-sqlite')
             ? {
                 typeRoots: [join(root, 'node_modules', '@types'), join(root, 'node_modules')],
-                types: contract.names.includes('database') ? ['node', 'bun-types'] : ['node'],
+                types:
+                  contract.names.includes('database') || contract.names.includes('database-sqlite')
+                    ? ['node', 'bun-types']
+                    : ['node'],
               }
             : {}),
         },
@@ -134,7 +144,7 @@ afterEach(async () => {
 });
 
 describe('preset composition', () => {
-  it('passes verification for the complete set and a dependent pair', async () => {
+  it('passes verification for every compatible complete set and dependent pair', async () => {
     const root = await mkdtemp(join(tmpdir(), 'aqg-preset-composition-'));
     tempDirectories.push(root);
     await installSharedDependencies(root);

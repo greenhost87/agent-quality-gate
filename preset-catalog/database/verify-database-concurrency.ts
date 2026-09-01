@@ -1,12 +1,7 @@
-import { readProjectPackageJson } from '../../preset-catalog/dependencies/read-project-package-json.ts';
-import { formatDatabaseLabeledValues } from './format-database-labeled-values.ts';
-
-function scriptSegments(command: string): string[] {
-  return command.split(/(?:&&|\|\||;)/u);
-}
+import { readProjectPackageJson } from '../dependencies/read-project-package-json.ts';
 
 function commandInvokesBunTestConcurrent(command: string): boolean {
-  for (const segment of scriptSegments(command)) {
+  for (const segment of command.split(/(?:&&|\|\||;)/u)) {
     const tokens = segment
       .trim()
       .split(/\s+/u)
@@ -29,30 +24,17 @@ function commandInvokesBunTestConcurrent(command: string): boolean {
   return false;
 }
 
-function scriptsRecord(scripts: object | undefined): Record<string, string> | undefined {
-  if (scripts === undefined) {
-    return undefined;
-  }
-  const result: Record<string, string> = {};
-  for (const [name, value] of Object.entries(scripts)) {
-    if (typeof value === 'string') {
-      result[name] = value;
-    }
-  }
-  return result;
-}
-
 export async function verifyDatabaseConcurrencyScripts(
   projectRoot: string,
 ): Promise<DatabaseConcurrencyScriptViolation[]> {
-  const scripts = scriptsRecord((await readProjectPackageJson(projectRoot))?.scripts);
+  const scripts = (await readProjectPackageJson(projectRoot))?.scripts;
   if (scripts === undefined) {
     return [];
   }
 
   const violations: DatabaseConcurrencyScriptViolation[] = [];
   for (const [scriptName, value] of Object.entries(scripts)) {
-    if (commandInvokesBunTestConcurrent(value)) {
+    if (typeof value === 'string' && commandInvokesBunTestConcurrent(value)) {
       violations.push({ scriptName });
     }
   }
@@ -62,10 +44,9 @@ export async function verifyDatabaseConcurrencyScripts(
 export function formatDatabaseConcurrencyViolations(
   violations: readonly DatabaseConcurrencyScriptViolation[],
 ): string {
-  return formatDatabaseLabeledValues(
-    'database-concurrent-script',
-    violations.map((violation) => violation.scriptName),
-  );
+  return violations
+    .map((violation) => `database-concurrent-script:${violation.scriptName}`)
+    .join('\n');
 }
 
 export type DatabaseConcurrencyScriptViolation = {

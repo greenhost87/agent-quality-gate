@@ -1,0 +1,28 @@
+{
+  "compilerOptions": {
+    "target": "ES2024",
+    "module": "Preserve",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "allowImportingTsExtensions": true,
+    "types": ["bun"],
+    "paths": {
+      "@/system/config/*": ["../config/payload/system/config/*"],
+      "@/system/database/connection": ["./payload/system/database/connection.ts"],
+      "@/system/database/migrate": ["./payload/system/database/migrate.ts"],
+      "@/system/database/orders/*": ["./examples/system/database/orders/*"],
+      "@/tests/setup/testDatabase": ["./payload/tests/setup/testDatabase.ts"]
+    }
+  },
+  "include": [
+    "build-examples-md.ts",
+    "check.ts",
+    "examples/**/*.ts",
+    "oxlint/**/*.ts",
+    "payload/**/*.ts",
+    "tests/**/*.ts",
+    "../../preset-catalog/database/**/*.ts"
+  ]
+}

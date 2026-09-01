@@ -97,15 +97,15 @@ When presets are enabled, verify checks managed file content hashes against pres
 
 Phases are fail-fast and ordered by invalidation direction:
 
-| Phase        | Tool                             | What it checks                                                                                                                                                                                                            |
-| ------------ | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 0 Preflight  | —                                | `package.json` deps / `ignoreScripts`, managed-file hashes, per-preset preflights (e.g. `database` migrations, `playwright` config), oxlint config generation                                                             |
-| 1 Cycles     | Fallow                           | `re-export-cycle`, `circular-dependencies`, `unresolved-imports` only                                                                                                                                                     |
-| 2+3 Oxlint   | Oxlint (one run, virtual groups) | Boundary rules (`phase: boundaries`, grouped by plugin: `module-placement` → `config` → `database` → `playwright` → …) fail immediately; semantic lint (`phase: lint` / default) is deferred until Fallow boundaries pass |
-| 2 Boundaries | Fallow                           | `boundary-violation` (zones)                                                                                                                                                                                              |
-| 4 Hygiene    | Fallow                           | dead code, stale suppressions, duplicates (remaining packaged Fallow rules)                                                                                                                                               |
-| 5 Complexity | Fallow                           | `health --complexity`                                                                                                                                                                                                     |
-| 6 Presets    | preset `runToolChecks`           | active preset tool checks (run last so they never mask earlier phases)                                                                                                                                                    |
+| Phase        | Tool                             | What it checks                                                                                                                                                                                                                                |
+| ------------ | -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0 Preflight  | —                                | `package.json` deps / `ignoreScripts`, managed-file hashes, per-preset preflights (e.g. `database` migrations, `playwright` config), oxlint config generation                                                                                 |
+| 1 Cycles     | Fallow                           | `re-export-cycle`, `circular-dependencies`, `unresolved-imports` only                                                                                                                                                                         |
+| 2+3 Oxlint   | Oxlint (one run, virtual groups) | Boundary rules (`phase: boundaries`, grouped by plugin: `module-placement` → `config` → `database` → `database-sqlite` → `playwright` → …) fail immediately; semantic lint (`phase: lint` / default) is deferred until Fallow boundaries pass |
+| 2 Boundaries | Fallow                           | `boundary-violation` (zones)                                                                                                                                                                                                                  |
+| 4 Hygiene    | Fallow                           | dead code, stale suppressions, duplicates (remaining packaged Fallow rules)                                                                                                                                                                   |
+| 5 Complexity | Fallow                           | `health --complexity`                                                                                                                                                                                                                         |
+| 6 Presets    | preset `runToolChecks`           | active preset tool checks (run last so they never mask earlier phases)                                                                                                                                                                        |
 
 Oxlint runs once; output is split into virtual groups and only the first non-empty group is shown. Deferred lint findings surface as `verify: deferred: N` on stderr and become visible after Fallow boundaries pass. Type-aware Oxlint (via `oxlint-tsgolint`) has a 120s timeout — `hint:type-aware-timeout — .aqg/hints/type-aware-timeout.md` on expiry. Set `AGENT_QUALITY_GATE_VERIFY_TIMING=1` to append `verify-timing:` phase timings to stderr.
 
@@ -133,6 +133,7 @@ projects:
       - bun-parse
       - config
       - database
+      # database-sqlite # use instead of database for bun:sqlite projects
       - playwright
       - module-placement
       # packages   # home-installed only (see below)
@@ -157,7 +158,7 @@ projects:
 - `root` is an absolute filesystem path. Nested roots win over shallower ancestors for the same `cwd`. A git worktree of a configured root uses that project's presets and other fields; verify runs against the worktree.
 - `entries` are project-relative Fallow entry globs. Exports from these files are treated as used.
 - `ignorePatterns` is an optional list of project-relative globs merged into the packaged Fallow/Oxlint ignore list for that project.
-- `presets` is an optional list of shipped names from `presets/*/manifest.json` and home-installed names from `$AGENT_QUALITY_GATE_HOME/presets/<name>/` (install with `bun ./install.ts preset <absolute-source-root>` or `aqg-presets` `bun run install`). Resolution order: shipped, then home install. `baseline` is always active (listing it is redundant; omitting `presets` still runs it). Required optional presets are activated transitively (for example `database` pulls in `config`). Unknown names fail config load (including absolute filesystem paths). Details live in each shipped preset's README under `presets/<name>/`.
+- `presets` is an optional list of shipped names from `presets/*/manifest.json` and home-installed names from `$AGENT_QUALITY_GATE_HOME/presets/<name>/` (install with `bun ./install.ts preset <absolute-source-root>` or `aqg-presets` `bun run install`). Resolution order: shipped, then home install. `baseline` is always active (listing it is redundant; omitting `presets` still runs it). Required optional presets are activated transitively (for example `database` and `database-sqlite` pull in `config`). Unknown names fail config load (including absolute filesystem paths). Details live in each shipped preset's README under `presets/<name>/`.
 - `presetConfig` is an optional bag of per-preset options. Each preset owns its schema and maps it to Oxlint rules via `gate-config.ts` (`parsePresetConfig` / `applyConfiguredRules`). Unknown presets or keys are ignored.
   - `presetConfig.baseline.literalDynamicImportFiles` lists exact project-relative runtime-boundary files where `aqg/no-dynamic-import` permits relative string-literal imports such as `import('./node-runtime')`. Dynamic imports remain forbidden elsewhere; computed and package-specifier imports remain forbidden in listed files.
   - `presetConfig.baseline.maxInlineParameterObjectMembers` caps members on inline object types in parameters (`aqg/max-inline-parameter-object-members`). Omit or use `-1` to leave the rule inactive; a non-negative integer enables the cap.
@@ -174,6 +175,7 @@ projects:
 | `bun-parse`            | `typeofObjectMode`                                                                | Ban recursive handmade JSON ADTs / plain-object typeof guards; prefer Bun + valibot |
 | `config`               | none                                                                              | Env access only via managed `system/config/environment.ts`                          |
 | `database`             | none                                                                              | `system/database/`, `tests/setup/testDatabase*.ts`, `migrations/`, DAO layout       |
+| `database-sqlite`      | none                                                                              | Managed `bun:sqlite` connection, migrations, isolated tests, DAO/test boundaries    |
 | `playwright`           | none                                                                              | `tests/e2e/**/*.pw.ts`; blocks DAO / `system/database` imports                      |
 | `module-placement`     | `directories`, `rootExceptions`                                                   | Concern-depth rule under configured directories                                     |
 

@@ -1,7 +1,7 @@
 # Add projects here to enable automatic checks.
 #
 # presets: shipped names from presets/*/manifest.json
-#   (baseline always on; optional: bun-parse, config, database, playwright, module-placement)
+#   (baseline always on; optional: bun-parse, config, database, database-sqlite, playwright, module-placement)
 # and home-installed names from $AGENT_QUALITY_GATE_HOME/presets/<name>/ (for example packages).
 #
 # Install optional presets (for example from aqg-presets) with:
@@ -25,7 +25,7 @@
 #   one group per plugin; `lint` (the catch-all for untagged rules) is appended last
 #   when missing. boundaryPluginPriority orders plugins inside the boundaries phase.
 #   Defaults: lintGroups [boundaries, contracts, ui], priority [module-placement,
-#   config, database, playwright].
+#   config, database, database-sqlite, playwright].
 # verify:
 #   lintGroups:
 #     - boundaries
@@ -35,6 +35,7 @@
 #     - module-placement
 #     - config
 #     - database
+#     - database-sqlite
 #     - playwright
 #
 # presetConfig.baseline.literalDynamicImportFiles lists exact project-relative

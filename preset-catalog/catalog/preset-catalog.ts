@@ -22,6 +22,7 @@ export const SHIPPED_PRESET_NAMES = [
   'bun-parse',
   'config',
   'database',
+  'database-sqlite',
   'module-placement',
   'playwright',
   'test-colocation',
@@ -126,9 +127,19 @@ function withBaseline(requested: readonly ActivatedPreset[]): ActivatedPreset[] 
   return [baseline, ...rest];
 }
 
+function assertCompatibleDatabaseDrivers(activated: readonly ActivatedPreset[]): void {
+  const activatedNames = new Set(activated.map((preset) => preset.name));
+  if (activatedNames.has('database') && activatedNames.has('database-sqlite')) {
+    throw new Error(
+      'presets "database" and "database-sqlite" are mutually exclusive database drivers',
+    );
+  }
+}
+
 async function collectPresetContributions(
   activated: readonly ActivatedPreset[],
 ): Promise<ResolvedPresetContract> {
+  assertCompatibleDatabaseDrivers(activated);
   const files: ResolvedManagedFile[] = [];
   const dependencies: PresetProjectDependency[] = [];
   const ignoreScripts: string[] = [];

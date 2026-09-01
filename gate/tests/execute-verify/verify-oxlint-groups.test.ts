@@ -187,7 +187,7 @@ describe('manifest rule phase compatibility', () => {
         ? 'contracts'
         : 'lint';
     }
-    return ['module-placement', 'database', 'playwright'].includes(presetName)
+    return ['module-placement', 'database', 'database-sqlite', 'playwright'].includes(presetName)
       ? 'boundaries'
       : 'lint';
   }
