@@ -142,6 +142,11 @@ test('DAO boundaries reject Bun SQL count metadata and allow canonical inline re
       'Do not rely on Bun SQL count metadata. Add RETURNING to the mutation and inspect the returned rows.',
     ),
     expectRejected(
+      'sql-count-metadata-literal-key',
+      'system/database/orders/orders.dao.ts',
+      'Do not rely on Bun SQL count metadata. Add RETURNING to the mutation and inspect the returned rows.',
+    ),
+    expectRejected(
       'renamed-count-helper',
       'system/database/mutation-result.ts',
       'Do not rely on Bun SQL count metadata. Add RETURNING to the mutation and inspect the returned rows.',
@@ -158,6 +163,7 @@ test('DAO boundaries reject Bun SQL unsafe outside managed database infrastructu
     expectRejected('sql-unsafe-service', 'system/orders/service.ts', message),
     expectAllowed('sql-unsafe-managed-migrate', 'system/database/migrate.ts'),
     expectAllowed('sql-unsafe-managed-test-database', 'tests/setup/testDatabase.bootstrap.ts'),
+    expectAllowed('unrelated-unsafe-property', 'system/orders/service.ts'),
   ]);
 });
 

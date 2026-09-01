@@ -8,6 +8,7 @@ import {
 } from './dao-operation-usage.ts';
 import type { FunctionBinding } from './dao-operation-usage.ts';
 import {
+  collectSqlLocalNames,
   connectionFilePattern,
   databaseResultHelperPattern,
   daoFilePattern,
@@ -203,7 +204,11 @@ export const daoBoundaries = defineRule({
       reportDaoImport(context, node, source, flags.isProductionDaoImplementation);
     }
 
-    function inspect(node: ESTree.Node, flags: DaoScanFlags): void {
+    function inspect(
+      node: ESTree.Node,
+      flags: DaoScanFlags,
+      sqlLocalNames: ReadonlySet<string>,
+    ): void {
       inspectDaoModuleShape(context, node, flags);
       switch (node.type) {
         case 'AssignmentPattern':
@@ -224,7 +229,11 @@ export const daoBoundaries = defineRule({
           );
           break;
         case 'MemberExpression':
-          if (!flags.isManagedMigrate && !flags.isTestDatabaseSetup && isUnsafeSqlMember(node)) {
+          if (
+            !flags.isManagedMigrate &&
+            !flags.isTestDatabaseSetup &&
+            isUnsafeSqlMember(node, sqlLocalNames)
+          ) {
             context.report({ node, messageId: 'unsafeSql' });
           }
           break;
@@ -287,6 +296,7 @@ export const daoBoundaries = defineRule({
         };
 
         const program = context.sourceCode.ast;
+        const sqlLocalNames = collectSqlLocalNames(program);
         const inspectOperationUsage = programUsesDaoOperations(program);
         reportDaoProgramFlags(context, program, flags);
         for (const statement of program.body) {
@@ -306,7 +316,7 @@ export const daoBoundaries = defineRule({
           if (node.type === 'Program' || node.type === 'ImportDeclaration') {
             return;
           }
-          inspect(node, flags);
+          inspect(node, flags, sqlLocalNames);
           if (inspectOperationUsage) {
             const binding = collectFunctionBinding(context, node);
             if (binding != null) {
