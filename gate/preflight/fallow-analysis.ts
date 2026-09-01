@@ -60,6 +60,10 @@ export type ListFallowDiscoveredFilesResult =
   | { ok: true; files: readonly string[] }
   | { ok: false; result: ToolRunResult };
 
+function fallowListFailure(stderr: string): ListFallowDiscoveredFilesResult {
+  return { ok: false, result: { exitCode: 1, stdout: '', stderr } };
+}
+
 async function resolveFallowListConfigPath(
   options: ListFallowDiscoveredFilesOptions,
 ): Promise<{ configPath?: string; cleanup: () => Promise<void> }> {
@@ -68,24 +72,36 @@ async function resolveFallowListConfigPath(
   }
   const base = await readJsonFile(options.fallowConfigPath, v.looseObject({}));
   const directory = await mkdtemp(join(tmpdir(), 'aqg-fallow-list-'));
-  const configPath = join(directory, 'config.json');
-  await writeFile(
-    configPath,
-    `${JSON.stringify({ ...base, ignorePatterns: [...options.listIgnorePatterns] }, null, 2)}\n`,
-  );
-  return {
-    configPath,
-    cleanup: async () => {
-      await rm(directory, { recursive: true, force: true });
-    },
-  };
+  try {
+    const configPath = join(directory, 'config.json');
+    await writeFile(
+      configPath,
+      `${JSON.stringify({ ...base, ignorePatterns: [...options.listIgnorePatterns] }, null, 2)}\n`,
+    );
+    return {
+      configPath,
+      cleanup: async () => {
+        await rm(directory, { recursive: true, force: true });
+      },
+    };
+  } catch (error) {
+    await rm(directory, { recursive: true, force: true });
+    throw error;
+  }
 }
 
 export async function listFallowDiscoveredFiles(
   options: ListFallowDiscoveredFilesOptions,
 ): Promise<ListFallowDiscoveredFilesResult> {
   const failurePrefix = options.failurePrefix ?? 'verify: ';
-  const { configPath, cleanup } = await resolveFallowListConfigPath(options);
+  let resolved: Awaited<ReturnType<typeof resolveFallowListConfigPath>>;
+  try {
+    resolved = await resolveFallowListConfigPath(options);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return fallowListFailure(`${failurePrefix}failed to prepare fallow list: ${message}\n`);
+  }
+  const { configPath, cleanup } = resolved;
   try {
     const args = [
       fallowExecutablePath(),
@@ -107,14 +123,9 @@ export async function listFallowDiscoveredFiles(
       environment: options.environment,
     });
     if (captured.error !== undefined) {
-      return {
-        ok: false,
-        result: {
-          exitCode: 1,
-          stdout: '',
-          stderr: `${failurePrefix}failed to start fallow list: ${captured.error.message}\n`,
-        },
-      };
+      return fallowListFailure(
+        `${failurePrefix}failed to start fallow list: ${captured.error.message}\n`,
+      );
     }
     if (captured.exitCode !== 0) {
       return {
@@ -131,10 +142,7 @@ export async function listFallowDiscoveredFiles(
       return { ok: true, files: discovered.files };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      return {
-        ok: false,
-        result: { exitCode: 1, stdout: '', stderr: `${message}\n` },
-      };
+      return fallowListFailure(`${message}\n`);
     }
   } finally {
     await cleanup();
