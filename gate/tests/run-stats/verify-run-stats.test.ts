@@ -276,7 +276,7 @@ describe('verify run stats', () => {
     expect(result.isError).toBe(false);
     expect(result.text).toMatch(/^verify: ok \(\d+ms\)$/);
 
-    const record = await waitForStatsRecord(projectRoot);
+    const { output: record } = await waitForStatsRecord(projectRoot);
     expect(record.r).toBe(0);
     expect(record.ws).toBe('mr');
   });
