@@ -8,6 +8,7 @@ import { afterEach, describe, expect, it } from 'bun:test';
 import { executeVerify } from '../../execute-verify/execute-verify.js';
 import { resolvePresetContract } from '../../../preset-catalog/catalog/preset-catalog.js';
 import { useIsolatedAgentQualityGateHome } from '../../../tests/support/isolated-home.js';
+import { expectRejectedMessage } from '../../../tests/support/expect-rejected.js';
 import {
   cleanupPresetVerificationProjects,
   cleanSourceFixtureCase,
@@ -50,13 +51,14 @@ describe('preset verification', () => {
     expect((await resolvePresetContract([])).rules['aqg/no-inline-multiline-test-data']).toBe(
       'error',
     );
-    expect(resolvePresetContract(['unknown'])).rejects.toThrow('unknown preset');
-    expect(resolvePresetContract(['packages'])).rejects.toThrow('unknown preset');
-    expect(resolvePresetContract(['project-quality'])).rejects.toThrow('unknown preset');
-    expect(resolvePresetContract(['react-presentation'])).rejects.toThrow('unknown preset');
-    expect(resolvePresetContract(['react-duplication'])).rejects.toThrow('unknown preset');
-    expect(resolvePresetContract(['live-ui-surface'])).rejects.toThrow('unknown preset');
-    expect(resolvePresetContract(['database', 'database-sqlite'])).rejects.toThrow(
+    await expectRejectedMessage(resolvePresetContract(['unknown']), 'unknown preset');
+    await expectRejectedMessage(resolvePresetContract(['packages']), 'unknown preset');
+    await expectRejectedMessage(resolvePresetContract(['project-quality']), 'unknown preset');
+    await expectRejectedMessage(resolvePresetContract(['react-presentation']), 'unknown preset');
+    await expectRejectedMessage(resolvePresetContract(['react-duplication']), 'unknown preset');
+    await expectRejectedMessage(resolvePresetContract(['live-ui-surface']), 'unknown preset');
+    await expectRejectedMessage(
+      resolvePresetContract(['database', 'database-sqlite']),
       'mutually exclusive database drivers',
     );
   });
