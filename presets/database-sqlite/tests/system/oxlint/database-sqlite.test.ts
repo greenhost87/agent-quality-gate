@@ -196,6 +196,15 @@ describe('database-sqlite test boundaries', () => {
       ),
       expectRejectedByRule(
         rule,
+        'tests/integration/orders.test.ts',
+        sourceLines(
+          `import * as connection from '@/system/database/connection';`,
+          'connection.installDatabaseForTests(database);',
+        ),
+        message,
+      ),
+      expectRejectedByRule(
+        rule,
         'tests/unit/orders.test.ts',
         `import { useIsolatedTestDatabase } from '@/tests/setup/testDatabase';\n`,
         'Unit tests must not import tests/setup/testDatabase.ts.',

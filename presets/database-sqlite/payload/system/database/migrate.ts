@@ -36,19 +36,21 @@ export function runDatabaseMigrations(options: DatabaseMigrationOptions = {}): v
     throw new Error(`Migrations directory not found at: ${directory}`);
   }
 
-  const applied = appliedMigrationNames(database);
-  const recordMigration = database.query('INSERT INTO schema_migrations (name) VALUES ($name)');
-  const applyMigration = database.transaction((name: string, sqlText: string) => {
-    database.run(sqlText);
-    recordMigration.run({ name });
-  });
+  const applyPendingMigrations = database.transaction(
+    (files: string[], migrationsDirectory: string) => {
+      const applied = appliedMigrationNames(database);
+      const recordMigration = database.query('INSERT INTO schema_migrations (name) VALUES ($name)');
+      for (const name of files) {
+        if (applied.has(name)) {
+          continue;
+        }
+        database.run(readFileSync(join(migrationsDirectory, name), 'utf8'));
+        recordMigration.run({ name });
+      }
+    },
+  ).immediate;
 
-  for (const name of migrationFiles) {
-    if (applied.has(name)) {
-      continue;
-    }
-    applyMigration(name, readFileSync(join(directory, name), 'utf8'));
-  }
+  applyPendingMigrations(migrationFiles, directory);
 }
 
 if (import.meta.main) {

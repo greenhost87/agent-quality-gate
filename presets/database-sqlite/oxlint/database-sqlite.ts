@@ -171,7 +171,13 @@ function inspectManagedTestDatabaseImport(
 }
 
 function importsPrivateConnectionControl(node: ESTree.ImportDeclaration): boolean {
+  if (isTypeOnlyImport(node)) {
+    return false;
+  }
   return node.specifiers.some((specifier) => {
+    if (specifier.type === 'ImportNamespaceSpecifier') {
+      return true;
+    }
     const imported = importSpecifierName(specifier);
     return imported !== null && privateConnectionExportNames.has(imported);
   });
