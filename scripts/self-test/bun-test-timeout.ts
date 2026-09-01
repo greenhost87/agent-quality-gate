@@ -1,7 +1,7 @@
 import { getOptionalEnv } from '../../gate/read-env/read-env.js';
 
 export const DEFAULT_BUN_TEST_TIMEOUT_MS = 30_000;
-export const SLOW_CI_BUN_TEST_TIMEOUT_MS = 90_000;
+export const SLOW_CI_BUN_TEST_TIMEOUT_MS = 120_000;
 
 export function isSlowCiRunner(): boolean {
   return getOptionalEnv('CI') === 'true' && getOptionalEnv('RUNNER_OS') === 'macOS';

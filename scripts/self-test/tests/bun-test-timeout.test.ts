@@ -43,7 +43,7 @@ describe('resolveBunTestTimeoutMs', () => {
     expect(resolveBunTestTimeoutMs()).toBe(45_000);
   });
 
-  it('uses 90s on GitHub Actions macOS runners', () => {
+  it('uses 120s on GitHub Actions macOS runners', () => {
     snapshotEnv();
     setEnv('AQG_TEST_TIMEOUT_MS', undefined);
     setEnv('CI', 'true');
