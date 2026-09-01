@@ -27,11 +27,14 @@ function exportReturnAnnotation(annotation: ESTree.TSType): ESTree.TSType {
 
 function inferOutputSchemaName(member: ESTree.TSType): string | null {
   const unwrapped = unwrapType(member);
-  if (
-    unwrapped.type !== 'TSTypeReference' ||
-    unwrapped.typeName.type !== 'Identifier' ||
-    unwrapped.typeName.name !== 'InferOutput'
-  ) {
+  if (unwrapped.type !== 'TSTypeReference') {
+    return null;
+  }
+  const typeName = unwrapped.typeName;
+  const isInferOutput =
+    (typeName.type === 'Identifier' && typeName.name === 'InferOutput') ||
+    (typeName.type === 'TSQualifiedName' && typeName.right.name === 'InferOutput');
+  if (!isInferOutput) {
     return null;
   }
   const params = unwrapped.typeArguments?.params;
@@ -58,7 +61,8 @@ function isHandmadeLooseObjectReturn(
   tables: TypeTables,
   looseSchemaNames: ReadonlySet<string>,
 ): boolean {
-  const members = typeUnions(exportReturnAnnotation(annotation));
+  const effective = exportReturnAnnotation(annotation);
+  const members = typeUnions(effective);
   for (const member of members) {
     if (isLooseObjectType(member) || isLooseStringIndexType(member)) {
       return true;
@@ -67,7 +71,7 @@ function isHandmadeLooseObjectReturn(
       return true;
     }
   }
-  return handmadeExportedReturnType(exportReturnAnnotation(annotation), tables);
+  return handmadeExportedReturnType(effective, tables);
 }
 
 function skipExportedReturnScan(annotation: ESTree.TSType | undefined): boolean {

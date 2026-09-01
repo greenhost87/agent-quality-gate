@@ -95,6 +95,7 @@ function isLooseContainerValue(
   selfName: string,
   schemas: ReadonlyMap<string, SchemaConstEntry>,
   bindings: SchemaValibotBindings,
+  visited: Set<string>,
 ): boolean {
   const unwrapped = unwrapSchemaExpression(node, bindings);
   if (unwrapped.type === 'CallExpression') {
@@ -105,10 +106,19 @@ function isLooseContainerValue(
     if (unwrapped.name === selfName) {
       return true;
     }
+    if (visited.has(unwrapped.name)) {
+      return false;
+    }
     const partner = schemas.get(unwrapped.name);
-    return (
-      partner != null && schemaContainerKind(partner.init, selfName, schemas, bindings) != null
-    );
+    if (partner == null) {
+      return false;
+    }
+    visited.add(unwrapped.name);
+    try {
+      return schemaContainerKind(partner.init, selfName, schemas, bindings, visited) != null;
+    } finally {
+      visited.delete(unwrapped.name);
+    }
   }
   return false;
 }
@@ -146,6 +156,9 @@ function unionMembers(node: ESTree.Node, bindings: SchemaValibotBindings): reado
   if (unwrapped.type !== 'CallExpression' || valibotCallName(unwrapped, bindings) !== 'union') {
     return [];
   }
+  if (unwrapped.arguments.length === 0) {
+    return [];
+  }
   const members = unwrapped.arguments[0];
   if (members.type !== 'ArrayExpression') {
     return [];
@@ -163,18 +176,19 @@ function containerKindFromCall(
   selfName: string,
   schemas: ReadonlyMap<string, SchemaConstEntry>,
   bindings: SchemaValibotBindings,
+  visited: Set<string>,
 ): 'array' | 'index' | null {
   const arrayElementValue = arrayElement(call, bindings);
   if (
     arrayElementValue != null &&
-    isLooseContainerValue(arrayElementValue, selfName, schemas, bindings)
+    isLooseContainerValue(arrayElementValue, selfName, schemas, bindings, visited)
   ) {
     return 'array';
   }
   const recordElementValue = recordValue(call, bindings);
   if (
     recordElementValue != null &&
-    isLooseContainerValue(recordElementValue, selfName, schemas, bindings)
+    isLooseContainerValue(recordElementValue, selfName, schemas, bindings, visited)
   ) {
     return 'index';
   }
@@ -186,12 +200,13 @@ function schemaContainerKind(
   selfName: string,
   schemas: ReadonlyMap<string, SchemaConstEntry>,
   bindings: SchemaValibotBindings,
+  visited: Set<string>,
 ): 'array' | 'index' | null {
   const unwrapped = unwrapSchemaExpression(init, bindings);
   if (unwrapped.type !== 'CallExpression') {
     return null;
   }
-  return containerKindFromCall(unwrapped, selfName, schemas, bindings);
+  return containerKindFromCall(unwrapped, selfName, schemas, bindings, visited);
 }
 
 function valibotUnionMemberKind(
@@ -204,8 +219,9 @@ function valibotUnionMemberKind(
     return { type: 'primitive' };
   }
   const unwrapped = unwrapSchemaExpression(member, bindings);
+  const visited = new Set<string>();
   if (unwrapped.type === 'CallExpression') {
-    const kind = containerKindFromCall(unwrapped, selfName, schemas, bindings);
+    const kind = containerKindFromCall(unwrapped, selfName, schemas, bindings, visited);
     if (kind === 'array') {
       return { type: 'array' };
     }
@@ -220,7 +236,7 @@ function valibotUnionMemberKind(
   if (partnerEntry == null) {
     return null;
   }
-  const kind = schemaContainerKind(partnerEntry.init, selfName, schemas, bindings);
+  const kind = schemaContainerKind(partnerEntry.init, selfName, schemas, bindings, visited);
   if (kind === 'array') {
     return { type: 'partner', name: unwrapped.name, container: 'array' };
   }
@@ -266,7 +282,7 @@ function isLooseRecordSchemaConst(
     return false;
   }
   const value = recordValue(unwrapped, bindings);
-  return value != null && isLooseContainerValue(value, '', schemas, bindings);
+  return value != null && isLooseContainerValue(value, '', schemas, bindings, new Set());
 }
 
 function schemaScanContext(
@@ -304,17 +320,18 @@ export function collectLooseRecordSchemaNames(
   return names;
 }
 
-function isHandmadeJsonSchemaConst(
+function handmadeJsonSchemaShape(
   name: string,
   init: ESTree.Expression,
   schemas: ReadonlyMap<string, SchemaConstEntry>,
   bindings: SchemaValibotBindings,
-): boolean {
+): UnionShape | null {
   const members = unionMembers(init, bindings);
   if (members.length === 0) {
-    return false;
+    return null;
   }
-  return classifyValibotUnion(name, members, schemas, bindings).handmade;
+  const shape = classifyValibotUnion(name, members, schemas, bindings);
+  return shape.handmade ? shape : null;
 }
 
 export function findHandmadeJsonSchemaNames(
@@ -328,10 +345,9 @@ export function findHandmadeJsonSchemaNames(
   const { bindings, schemas } = context;
   const reported = new Map<string, ESTree.BindingIdentifier>();
   for (const [name, entry] of schemas) {
-    if (isHandmadeJsonSchemaConst(name, entry.init, schemas, bindings)) {
+    const shape = handmadeJsonSchemaShape(name, entry.init, schemas, bindings);
+    if (shape != null) {
       reported.set(name, entry.id);
-      const members = unionMembers(entry.init, bindings);
-      const shape = classifyValibotUnion(name, members, schemas, bindings);
       for (const partner of shape.partners) {
         const partnerEntry = schemas.get(partner);
         if (partnerEntry != null) {

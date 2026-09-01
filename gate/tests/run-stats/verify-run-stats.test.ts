@@ -88,7 +88,10 @@ async function createCleanProject(): Promise<string> {
 async function waitForStatsRecord(
   projectRoot: string,
   timeoutMs = 2000,
-): Promise<v.InferOutput<typeof StatsRecordSchema>> {
+): Promise<{
+  output: v.InferOutput<typeof StatsRecordSchema>;
+  raw: object;
+}> {
   const statsPath = join(agentQualityGateHome(), 'stats', 'verify-runs.jsonl');
   const expectedRoot = resolve(projectRoot);
   const deadline = Date.now() + timeoutMs;
@@ -100,10 +103,18 @@ async function waitForStatsRecord(
         .map((line) => line.trim())
         .filter((line) => line.length > 0)
         .flatMap((line) => {
-          const result = v.safeParse(StatsRecordJsonSchema, line);
-          return result.success ? [result.output] : [];
+          const rawResult = v.safeParse(v.pipe(v.string(), v.parseJson()), line);
+          if (
+            !rawResult.success ||
+            rawResult.output == null ||
+            typeof rawResult.output !== 'object'
+          ) {
+            return [];
+          }
+          const result = v.safeParse(StatsRecordSchema, rawResult.output);
+          return result.success ? [{ output: result.output, raw: rawResult.output }] : [];
         })
-        .filter((record) => record.path === expectedRoot);
+        .filter(({ output }) => output.path === expectedRoot);
       const record = records[records.length - 1];
       if (record !== undefined) {
         return record;
@@ -131,7 +142,7 @@ describe('verify run stats', () => {
     expect(result.exitCode).toBe(0);
     expect(result.stdout).toMatch(/^verify: ok \(\d+ms\)\n$/);
 
-    const record = await waitForStatsRecord(cwd);
+    const { output: record, raw } = await waitForStatsRecord(cwd);
     const after = Math.floor(Date.now() / 1000);
     expect(record.path).toBe(resolve(cwd));
     expect(record.r).toBe(0);
@@ -154,8 +165,8 @@ describe('verify run stats', () => {
     expect(timings.h).toBeGreaterThanOrEqual(0);
     expect(timings.x).toBeGreaterThanOrEqual(0);
     expect(timings.pr).toBeGreaterThanOrEqual(0);
-    expect(Object.hasOwn(record, 'phases')).toBe(false);
-    expect(Object.hasOwn(record, 'ph')).toBe(false);
+    expect(Object.hasOwn(raw, 'phases')).toBe(false);
+    expect(Object.hasOwn(raw, 'ph')).toBe(false);
   });
 
   it('records early validation failures', async () => {
@@ -168,7 +179,7 @@ describe('verify run stats', () => {
 
     expect(result.exitCode).toBe(2);
 
-    const record = await waitForStatsRecord(cwd);
+    const { output: record } = await waitForStatsRecord(cwd);
     expect(record.path).toBe(resolve(cwd));
     expect(record.r).toBe(1);
     expect(typeof record.ms).toBe('number');
@@ -263,7 +274,7 @@ describe('verify run stats', () => {
     expect(result.isError).toBe(false);
     expect(result.text).toContain('No configured agent-quality-gate project');
 
-    const record = await waitForStatsRecord(cwd);
+    const { output: record } = await waitForStatsRecord(cwd);
     expect(record.path).toBe(resolve(cwd));
     expect(record.r).toBe(-1);
     expect(typeof record.t).toBe('number');
