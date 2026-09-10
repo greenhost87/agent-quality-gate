@@ -208,7 +208,7 @@ describe('verify phases', () => {
       .map((phase) => configPathsByPhase[phase])
       .filter((path): path is string => path !== undefined && path.length > 0);
     expect(new Set(configPaths).size).toBe(1);
-    expect(configPaths.some((path) => path.endsWith('.aqg/fallow/verify.json'))).toBe(true);
+    expect(configPaths.some((path) => path.endsWith('.aqg/cache/fallow/verify.json'))).toBe(true);
 
     for (const phase of phases) {
       const rules = rulesByPhase[phase];
