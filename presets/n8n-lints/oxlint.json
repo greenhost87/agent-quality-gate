@@ -1,0 +1,27 @@
+{
+  "categories": {
+    "correctness": "off"
+  },
+  "ignorePatterns": ["node_modules/**", ".*/**"],
+  "jsPlugins": [
+    {
+      "name": "aqg",
+      "specifier": "../baseline/oxlint/index.ts"
+    },
+    {
+      "name": "n8n-lints",
+      "specifier": "./oxlint/index.ts"
+    }
+  ],
+  "rules": {
+    "aqg/no-inline-multiline-test-data": "error",
+    "aqg/no-json-parse-json-stringify": "error",
+    "aqg/no-oxlint-disable-directives": "error",
+    "n8n-lints/no-error-instance-in-to-throw": "error",
+    "n8n-lints/no-interpolation-in-regular-string": "error",
+    "n8n-lints/no-skipped-tests": "error",
+    "n8n-lints/no-unneeded-backticks": "error",
+    "n8n-lints/no-unused-param-in-catch-clause": "error",
+    "no-useless-catch": "error"
+  }
+}
