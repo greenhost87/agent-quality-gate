@@ -1,10 +1,10 @@
 import { parseSync } from 'oxc-parser';
 import type { Program } from 'oxc-parser';
-import type { VisitorWithHooks } from '@oxlint/plugins';
-import * as v from 'valibot';
+import type { ESTree, VisitorWithHooks } from '@oxlint/plugins';
 
-import { AstNodeSchema, forEachAstChild } from '../oxlint-walk/ast-node-schema.ts';
-import type { AstNode, ParsedProgram } from './bench-create-once-rule.js';
+import { forEachAstChild } from '../oxlint-walk/ast-node-schema.ts';
+import { attachAstParent, isAstNode } from '../oxlint-walk/oxlint-walk.ts';
+import type { ParsedProgram } from './bench-create-once-rule.js';
 
 export function languageFromFilename(filename: string): 'js' | 'jsx' | 'ts' | 'tsx' {
   if (filename.endsWith('.tsx')) {
@@ -36,11 +36,7 @@ export function parseFixture(filename: string, code: string): ParsedProgram {
   };
 }
 
-function isAstNode(value: unknown): value is AstNode {
-  return v.is(AstNodeSchema, value);
-}
-
-function callVisitor(visitors: VisitorWithHooks, key: string, node: AstNode): void {
+function callVisitor(visitors: VisitorWithHooks, key: string, node: ESTree.Node): void {
   if (key === 'before' || key === 'after') {
     return;
   }
@@ -50,8 +46,8 @@ function callVisitor(visitors: VisitorWithHooks, key: string, node: AstNode): vo
   }
 }
 
-function walkNode(node: AstNode, parent: AstNode | null, visitors: VisitorWithHooks): void {
-  node.parent = parent;
+function walkNode(node: ESTree.Node, parent: ESTree.Node | null, visitors: VisitorWithHooks): void {
+  attachAstParent(node, parent);
   callVisitor(visitors, node.type, node);
 
   forEachAstChild(node, (child) => {

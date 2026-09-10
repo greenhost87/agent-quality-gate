@@ -2,6 +2,11 @@ import { describe, expect, it } from 'bun:test';
 import { parseSync } from 'oxc-parser';
 
 import {
+  astIndex,
+  astIndexBuildStats,
+  resetAstIndexBuildCount,
+} from 'agent-quality-gate/oxlint-walk/ast-index';
+import {
   eachParamUnion,
   forEachParamList,
   isAstNode,
@@ -159,5 +164,89 @@ describe('agent-quality-gate/oxlint-walk', () => {
     });
     expect(types).toEqual(['JSXOpeningElement', 'JSXAttribute', 'JSXAttribute']);
     expect(types).not.toContain('CallExpression');
+  });
+
+  describe('astIndex', () => {
+    it('caches one index identity per Program and builds once', () => {
+      const program = parseProgram('const value = 1;');
+      resetAstIndexBuildCount();
+      const first = astIndex(program);
+      const second = astIndex(program);
+      expect(first).toBe(second);
+      expect(astIndexBuildStats().builds).toBe(1);
+    });
+
+    it('indexes nodes in source order and resolves parents', () => {
+      const program = parseProgram('const a = 1; const b = 2;');
+      const index = astIndex(program);
+      const declarators = index.nodesOfType('VariableDeclarator');
+      expect(declarators).toHaveLength(2);
+      const firstDecl = declarators[0];
+      const secondDecl = declarators[1];
+      expect(firstDecl?.type).toBe('VariableDeclarator');
+      expect(secondDecl?.type).toBe('VariableDeclarator');
+      if (firstDecl?.type !== 'VariableDeclarator' || secondDecl?.type !== 'VariableDeclarator') {
+        throw new Error('expected VariableDeclarator nodes');
+      }
+      expect(firstDecl.id.type).toBe('Identifier');
+      expect(secondDecl.id.type).toBe('Identifier');
+      if (firstDecl.id.type === 'Identifier' && secondDecl.id.type === 'Identifier') {
+        expect(firstDecl.id.name).toBe('a');
+        expect(secondDecl.id.name).toBe('b');
+      }
+      expect(index.parentOf(firstDecl)?.type).toBe('VariableDeclaration');
+      expect(index.parentOf(program)).toBeNull();
+      const walkOrder = index.nodes().map((node) => node.type);
+      expect(walkOrder[0]).toBe('Program');
+      expect(walkOrder.indexOf('VariableDeclaration')).toBeLessThan(walkOrder.indexOf('Literal'));
+    });
+
+    it('filters type subtrees from the runtime view while keeping them in the full index', () => {
+      const program = parseProgram('function f(x: string) { return x; }');
+      const index = astIndex(program);
+      expect(index.nodesOfType('TSStringKeyword')).toHaveLength(1);
+      expect(index.runtimeNodesOfType('TSStringKeyword')).toHaveLength(0);
+      expect(index.runtimeNodes().some((node) => node.type === 'TSTypeAnnotation')).toBe(false);
+      expect(index.nodes().some((node) => node.type === 'TSTypeAnnotation')).toBe(true);
+      expect(index.runtimeNodesOfType('FunctionDeclaration')).toHaveLength(1);
+    });
+
+    it('indexes JSX nodes independently of JSX surface helpers', () => {
+      const program = parseProgram(
+        'export function f() { return <button onClick={() => run()} />; }',
+        'tsx',
+      );
+      const index = astIndex(program);
+      expect(index.nodesOfType('JSXElement').length).toBeGreaterThan(0);
+      expect(index.nodesOfType('JSXIdentifier').length).toBeGreaterThan(0);
+      expect(index.nodesOfType('CallExpression')).toHaveLength(1);
+    });
+
+    it('keeps distinct Programs on independent index instances', () => {
+      const first = parseProgram('const a = 1;');
+      const second = parseProgram('const b = 2;');
+      resetAstIndexBuildCount();
+      const firstIndex = astIndex(first);
+      const secondIndex = astIndex(second);
+      expect(firstIndex).not.toBe(secondIndex);
+      expect(astIndexBuildStats().builds).toBe(2);
+      expect(firstIndex.nodesOfType('Identifier')[0]).not.toBe(
+        secondIndex.nodesOfType('Identifier')[0],
+      );
+    });
+
+    it('routes forEachParamList through the shared Program index', () => {
+      const program = parseProgram('function f(x: string | number) {}');
+      resetAstIndexBuildCount();
+      let seen = 0;
+      forEachParamList(program, (params) => {
+        expect(params).toHaveLength(1);
+        seen += 1;
+      });
+      expect(seen).toBe(1);
+      expect(astIndexBuildStats().builds).toBe(1);
+      forEachParamList(program, () => {});
+      expect(astIndexBuildStats().builds).toBe(1);
+    });
   });
 });

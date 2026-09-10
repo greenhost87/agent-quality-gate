@@ -14,7 +14,7 @@ export function isLooseAstNode(value: unknown): value is { type: string } {
 /** Visit each AST child of `node` using oxc visitor keys. */
 export function forEachAstChild(
   node: { type: string },
-  visit: (child: { type: string }) => void,
+  visit: (child: { type: string }, key: string) => void,
   options: { skipKeys?: ReadonlySet<string> } = {},
 ): void {
   const skipKeys = options.skipKeys;
@@ -27,11 +27,11 @@ export function forEachAstChild(
     if (v.is(UnknownArraySchema, value)) {
       for (const entry of value) {
         if (isLooseAstNode(entry)) {
-          visit(entry);
+          visit(entry, key);
         }
       }
     } else if (isLooseAstNode(value)) {
-      visit(value);
+      visit(value, key);
     }
   }
 }
