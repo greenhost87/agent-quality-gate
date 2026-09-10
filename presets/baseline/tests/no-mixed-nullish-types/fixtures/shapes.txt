@@ -8,9 +8,3 @@ export function nested(value: Array<string | null | undefined>): void {
 export const arrow = (value: number | null | undefined): void => {
   void value;
 };
-declare function declared(value: string | null | undefined): void;
-export interface Owners {
-  method(value: string | null | undefined): void;
-  (value: string | null | undefined): void;
-  new (value: string | null | undefined): Owners;
-}

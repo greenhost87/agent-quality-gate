@@ -8,9 +8,3 @@ export function nested(value: Array<string | number | boolean | object>): void {
 export const arrow = (value: string | Date | RegExp | Error): void => {
   void value;
 };
-declare function declared(value: string | number | boolean | object): void;
-export interface Owners {
-  method(value: string | number | boolean | object): void;
-  (value: string | number | boolean | object): void;
-  new (value: string | number | boolean | object): Owners;
-}
