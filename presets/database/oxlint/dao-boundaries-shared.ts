@@ -1,5 +1,7 @@
 import type { Context, ESTree } from '@oxlint/plugins';
 
+import type { AstParentOf } from '../../../scripts/oxlint-walk/oxlint-walk.ts';
+
 export const daoImplementationPattern = /\.dao\.ts$/u;
 export const daoFilePattern = /\.dao(?:\.[^/]+)*\.ts$/u;
 export const daoImportPattern = /\.dao(?:\.ts)?$/u;
@@ -46,10 +48,13 @@ export function projectPath(context: Context): string {
   return filename.startsWith(`${root}/`) ? filename.slice(root.length + 1) : filename;
 }
 
-export function daoFunctionDefault(node: ESTree.Node): boolean {
+export function daoFunctionDefault(node: ESTree.Node, parentOf: AstParentOf): boolean {
   let current: ESTree.Node = node;
-  while (current.parent) {
-    const parent = current.parent;
+  for (;;) {
+    const parent = parentOf(current);
+    if (parent == null) {
+      return false;
+    }
     if (
       parent.type === 'FunctionDeclaration' ||
       parent.type === 'FunctionExpression' ||
@@ -66,7 +71,6 @@ export function daoFunctionDefault(node: ESTree.Node): boolean {
     }
     current = parent;
   }
-  return false;
 }
 
 export function importSpecifierName(specifier: ESTree.Node): string | null {
@@ -137,6 +141,41 @@ export function isUnsafeSqlMember(
     return false;
   }
   return isSqlReceiver(node.object, sqlLocalNames);
+}
+
+export function isInsideFunction(node: ESTree.Node, parentOf: AstParentOf): boolean {
+  let current: ESTree.Node | null = parentOf(node);
+  while (current) {
+    if (
+      current.type === 'FunctionDeclaration' ||
+      current.type === 'FunctionExpression' ||
+      current.type === 'ArrowFunctionExpression'
+    ) {
+      return true;
+    }
+    current = parentOf(current);
+  }
+  return false;
+}
+
+export function isModuleScopeSqlUse(
+  node: ESTree.Node,
+  sqlLocalNames: ReadonlySet<string>,
+  parentOf: AstParentOf,
+): boolean {
+  if (sqlLocalNames.size === 0 || isInsideFunction(node, parentOf)) {
+    return false;
+  }
+  switch (node.type) {
+    case 'TaggedTemplateExpression':
+      return node.tag.type === 'Identifier' && sqlLocalNames.has(node.tag.name);
+    case 'CallExpression':
+      return node.callee.type === 'Identifier' && sqlLocalNames.has(node.callee.name);
+    case 'MemberExpression':
+      return isSqlReceiver(node.object, sqlLocalNames);
+    default:
+      return false;
+  }
 }
 
 export function findImportedSpecifier(
@@ -235,28 +274,32 @@ export function createsPostgreSqlContainer(node: ESTree.Node): boolean {
 export function isInsideCallbackOf(
   node: ESTree.Node,
   isTargetCallee: (callee: ESTree.Expression | ESTree.Super) => boolean,
+  parentOf: AstParentOf,
 ): boolean {
-  let current: ESTree.Node = node;
-  while (current.parent) {
-    const parent = current.parent;
+  for (let ancestor = parentOf(node); ancestor != null; ancestor = parentOf(ancestor)) {
+    if (ancestor.type !== 'ArrowFunctionExpression' && ancestor.type !== 'FunctionExpression') {
+      continue;
+    }
+    const call = parentOf(ancestor);
     if (
-      (parent.type === 'ArrowFunctionExpression' || parent.type === 'FunctionExpression') &&
-      parent.parent.type === 'CallExpression' &&
-      isTargetCallee(parent.parent.callee) &&
-      parent.parent.arguments.includes(parent)
+      call?.type === 'CallExpression' &&
+      isTargetCallee(call.callee) &&
+      call.arguments.includes(ancestor)
     ) {
       return true;
     }
-    current = parent;
   }
   return false;
 }
 
-export function isIdentifierReference(node: ESTree.Node): boolean {
+export function isIdentifierReference(node: ESTree.Node, parentOf: AstParentOf): boolean {
   if (node.type !== 'Identifier') {
     return false;
   }
-  const parent = node.parent;
+  const parent = parentOf(node);
+  if (parent == null) {
+    return false;
+  }
   if (isImportBindingIdentifier(parent, node)) {
     return false;
   }

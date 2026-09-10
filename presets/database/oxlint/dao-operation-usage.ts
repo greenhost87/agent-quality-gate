@@ -7,19 +7,19 @@ import {
   productionDaoBindingImportPattern,
 } from './dao-boundaries-shared.ts';
 import {
-  astParentOf,
-  unwrapExpression,
-  walkAstSkippingTypeAndJsxMarkup,
-} from '../../../scripts/oxlint-walk/oxlint-walk.ts';
+  enclosingObject,
+  isDirectCallTarget,
+  namespaceReferenceIsDirectCall,
+} from './dao-operation-call-targets.ts';
+import { astIndex } from '../../../scripts/oxlint-walk/ast-index.ts';
+import { type AstParentOf, unwrapExpression } from '../../../scripts/oxlint-walk/oxlint-walk.ts';
 
-const expressionWrapperTypes = new Set([
-  'ChainExpression',
-  'ParenthesizedExpression',
-  'TSAsExpression',
-  'TSNonNullExpression',
-  'TSSatisfiesExpression',
-  'TSTypeAssertion',
-]);
+export const daoImportKinds = ['named', 'namespace'] as const;
+export type DaoImportKind = (typeof daoImportKinds)[number];
+export type FunctionBinding = {
+  node: ESTree.ArrowFunctionExpression | ESTree.Function;
+  variable: Variable;
+};
 
 function isProductionDaoSource(source: string | null): source is string {
   return (
@@ -92,56 +92,6 @@ function collectDaoImportBindings(
   return bindings;
 }
 
-function wrappedBy(parent: ESTree.Node, child: ESTree.Node): boolean {
-  return (
-    expressionWrapperTypes.has(parent.type) && 'expression' in parent && parent.expression === child
-  );
-}
-
-function isDirectCallTarget(node: ESTree.Node): boolean {
-  let current = node;
-  while (current.parent && wrappedBy(current.parent, current)) {
-    current = current.parent;
-  }
-  return current.parent?.type === 'CallExpression' && current.parent.callee === current;
-}
-
-function namespaceReferenceIsDirectCall(node: ESTree.Node): boolean {
-  if (node.type !== 'Identifier') {
-    return false;
-  }
-  const member = node.parent;
-  return (
-    member.type === 'MemberExpression' &&
-    member.object === node &&
-    !member.computed &&
-    member.property.type === 'Identifier' &&
-    isDirectCallTarget(member)
-  );
-}
-
-function namespaceReferenceIsTestSpyTarget(node: ESTree.Node, isTestFile: boolean): boolean {
-  if (!isTestFile || node.type !== 'Identifier') {
-    return false;
-  }
-  const call = node.parent;
-  return (
-    call.type === 'CallExpression' &&
-    call.arguments[0] === node &&
-    call.callee.type === 'Identifier' &&
-    call.callee.name === 'spyOn'
-  );
-}
-
-function enclosingObject(node: ESTree.Node): ESTree.ObjectExpression | null {
-  for (let current = node.parent; current; current = current.parent) {
-    if (current.type === 'ObjectExpression') {
-      return current;
-    }
-  }
-  return null;
-}
-
 function reportOnce(
   context: Context,
   reported: Set<ESTree.Node>,
@@ -159,20 +109,24 @@ function reportInvalidDaoBindingReferences(
   context: Context,
   bindings: ReadonlyMap<Variable, DaoImportKind>,
   reported: Set<ESTree.Node>,
-  isTestFile: boolean,
+  parentOf: AstParentOf,
 ): void {
   for (const [variable, kind] of bindings) {
     for (const reference of variable.references) {
       const identifier = reference.identifier;
       const valid =
         kind === 'namespace'
-          ? namespaceReferenceIsDirectCall(identifier) ||
-            namespaceReferenceIsTestSpyTarget(identifier, isTestFile)
-          : isDirectCallTarget(identifier);
+          ? namespaceReferenceIsDirectCall(identifier, parentOf)
+          : isDirectCallTarget(identifier, parentOf);
       if (valid) {
         continue;
       }
-      reportOnce(context, reported, enclosingObject(identifier) ?? identifier, 'daoOperationValue');
+      reportOnce(
+        context,
+        reported,
+        enclosingObject(identifier, parentOf) ?? identifier,
+        'daoOperationValue',
+      );
     }
   }
 }
@@ -234,21 +188,21 @@ export function collectFunctionBinding(
 
 function collectFunctionBindings(context: Context, program: ESTree.Program): FunctionBinding[] {
   const bindings: FunctionBinding[] = [];
-  walkAstSkippingTypeAndJsxMarkup(program, (node) => {
+  for (const node of astIndex(program).runtimeNodes()) {
     const binding = functionBinding(context, node);
     if (binding) {
       bindings.push(binding);
     }
-  });
+  }
   return bindings;
 }
 
-function referenceIsInside(root: ESTree.Node, identifier: ESTree.Node): boolean {
-  for (
-    let current: ESTree.Node | null = identifier;
-    current != null;
-    current = astParentOf(current)
-  ) {
+function referenceIsInside(
+  root: ESTree.Node,
+  identifier: ESTree.Node,
+  parentOf: AstParentOf,
+): boolean {
+  for (let current: ESTree.Node | null = identifier; current != null; current = parentOf(current)) {
     if (current === root) {
       return true;
     }
@@ -259,9 +213,10 @@ function referenceIsInside(root: ESTree.Node, identifier: ESTree.Node): boolean 
 function subtreeContainsReference(
   root: ESTree.Node,
   references: ReadonlySet<ESTree.Node>,
+  parentOf: AstParentOf,
 ): boolean {
   for (const reference of references) {
-    if (referenceIsInside(root, reference)) {
+    if (referenceIsInside(root, reference, parentOf)) {
       return true;
     }
   }
@@ -271,6 +226,7 @@ function subtreeContainsReference(
 function daoBackedReferenceNodes(
   daoBindings: ReadonlyMap<Variable, DaoImportKind>,
   functions: readonly FunctionBinding[],
+  parentOf: AstParentOf,
 ): Set<ESTree.Node> {
   const references = new Set<ESTree.Node>();
   for (const variable of daoBindings.keys()) {
@@ -285,7 +241,7 @@ function daoBackedReferenceNodes(
     for (const candidate of functions) {
       if (
         taintedFunctions.has(candidate.variable) ||
-        !subtreeContainsReference(candidate.node, references)
+        !subtreeContainsReference(candidate.node, references, parentOf)
       ) {
         continue;
       }
@@ -383,13 +339,14 @@ function reportExportedDaoFacades(
   bindings: ReadonlyMap<Variable, DaoImportKind>,
   reported: Set<ESTree.Node>,
   functionBindings: readonly FunctionBinding[],
+  parentOf: AstParentOf,
 ): void {
   if (bindings.size === 0) {
     return;
   }
-  const references = daoBackedReferenceNodes(bindings, functionBindings);
+  const references = daoBackedReferenceNodes(bindings, functionBindings, parentOf);
   for (const object of exportedObjectRoots(program)) {
-    if (subtreeContainsReference(object, references)) {
+    if (subtreeContainsReference(object, references, parentOf)) {
       reportOnce(context, reported, object, 'daoOperationFacade');
     }
   }
@@ -398,21 +355,13 @@ function reportExportedDaoFacades(
 export function inspectDaoOperationUsage(
   context: Context,
   program: ESTree.Program,
-  isTestFile: boolean,
   functionBindings: readonly FunctionBinding[] = collectFunctionBindings(context, program),
 ): void {
+  const index = astIndex(program);
+  const parentOf: AstParentOf = (node) => index.parentOf(node);
   const reported = new Set<ESTree.Node>();
   const bindings = collectDaoImportBindings(context, program);
-  reportInvalidDaoBindingReferences(context, bindings, reported, isTestFile);
+  reportInvalidDaoBindingReferences(context, bindings, reported, parentOf);
   reportRuntimeDaoReexports(context, program, reported);
-  reportExportedDaoFacades(context, program, bindings, reported, functionBindings);
+  reportExportedDaoFacades(context, program, bindings, reported, functionBindings, parentOf);
 }
-
-export const daoImportKinds = ['named', 'namespace'] as const;
-
-export type DaoImportKind = (typeof daoImportKinds)[number];
-
-export type FunctionBinding = {
-  node: ESTree.ArrowFunctionExpression | ESTree.Function;
-  variable: Variable;
-};

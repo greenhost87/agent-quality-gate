@@ -13,7 +13,7 @@ import {
 export async function committedMigrationsPreflight(
   projectRoot: string,
 ): Promise<CheckResult | undefined> {
-  const check = verifyCommittedMigrations(projectRoot);
+  const check = await verifyCommittedMigrations(projectRoot);
   if (!check.ok) {
     return failedCheckResult(1, `verify: ${check.error}`);
   }
@@ -22,8 +22,9 @@ export async function committedMigrationsPreflight(
   }
 
   const paths = check.violations.map((violation) => violation.path);
-  await writeCommittedMigrationDiff(projectRoot, captureCommittedMigrationDiff(projectRoot, paths));
-  const restored = restoreCommittedMigrations(projectRoot, paths);
+  const diff = await captureCommittedMigrationDiff(projectRoot, paths);
+  await writeCommittedMigrationDiff(projectRoot, diff);
+  const restored = await restoreCommittedMigrations(projectRoot, paths);
   const lead = restored.ok
     ? 'verify: restored committed migration files'
     : 'verify: committed migration files must not be changed';

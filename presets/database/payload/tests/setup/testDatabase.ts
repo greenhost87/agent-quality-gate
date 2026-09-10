@@ -1,13 +1,11 @@
 import { afterAll, beforeAll, beforeEach } from 'bun:test';
 import { setEnv } from '@/system/config/environment';
+import { closeDatabase } from '@/system/database/connection';
 import {
   dropApplicationDatabase,
   ensureWorkerApplicationDatabase,
   recreateApplicationDatabaseFromTemplate,
 } from './testDatabase.bootstrap';
-
-// Load the production client only after a DB-using suite asks for isolation.
-const { closeDatabase } = await import('@/system/database/connection');
 
 export function useIsolatedTestDatabase(_testId: string): void {
   beforeAll(async () => {

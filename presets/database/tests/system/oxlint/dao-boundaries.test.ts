@@ -43,12 +43,28 @@ test('DAO boundaries reject sql outside DAO implementations', async () => {
 test('DAO boundaries allow sql only in production DAO implementations', async () => {
   await Promise.all([
     expectAllowed('sql-pool-dao', 'system/database/orders/orders.dao.ts'),
+    expectAllowed('function-scope-sql', 'system/database/orders/orders.dao.ts'),
     expectRejected(
       'sql-pool-test-dao',
       'tests/database/orders.dao.ts',
       'Import sql only from production *.dao.ts database implementations.',
     ),
   ]);
+});
+
+test('DAO boundaries reject module-scope sql usage in DAO implementations', async () => {
+  const message =
+    'Construct SQL queries and fragments inside DAO functions; do not use sql at module scope.';
+  const result = await runOxlintFixture(
+    'dao-boundaries/invalid/module-scope-sql',
+    'system/database/orders/orders.dao.ts',
+    rule,
+  );
+  expect(result.status).not.toBe(0);
+  expect(result.output).toContain(message);
+  expect(
+    result.output.match(/Construct SQL queries and fragments inside DAO functions/g),
+  ).toHaveLength(3);
 });
 
 test('DAO boundaries reject the removed getDatabase accessor', async () => {
@@ -346,6 +362,10 @@ test('DAO boundaries allow direct DAO calls, type re-exports, and local dispatch
     expectAllowed('dao-direct-calls', 'system/orders/service.ts'),
     expectAllowed('dao-type-reexport', 'system/orders/service.ts'),
     expectAllowed('dao-local-dispatch-adapter', 'system/orders/service.ts'),
-    expectAllowed('dao-test-spy', 'tests/orders/service.test.ts'),
+    expectRejected(
+      'dao-test-spy',
+      'tests/orders/service.test.ts',
+      'Invoke DAO operations directly; do not expose them as values or re-export them.',
+    ),
   ]);
 });

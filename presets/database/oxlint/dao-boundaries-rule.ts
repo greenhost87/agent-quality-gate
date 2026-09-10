@@ -2,6 +2,12 @@ import { defineRule, type Context, type ESTree } from '@oxlint/plugins';
 
 import type { DaoScanFlags } from './dao-boundaries.ts';
 import {
+  inspectDaoModuleShape,
+  reportDaoProgramFlags,
+  reportIllegalDaoConstruct,
+  requiresBroadDaoScan,
+} from './dao-boundaries-inspect.ts';
+import {
   collectFunctionBinding,
   inspectDaoOperationUsage,
   programUsesDaoOperations,
@@ -16,8 +22,8 @@ import {
   daoImplementationPattern,
   findImportedSpecifier,
   importSource,
-  isDaoClassName,
   isDatabaseLifecycleImport,
+  isModuleScopeSqlUse,
   isUnsafeSqlMember,
   managedMigratePath,
   managedMigrateSatellitePattern,
@@ -35,99 +41,36 @@ import {
   testFilePattern,
   validDaoPlacementPattern,
 } from './dao-boundaries-shared.ts';
-import {
-  attachAstParent,
-  walkAstSkippingTypeAndJsxMarkup,
-} from '../../../scripts/oxlint-walk/oxlint-walk.ts';
+import { isAstNode } from '../../../scripts/oxlint-walk/oxlint-walk.ts';
 
-function reportDaoProgramFlags(context: Context, node: ESTree.Program, flags: DaoScanFlags): void {
-  if (flags.isDatabaseResultHelper) {
-    context.report({ node, messageId: 'daoResultHelper' });
-  }
-  if (flags.isManagedMigrateSatellite) {
-    context.report({ node, messageId: 'migrateSatellite' });
-  }
-  if (flags.isConnectionFile && !flags.isDatabaseFile) {
-    context.report({ node, messageId: 'connectionPlacement' });
-  }
-  if (flags.isDaoFile && (!flags.isDatabaseFile || !flags.hasValidDaoPlacement)) {
-    context.report({ node, messageId: 'placement' });
-  }
-  if (flags.isTestDaoImplementation) {
-    context.report({ node, messageId: 'testDao' });
-  }
-}
-
-function reportIllegalDaoConstruct(context: Context, node: ESTree.NewExpression): void {
-  if (node.callee.type !== 'Identifier' || !isDaoClassName(node.callee.name)) {
-    return;
-  }
-  context.report({ node, messageId: 'daoConstruct' });
-}
-
-function isAllowedDaoExport(node: ESTree.ExportNamedDeclaration): boolean {
-  if (node.exportKind === 'type') {
-    return true;
-  }
-  const declaration = node.declaration;
-  if (declaration === null) {
-    return (
-      node.specifiers.length > 0 &&
-      node.specifiers.every((specifier) => specifier.exportKind === 'type')
-    );
-  }
-  return (
-    declaration.type === 'FunctionDeclaration' ||
-    declaration.type === 'ClassDeclaration' ||
-    declaration.type === 'TSInterfaceDeclaration' ||
-    declaration.type === 'TSTypeAliasDeclaration'
-  );
-}
-
-function sourceMayContainDaoViolation(source: string): boolean {
-  return (
-    /\b[A-Z][A-Za-z0-9]*Dao\b/u.test(source) ||
-    /\b(?:CREATE|ALTER|DROP)\b/iu.test(source) ||
-    /\bunsafe\b/u.test(source)
-  );
-}
-
-function requiresBroadDaoScan(
-  context: Context,
-  flags: DaoScanFlags,
-  inspectOperationUsage: boolean,
-): boolean {
-  return (
-    inspectOperationUsage ||
-    flags.isDatabaseFile ||
-    flags.isProductionDaoImplementation ||
-    sourceMayContainDaoViolation(context.sourceCode.text)
-  );
-}
-
-function inspectDaoModuleShape(context: Context, node: ESTree.Node, flags: DaoScanFlags): void {
-  if (node.type === 'ClassDeclaration' || node.type === 'ClassExpression') {
-    if (
-      flags.isProductionDaoImplementation ||
-      (node.id?.type === 'Identifier' && isDaoClassName(node.id.name))
-    ) {
-      context.report({ node, messageId: 'daoClass' });
-    }
-    return;
-  }
-  if (!flags.isProductionDaoImplementation) {
-    return;
-  }
-  if (node.type === 'ExportNamedDeclaration' && !isAllowedDaoExport(node)) {
-    context.report({ node, messageId: 'daoExport' });
-    return;
-  }
-  if (
-    (node.type === 'ExportAllDeclaration' && node.exportKind !== 'type') ||
-    node.type === 'ExportDefaultDeclaration'
-  ) {
-    context.report({ node, messageId: 'daoExport' });
-  }
+function buildDaoScanFlags(context: Context): DaoScanFlags {
+  const filename = normalizedFilename(context);
+  const relativePath = projectPath(context);
+  const databaseMarker = '/system/database/';
+  const databaseFileIndex = filename.indexOf(databaseMarker);
+  const isDatabaseFile = databaseFileIndex >= 0;
+  const databaseRelativePath = isDatabaseFile
+    ? filename.slice(databaseFileIndex + databaseMarker.length)
+    : '';
+  return {
+    isDatabaseFile,
+    isConnectionFile: connectionFilePattern.test(filename),
+    isTestDatabaseSetup:
+      relativePath === managedTestDatabasePath || relativePath === managedTestDatabaseBootstrapPath,
+    isManagedMigrate: relativePath === managedMigratePath,
+    isManagedMigrateSatellite: managedMigrateSatellitePattern.test(relativePath),
+    isDatabaseResultHelper: databaseResultHelperPattern.test(relativePath),
+    isTestFile: testFilePattern.test(filename),
+    isDaoFile: !testFilePattern.test(filename) && daoFilePattern.test(filename),
+    isProductionDaoImplementation:
+      isDatabaseFile &&
+      !testFilePattern.test(filename) &&
+      daoImplementationPattern.test(databaseRelativePath),
+    isTestDaoImplementation:
+      testFilePattern.test(filename) && daoImplementationPattern.test(filename),
+    hasValidDaoPlacement: validDaoPlacementPattern.test(databaseRelativePath),
+    isMigrationPath: migrationPathPattern.test(relativePath),
+  };
 }
 
 export const daoBoundaries = defineRule({
@@ -157,6 +100,8 @@ export const daoBoundaries = defineRule({
         'Do not rely on Bun SQL count metadata. Add RETURNING to the mutation and inspect the returned rows.',
       unsafeSql:
         'Do not use Bun SQL unsafe outside managed database infrastructure. Use tagged templates and SQL fragments.',
+      moduleScopeSql:
+        'Construct SQL queries and fragments inside DAO functions; do not use sql at module scope.',
       database:
         'Import the database driver only from system/database or tests/setup/testDatabase.ts or tests/setup/testDatabase.bootstrap.ts.',
       placement:
@@ -166,7 +111,32 @@ export const daoBoundaries = defineRule({
     },
   },
   createOnce(context) {
-    function inspectImportDeclaration(node: ESTree.ImportDeclaration, flags: DaoScanFlags): void {
+    let flags: DaoScanFlags = {
+      isDatabaseFile: false,
+      isConnectionFile: false,
+      isTestDatabaseSetup: false,
+      isManagedMigrate: false,
+      isManagedMigrateSatellite: false,
+      isDatabaseResultHelper: false,
+      isTestFile: false,
+      isDaoFile: false,
+      isProductionDaoImplementation: false,
+      isTestDaoImplementation: false,
+      hasValidDaoPlacement: false,
+      isMigrationPath: false,
+    };
+    let sqlLocalNames: ReadonlySet<string> = new Set();
+    let inspectOperationUsage = false;
+    let broadScan = false;
+    let functionBindings: FunctionBinding[] = [];
+
+    function parentOf(node: ESTree.Node): ESTree.Node | null {
+      const ancestors = context.sourceCode.getAncestors(node);
+      const parent: unknown = ancestors[ancestors.length - 1];
+      return isAstNode(parent) ? parent : null;
+    }
+
+    function inspectImportDeclaration(node: ESTree.ImportDeclaration): void {
       const source = importSource(node);
       const databaseAccessSpecifier = findImportedSpecifier(node, 'sql');
       const legacyDatabaseAccessSpecifier = findImportedSpecifier(node, 'getDatabase');
@@ -204,137 +174,154 @@ export const daoBoundaries = defineRule({
       reportDaoImport(context, node, source, flags.isProductionDaoImplementation);
     }
 
-    function inspect(
-      node: ESTree.Node,
-      flags: DaoScanFlags,
-      sqlLocalNames: ReadonlySet<string>,
-    ): void {
-      inspectDaoModuleShape(context, node, flags);
-      switch (node.type) {
-        case 'AssignmentPattern':
-          if (flags.isProductionDaoImplementation && daoFunctionDefault(node)) {
-            context.report({ node, messageId: 'daoDefault' });
-          }
-          break;
-        case 'ImportDeclaration':
-          inspectImportDeclaration(node, flags);
-          break;
-        case 'Literal':
-          reportSqlDdl(
-            context,
-            node,
-            flags.isMigrationPath,
-            flags.isTestDatabaseSetup,
-            flags.isManagedMigrate,
-          );
-          break;
-        case 'MemberExpression':
-          if (
-            !flags.isManagedMigrate &&
-            !flags.isTestDatabaseSetup &&
-            isUnsafeSqlMember(node, sqlLocalNames)
-          ) {
-            context.report({ node, messageId: 'unsafeSql' });
-          }
-          break;
-        case 'NewExpression':
-          reportIllegalDaoConstruct(context, node);
-          break;
-        case 'TemplateElement':
-          reportSqlDdl(
-            context,
-            node,
-            flags.isMigrationPath,
-            flags.isTestDatabaseSetup,
-            flags.isManagedMigrate,
-          );
-          break;
-        case 'TaggedTemplateExpression':
-          if (
-            flags.isDatabaseFile &&
-            !flags.isConnectionFile &&
-            !flags.isManagedMigrate &&
-            sqlResultUsesCountMetadata(node)
-          ) {
-            context.report({ node, messageId: 'sqlCountMetadata' });
-          }
-          break;
-        default:
-          break;
+    function maybeReportModuleScopeSql(node: ESTree.Node): void {
+      if (
+        flags.isProductionDaoImplementation &&
+        isModuleScopeSqlUse(node, sqlLocalNames, parentOf)
+      ) {
+        context.report({ node, messageId: 'moduleScopeSql' });
       }
+    }
+
+    function maybeCollectFunctionBinding(node: ESTree.Node): void {
+      if (!inspectOperationUsage) {
+        return;
+      }
+      const binding = collectFunctionBinding(context, node);
+      if (binding != null) {
+        functionBindings.push(binding);
+      }
+    }
+
+    function visitFunctionBindingCandidate(node: ESTree.Node): void {
+      if (broadScan) {
+        maybeCollectFunctionBinding(node);
+      }
+    }
+
+    function visitSqlDdlCandidate(node: ESTree.Node): void {
+      if (!broadScan) {
+        return;
+      }
+      reportSqlDdl(
+        context,
+        node,
+        flags.isMigrationPath,
+        flags.isTestDatabaseSetup,
+        flags.isManagedMigrate,
+      );
     }
 
     return {
       before() {
-        const filename = normalizedFilename(context);
-        const relativePath = projectPath(context);
-        const databaseMarker = '/system/database/';
-        const databaseFileIndex = filename.indexOf(databaseMarker);
-        const isDatabaseFile = databaseFileIndex >= 0;
-        const databaseRelativePath = isDatabaseFile
-          ? filename.slice(databaseFileIndex + databaseMarker.length)
-          : '';
-        const flags: DaoScanFlags = {
-          isDatabaseFile,
-          isConnectionFile: connectionFilePattern.test(filename),
-          isTestDatabaseSetup:
-            relativePath === managedTestDatabasePath ||
-            relativePath === managedTestDatabaseBootstrapPath,
-          isManagedMigrate: relativePath === managedMigratePath,
-          isManagedMigrateSatellite: managedMigrateSatellitePattern.test(relativePath),
-          isDatabaseResultHelper: databaseResultHelperPattern.test(relativePath),
-          isTestFile: testFilePattern.test(filename),
-          isDaoFile: !testFilePattern.test(filename) && daoFilePattern.test(filename),
-          isProductionDaoImplementation:
-            isDatabaseFile &&
-            !testFilePattern.test(filename) &&
-            daoImplementationPattern.test(databaseRelativePath),
-          isTestDaoImplementation:
-            testFilePattern.test(filename) && daoImplementationPattern.test(filename),
-          hasValidDaoPlacement: validDaoPlacementPattern.test(databaseRelativePath),
-          isMigrationPath: migrationPathPattern.test(relativePath),
-        };
-
+        flags = buildDaoScanFlags(context);
         const program = context.sourceCode.ast;
-        const sqlLocalNames = collectSqlLocalNames(program);
-        const inspectOperationUsage = programUsesDaoOperations(program);
-        reportDaoProgramFlags(context, program, flags);
-        for (const statement of program.body) {
-          if (statement.type === 'ImportDeclaration') {
-            inspectImportDeclaration(statement, flags);
-          }
-        }
-        if (!requiresBroadDaoScan(context, flags, inspectOperationUsage)) {
-          return false;
-        }
-
-        const functionBindings: FunctionBinding[] = [];
-        walkAstSkippingTypeAndJsxMarkup(program, (node, parent) => {
-          if (inspectOperationUsage) {
-            attachAstParent(node, parent);
-          }
-          if (node.type === 'Program' || node.type === 'ImportDeclaration') {
-            return;
-          }
-          inspect(node, flags, sqlLocalNames);
-          if (inspectOperationUsage) {
-            const binding = collectFunctionBinding(context, node);
-            if (binding != null) {
-              functionBindings.push(binding);
-            }
-          }
-        });
-        if (inspectOperationUsage) {
-          inspectDaoOperationUsage(
-            context,
-            context.sourceCode.ast,
-            flags.isTestFile,
-            functionBindings,
-          );
-        }
-        return false;
+        sqlLocalNames = collectSqlLocalNames(program);
+        inspectOperationUsage = programUsesDaoOperations(program);
+        broadScan = requiresBroadDaoScan(context, flags, inspectOperationUsage);
+        functionBindings = [];
+        return undefined;
       },
-      Program() {},
+      Program(node) {
+        reportDaoProgramFlags(context, node, flags);
+      },
+      ImportDeclaration(node) {
+        inspectImportDeclaration(node);
+      },
+      AssignmentPattern(node) {
+        if (!broadScan) {
+          return;
+        }
+        if (flags.isProductionDaoImplementation && daoFunctionDefault(node, parentOf)) {
+          context.report({ node, messageId: 'daoDefault' });
+        }
+      },
+      CallExpression(node) {
+        if (!broadScan) {
+          return;
+        }
+        maybeReportModuleScopeSql(node);
+      },
+      ClassDeclaration(node) {
+        if (!broadScan) {
+          return;
+        }
+        inspectDaoModuleShape(context, node, flags);
+      },
+      ClassExpression(node) {
+        if (!broadScan) {
+          return;
+        }
+        inspectDaoModuleShape(context, node, flags);
+      },
+      ExportAllDeclaration(node) {
+        if (!broadScan) {
+          return;
+        }
+        inspectDaoModuleShape(context, node, flags);
+      },
+      ExportDefaultDeclaration(node) {
+        if (!broadScan) {
+          return;
+        }
+        inspectDaoModuleShape(context, node, flags);
+      },
+      ExportNamedDeclaration(node) {
+        if (!broadScan) {
+          return;
+        }
+        inspectDaoModuleShape(context, node, flags);
+      },
+      FunctionDeclaration(node) {
+        visitFunctionBindingCandidate(node);
+      },
+      Literal(node) {
+        visitSqlDdlCandidate(node);
+      },
+      MemberExpression(node) {
+        if (!broadScan) {
+          return;
+        }
+        maybeReportModuleScopeSql(node);
+        if (
+          !flags.isManagedMigrate &&
+          !flags.isTestDatabaseSetup &&
+          isUnsafeSqlMember(node, sqlLocalNames)
+        ) {
+          context.report({ node, messageId: 'unsafeSql' });
+        }
+      },
+      NewExpression(node) {
+        if (!broadScan) {
+          return;
+        }
+        reportIllegalDaoConstruct(context, node);
+      },
+      TaggedTemplateExpression(node) {
+        if (!broadScan) {
+          return;
+        }
+        maybeReportModuleScopeSql(node);
+        if (
+          flags.isDatabaseFile &&
+          !flags.isConnectionFile &&
+          !flags.isManagedMigrate &&
+          sqlResultUsesCountMetadata(node)
+        ) {
+          context.report({ node, messageId: 'sqlCountMetadata' });
+        }
+      },
+      TemplateElement(node) {
+        visitSqlDdlCandidate(node);
+      },
+      VariableDeclarator(node) {
+        visitFunctionBindingCandidate(node);
+      },
+      after() {
+        if (inspectOperationUsage) {
+          inspectDaoOperationUsage(context, context.sourceCode.ast, functionBindings);
+        }
+      },
     };
   },
 });

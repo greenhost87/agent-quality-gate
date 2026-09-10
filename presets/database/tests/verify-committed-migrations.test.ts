@@ -93,17 +93,17 @@ describe('committed migrations', () => {
       'migrations/001_initial.js',
       'export const up = () => {};\n',
     );
-    expect(verifyCommittedMigrations(missingGit)).toEqual({ ok: true, violations: [] });
+    expect(await verifyCommittedMigrations(missingGit)).toEqual({ ok: true, violations: [] });
 
     const emptyRepo = await makeTempDirectory('aqg-committed-migrations-empty-');
     await runGit(['init', '--quiet', '-b', 'main'], emptyRepo);
     await writeProjectFile(emptyRepo, 'migrations/001_initial.js', 'export const up = () => {};\n');
-    expect(verifyCommittedMigrations(emptyRepo)).toEqual({ ok: true, violations: [] });
+    expect(await verifyCommittedMigrations(emptyRepo)).toEqual({ ok: true, violations: [] });
   });
 
   it('allows committed migrations that still match HEAD', async () => {
     const root = await initRepoWithMigration();
-    expect(verifyCommittedMigrations(root)).toEqual({ ok: true, violations: [] });
+    expect(await verifyCommittedMigrations(root)).toEqual({ ok: true, violations: [] });
   });
 
   it('rejects modified, staged, and deleted committed migration files', async () => {
@@ -113,7 +113,7 @@ describe('committed migrations', () => {
       'migrations/001_initial.js',
       'export const up = () => { /* mutated */ };\n',
     );
-    expect(verifyCommittedMigrations(modified)).toEqual({
+    expect(await verifyCommittedMigrations(modified)).toEqual({
       ok: true,
       violations: [{ path: 'migrations/001_initial.js' }],
     });
@@ -125,14 +125,14 @@ describe('committed migrations', () => {
       'export const up = () => { /* staged */ };\n',
     );
     await runGit(['add', '--', 'migrations/001_initial.js'], staged);
-    expect(verifyCommittedMigrations(staged)).toEqual({
+    expect(await verifyCommittedMigrations(staged)).toEqual({
       ok: true,
       violations: [{ path: 'migrations/001_initial.js' }],
     });
 
     const deleted = await initRepoWithMigration();
     await rm(join(deleted, 'migrations', '001_initial.js'));
-    expect(verifyCommittedMigrations(deleted)).toEqual({
+    expect(await verifyCommittedMigrations(deleted)).toEqual({
       ok: true,
       violations: [{ path: 'migrations/001_initial.js' }],
     });
@@ -142,10 +142,10 @@ describe('committed migrations', () => {
     const root = await initRepoWithMigration();
     await writeProjectFile(root, 'migrations/002_new.js', 'export const up = () => {};\n');
     await writeProjectFile(root, 'src/index.ts', 'export const value = 1;\n');
-    expect(verifyCommittedMigrations(root)).toEqual({ ok: true, violations: [] });
+    expect(await verifyCommittedMigrations(root)).toEqual({ ok: true, violations: [] });
 
     await runGit(['add', '--', 'migrations/002_new.js'], root);
-    expect(verifyCommittedMigrations(root)).toEqual({ ok: true, violations: [] });
+    expect(await verifyCommittedMigrations(root)).toEqual({ ok: true, violations: [] });
   });
 
   it('rejects nested committed migration files and formats violation lines', async () => {
@@ -158,7 +158,7 @@ describe('committed migrations', () => {
       'migrations/helpers/001_nested.js',
       'export const up = () => { /* nested mutated */ };\n',
     );
-    const result = verifyCommittedMigrations(root);
+    const result = await verifyCommittedMigrations(root);
     expect(result).toEqual({
       ok: true,
       violations: [{ path: 'migrations/helpers/001_nested.js' }],
@@ -179,7 +179,7 @@ describe('committed migrations', () => {
       'migrations/001_initial.js',
       'export const up = () => { /* mutated */ };\n',
     );
-    expect(restoreCommittedMigrations(modified, ['migrations/001_initial.js'])).toEqual({
+    expect(await restoreCommittedMigrations(modified, ['migrations/001_initial.js'])).toEqual({
       ok: true,
     });
     expect(await readTextFile(join(modified, 'migrations', '001_initial.js'))).toBe(original);
@@ -191,12 +191,14 @@ describe('committed migrations', () => {
       'export const up = () => { /* staged */ };\n',
     );
     await runGit(['add', '--', 'migrations/001_initial.js'], staged);
-    expect(restoreCommittedMigrations(staged, ['migrations/001_initial.js'])).toEqual({ ok: true });
+    expect(await restoreCommittedMigrations(staged, ['migrations/001_initial.js'])).toEqual({
+      ok: true,
+    });
     expect(await readTextFile(join(staged, 'migrations', '001_initial.js'))).toBe(original);
 
     const deleted = await initRepoWithMigration('migrations/001_initial.js', original);
     await rm(join(deleted, 'migrations', '001_initial.js'));
-    expect(restoreCommittedMigrations(deleted, ['migrations/001_initial.js'])).toEqual({
+    expect(await restoreCommittedMigrations(deleted, ['migrations/001_initial.js'])).toEqual({
       ok: true,
     });
     expect(await pathExists(join(deleted, 'migrations', '001_initial.js'))).toBe(true);
@@ -211,14 +213,16 @@ describe('committed migrations', () => {
       'migrations/001_initial.js',
       'export const up = () => { /* mutated */ };\n',
     );
-    const diff = captureCommittedMigrationDiff(root, ['migrations/001_initial.js']);
+    const diff = await captureCommittedMigrationDiff(root, ['migrations/001_initial.js']);
     expect(await writeCommittedMigrationDiff(root, diff)).toBe(
       RESTORED_MIGRATION_DIFF_RELATIVE_PATH,
     );
     expect(await readTextFile(join(root, RESTORED_MIGRATION_DIFF_RELATIVE_PATH))).toContain(
       '/* mutated */',
     );
-    expect(restoreCommittedMigrations(root, ['migrations/001_initial.js'])).toEqual({ ok: true });
+    expect(await restoreCommittedMigrations(root, ['migrations/001_initial.js'])).toEqual({
+      ok: true,
+    });
     expect(await readTextFile(join(root, 'migrations', '001_initial.js'))).toBe(original);
   });
 });
