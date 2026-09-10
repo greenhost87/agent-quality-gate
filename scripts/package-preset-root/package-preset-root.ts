@@ -17,8 +17,12 @@ function buildEsmBundle(
   cwd: string,
   externalPackages: 'all' | readonly string[],
   target: 'bun' | 'node' = 'bun',
+  minify = false,
 ): void {
   const args = ['build', '--target', target, '--format', 'esm'];
+  if (minify) {
+    args.push('--minify');
+  }
   if (externalPackages === 'all') {
     args.push('--packages', 'external');
   } else {
@@ -33,13 +37,14 @@ function buildEsmBundle(
 /** Bundle a TypeScript Oxlint plugin entry to ESM JS (same externals as baseline release). */
 export function buildOxlintPluginBundle(entry: string, output: string, cwd: string): void {
   // Oxlint loads plugins outside the Bun runtime; keep Node target and no Bun builtins.
-  buildEsmBundle(entry, output, cwd, ['@oxlint/plugins', 'oxc-parser'], 'node');
+  buildEsmBundle(entry, output, cwd, ['@oxlint/plugins', 'oxc-parser'], 'node', true);
 }
 
 function buildCheckModuleBundle(entry: string, output: string, cwd: string): void {
   // Packaged checks load from the installed gate without the source package graph.
-  // Inline npm deps (e.g. valibot via shared catalog helpers); keep Bun/Node builtins.
-  buildEsmBundle(entry, output, cwd, [], 'bun');
+  // TypeScript must retain its installed lib.*.d.ts files for semantic analysis.
+  // Inline other npm deps (e.g. valibot via shared catalog helpers).
+  buildEsmBundle(entry, output, cwd, ['typescript'], 'bun');
 }
 
 async function readManifest(

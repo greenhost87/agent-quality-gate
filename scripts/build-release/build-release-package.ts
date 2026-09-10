@@ -17,9 +17,26 @@ import {
   packagePresetRoot,
 } from '../package-preset-root/package-preset-root.js';
 import { runRequired } from '../run-required/run-required.js';
+import { createCli, parseCli } from '../../process/command/command.js';
+import { Option } from 'commander';
 
 const REPO_ROOT = fileURLToPath(new URL('../..', import.meta.url));
 const ARTIFACTS_DIR = join(REPO_ROOT, 'artifacts');
+
+export function parseReleaseBuildArgs(argv: readonly string[]): boolean | 'help' {
+  const program = createCli('build:release').addOption(
+    new Option('--path-prefixes <mode>', 'Shorten paths in direct model responses only')
+      .choices(['on', 'off'])
+      .default('off'),
+  );
+  if (parseCli(program, argv) === 'help') {
+    process.stdout.write(program.helpInformation());
+    return 'help';
+  }
+  return program.opts<{ pathPrefixes: string }>().pathPrefixes === 'on';
+}
+
+let pathPrefixBuildArgs: readonly string[] = [];
 
 function buildEsmBundle(entry: string, output: string, external: string): void {
   runRequired(
@@ -30,6 +47,7 @@ function buildEsmBundle(entry: string, output: string, external: string): void {
       'bun',
       '--format',
       'esm',
+      ...pathPrefixBuildArgs,
       '--external',
       external,
       entry,
@@ -64,7 +82,17 @@ function buildLibraryEntry(entry: string, output: string): void {
 function buildCursorEntrypoint(entry: string, output: string): void {
   runRequired(
     'bun',
-    ['build', '--target', 'bun', '--format', 'esm', entry, '--outfile', output],
+    [
+      'build',
+      '--target',
+      'bun',
+      '--format',
+      'esm',
+      ...pathPrefixBuildArgs,
+      entry,
+      '--outfile',
+      output,
+    ],
     REPO_ROOT,
     true,
   );
@@ -112,6 +140,7 @@ async function writeReleasePackageJson(releasePackageDir: string): Promise<void>
       './preset-runtime': './dist/extensions/preset-runtime.js',
       './verify': './dist/extensions/public-verify.js',
       './oxlint-walk': './dist/extensions/oxlint-walk.js',
+      './oxlint-walk/ast-index': './dist/extensions/oxlint-walk-ast-index.js',
     },
     peerDependencies: packageJson.peerDependencies,
     peerDependenciesMeta: packageJson.peerDependenciesMeta,
@@ -123,6 +152,7 @@ async function writeReleasePackageJson(releasePackageDir: string): Promise<void>
       'oxlint-plugin-eslint': packageJson.dependencies['oxlint-plugin-eslint'],
       'oxlint-tsgolint': packageJson.dependencies['oxlint-tsgolint'],
       typebox: packageJson.dependencies.typebox,
+      typescript: packageJson.dependencies.typescript,
     },
     files: ['dist', 'README.md', 'LICENSE'],
   };
@@ -189,6 +219,9 @@ async function packageAssetsOxlintConfig(
 }
 
 async function main(): Promise<void> {
+  const pathPrefixes = parseReleaseBuildArgs(process.argv.slice(2));
+  if (pathPrefixes === 'help') return;
+  pathPrefixBuildArgs = ['--define', `AQG_PATH_PREFIXES=${String(pathPrefixes)}`];
   const releasePackageDir = await mkdtemp(join(tmpdir(), 'agent-quality-gate-release-'));
   const releaseDistDir = join(releasePackageDir, 'dist');
   const releaseDistExtensionsDir = join(releaseDistDir, 'extensions');
@@ -226,6 +259,10 @@ async function main(): Promise<void> {
     buildLibraryEntry(
       './scripts/oxlint-walk/oxlint-walk.ts',
       join(releaseDistExtensionsDir, 'oxlint-walk.js'),
+    );
+    buildLibraryEntry(
+      './scripts/oxlint-walk/ast-index.ts',
+      join(releaseDistExtensionsDir, 'oxlint-walk-ast-index.js'),
     );
     const releaseDistCursorDir = join(releaseDistDir, 'cursor');
     const releaseDistClaudeDir = join(releaseDistDir, 'claude');

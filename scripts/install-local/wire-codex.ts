@@ -1,6 +1,7 @@
 import { TOML } from 'bun';
 import * as v from 'valibot';
 
+import { STOP_HOOK_TIMEOUT_SECONDS } from '../../config/tuning/tuning.js';
 import { pathExists, readTextFile, writeTextFile } from '../../process/files/files.js';
 import { readConfigDocument, writeConfigDocument, type ConfigDocument } from './wire-cursor.js';
 import {
@@ -9,7 +10,6 @@ import {
 } from './wire-nested-stop-hooks.js';
 
 const MCP_SERVER_NAME = 'agent-quality-gate';
-const STOP_HOOK_TIMEOUT_SECONDS = 120;
 
 const TomlDocumentSchema = v.looseObject({});
 

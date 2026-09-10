@@ -1,9 +1,9 @@
 import * as v from 'valibot';
 
+import { STOP_HOOK_TIMEOUT_SECONDS } from '../../config/tuning/tuning.js';
 import { pathExists, readJsonFile, writeJsonFile } from '../../process/files/files.js';
 
 const MCP_SERVER_NAME = 'agent-quality-gate';
-const STOP_HOOK_TIMEOUT_SECONDS = 120;
 
 const ConfigDocumentSchema = v.looseObject({});
 

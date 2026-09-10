@@ -64,7 +64,7 @@ describe('resolvePackagedAssetsDirectory', () => {
     const home = mkdtempSync(join(tmpdir(), 'aqg-assets-home-preset-'));
     tempDirectories.push(home);
     const extensionsAssets = join(home, 'install', 'dist', 'extensions', 'assets');
-    const presetDir = join(home, 'presets', 'react-duplication');
+    const presetDir = join(home, 'presets', 'optional-alpha');
     await writeMinimalAssets(extensionsAssets);
     mkdirSync(presetDir, { recursive: true });
     expect(resolvePackagedAssetsDirectory(presetDir)).toBe(extensionsAssets);

@@ -2,6 +2,7 @@ import { mkdirSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { file } from 'bun';
 
+import { FALLOW_VIZ_TIMEOUT_MS } from '../../config/tuning/tuning.js';
 import { fallowCacheEnvironment } from '../../gate/preflight/fallow-analysis.js';
 import { fallowExecutablePath } from '../../gate/execute-verify/verify-tool-run.js';
 import { runCapturedProcess } from '../../process/run-command/run-command.js';
@@ -9,7 +10,6 @@ import { importFanInByPath, parseFallowDot } from './parse-fallow-dot.js';
 
 const CONFIG_BASENAME = 'collapse-types.fallowrc.json';
 const DOT_BASENAME = 'collapse-types.dot';
-const FALLOW_VIZ_TIMEOUT_MS = 120_000;
 
 const DEFAULT_FALLOW_CONFIG = {
   entry: ['**/*.{ts,tsx}'],

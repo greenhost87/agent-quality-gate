@@ -38,14 +38,22 @@ export function fallowConfigPathForProject(projectRoot: string): string {
   return projectScopedArtifactPath('fallow', '{id}.json', projectRoot);
 }
 
-/** Stable path reused by every fallow phase within one verify run (shared extraction cache). */
-export function verifyFallowConfigPathForProject(projectRoot: string): string {
-  return join(resolve(projectRoot), '.aqg', 'fallow', 'verify.json');
+function verifyCachePathForProject(
+  projectRoot: string,
+  tool: 'fallow' | 'oxlint',
+  fileName: string,
+): string {
+  return join(resolve(projectRoot), '.aqg', 'cache', tool, fileName);
 }
 
-/** Stable path reused by every verify run (overwritten in place). */
+/** Persistent generated Fallow config reused across verify runs. */
+export function verifyFallowConfigPathForProject(projectRoot: string): string {
+  return verifyCachePathForProject(projectRoot, 'fallow', 'verify.json');
+}
+
+/** Persistent generated Oxlint config reused across verify runs. */
 export function verifyOxlintConfigPathForProject(projectRoot: string): string {
-  return join(resolve(projectRoot), '.aqg', 'oxlint', 'verify.config.ts');
+  return verifyCachePathForProject(projectRoot, 'oxlint', 'verify.config.ts');
 }
 
 export function projectStableArtifactPath(

@@ -1,0 +1,7 @@
+error packages/other-rule:
+  app/four.ts:1:2: Different message.
+  app/three.ts:1:2: Different message.
+  app/two.ts:1:2: Production modules must not import test modules under tests/.
+app/one.ts:1:2: warning packages/package-boundaries: Production modules must not import test modules under tests/.
+error packages/package-boundaries: Production modules must not import test modules under tests/.
+  app/tests/app/api/telegram/admin-login.test.ts:15:70, app/tests/fabrics/fabric-list-queries.test.ts:4:70, app/tests/fabrics/fabric-list-queries.test.ts:11:8, app/tests/fabrics/fabric-list-queries.test.ts:13:35, app/tests/media/upload-from-app.test.ts:13:70

@@ -83,7 +83,7 @@ export function useExecuteVerifyProjects(): {
     cwd: string,
     entries: readonly string[] = EXECUTE_VERIFY_FIXTURE_ENTRIES,
   ): Promise<VerifyResult> {
-    return executeVerify({
+return await executeVerify({
       projectRoot: cwd,
       entries,
     });

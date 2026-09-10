@@ -1,12 +1,11 @@
 import { afterEach, describe, expect, it } from 'bun:test';
 
 import { getOptionalEnv, setEnv } from '../../../gate/read-env/read-env.js';
+import { isSlowCiRunner, resolveBunTestTimeoutMs } from '../bun-test-timeout.js';
 import {
   DEFAULT_BUN_TEST_TIMEOUT_MS,
-  isSlowCiRunner,
-  resolveBunTestTimeoutMs,
   SLOW_CI_BUN_TEST_TIMEOUT_MS,
-} from '../bun-test-timeout.js';
+} from '../../../config/tuning/tuning.js';
 
 const ENV_KEYS = ['AQG_TEST_TIMEOUT_MS', 'CI', 'RUNNER_OS'] as const;
 

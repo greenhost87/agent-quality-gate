@@ -1,0 +1,2 @@
+error react-presentation/overridable-fixed-props: Fixed wrapper props must follow the forwarded prop spread.
+  app/one.tsx:10:20, app/three.tsx:50:60, app/two.tsx:30:40

@@ -6,18 +6,18 @@ import {
   streamResultFromVerifyResult,
 } from './node_modules/agent-quality-gate/dist/extensions/public-verify.js';
 
-const firstResult = await executeVerify({
+const first = await executeVerify({
   projectRoot: process.cwd(),
   entries: ['src/index.ts'],
   presets: ['config'],
 });
-const first = streamResultFromVerifyResult(firstResult);
+const firstStreams = streamResultFromVerifyResult(first);
 if (
   first.exitCode !== 1 ||
-  !first.stderr.includes('managed preset files do not match') ||
-  !first.stderr.includes('example .aqg/config/system/config/environment.ts')
+  !firstStreams.stderr.includes('managed preset files do not match') ||
+  !firstStreams.stderr.includes('example .aqg/config/system/config/environment.ts')
 ) {
-  console.error(JSON.stringify(first));
+  console.error(JSON.stringify({ first, firstStreams }));
   process.exit(2);
 }
 
@@ -26,14 +26,14 @@ const managedPath = join(process.cwd(), 'system', 'config', 'environment.ts');
 await mkdir(join(process.cwd(), 'system', 'config'), { recursive: true });
 await Bun.write(managedPath, await Bun.file(examplePath).text());
 
-const secondResult = await executeVerify({
+const second = await executeVerify({
   projectRoot: process.cwd(),
   entries: ['src/index.ts'],
   presets: ['config'],
 });
-const second = streamResultFromVerifyResult(secondResult);
-const diagnostics = `${second.stdout}\n${second.stderr}`;
+const secondStreams = streamResultFromVerifyResult(second);
+const diagnostics = `${secondStreams.stdout}\n${secondStreams.stderr}`;
 if (second.exitCode === 0 || !diagnostics.includes('environment-boundaries')) {
-  console.error(JSON.stringify(second));
+  console.error(JSON.stringify({ second, secondStreams }));
   process.exit(3);
 }

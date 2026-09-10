@@ -33,6 +33,7 @@ export type OxlintConfig = v.InferOutput<typeof OxlintConfigSchema>;
 export type OxlintJsPlugin = v.InferOutput<typeof OxlintJsPluginSchema>;
 
 const FallowConfigSchema = v.looseObject({
+  rules: v.optional(v.looseObject({})),
   entry: v.optional(v.array(v.string())),
   ignorePatterns: v.optional(v.array(v.string())),
   ignoreDependencies: v.optional(v.array(v.string())),
@@ -40,8 +41,7 @@ const FallowConfigSchema = v.looseObject({
 
 export type FallowConfig = v.InferOutput<typeof FallowConfigSchema>;
 
-export function readOxlintConfig(cwd: string): OxlintConfig {
-  const configPath = join(cwd, OXLINT_CONFIG_NAME);
+export function readOxlintConfigFile(configPath: string): OxlintConfig {
   let loaded: unknown;
   try {
     const configModule: unknown = loadModule(configPath);
@@ -59,6 +59,10 @@ export function readOxlintConfig(cwd: string): OxlintConfig {
     );
   }
   return structuredClone(result.output);
+}
+
+export function readOxlintConfig(cwd: string): OxlintConfig {
+  return readOxlintConfigFile(join(cwd, OXLINT_CONFIG_NAME));
 }
 
 export async function readFallowConfigFile(path: string, name: string): Promise<FallowConfig> {

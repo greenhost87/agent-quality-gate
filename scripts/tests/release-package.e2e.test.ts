@@ -1,4 +1,4 @@
-import { copyFile, mkdir, mkdtemp, rm } from 'node:fs/promises';
+import { copyFile, mkdir, mkdtemp, readdir, rm } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -10,6 +10,7 @@ import { afterAll, describe, expect, it } from 'bun:test';
 import { spawn } from 'bun';
 
 import packageJson from '../../package.json' with { type: 'json' };
+import { SHIPPED_PRESET_NAMES } from '../../preset-catalog/catalog/preset-catalog.js';
 import { createEnv, getOptionalEnv } from '../../gate/read-env/read-env.js';
 import { useIsolatedAgentQualityGateHome } from '../../tests/support/isolated-home.js';
 import { fixturePath, readFixture } from '../../tests/support/fixture-files.js';
@@ -150,9 +151,11 @@ describe('release package', () => {
     await readTextFile(join(installedPackage, 'dist', 'extensions', 'preset-runtime.js'));
     await readTextFile(join(installedPackage, 'dist', 'extensions', 'public-verify.js'));
     await readTextFile(join(installedPackage, 'dist', 'extensions', 'oxlint-walk.js'));
+    await readTextFile(join(installedPackage, 'dist', 'extensions', 'oxlint-walk-ast-index.js'));
     expect(installedPackageJson).toContain('"./preset-runtime"');
     expect(installedPackageJson).toContain('"./verify"');
     expect(installedPackageJson).toContain('"./oxlint-walk"');
+    expect(installedPackageJson).toContain('"./oxlint-walk/ast-index"');
   });
 
   it('reports managed file mismatches and enforces preset rules from the installed package', async () => {
@@ -221,8 +224,9 @@ describe('release package', () => {
     const verifyBundle = await readTextFile(
       join(installedPackage, 'dist', 'extensions', 'verify.js'),
     );
-    expect(verifyBundle).not.toContain('presentation-duplication:');
-    expect(verifyBundle).not.toContain('live-ui-surface:');
+    expect(verifyBundle).not.toContain('baselinePresetRepositoryVerifyRequest');
+    const packagedPresetNames = (await readdir(join(installedPackage, 'dist', 'presets'))).sort();
+    expect(packagedPresetNames).toEqual([...SHIPPED_PRESET_NAMES].sort());
     const databaseCheck = await readTextFile(
       join(installedPackage, 'dist', 'presets', 'database', 'check.js'),
     );
