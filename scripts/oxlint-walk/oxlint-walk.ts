@@ -1,6 +1,7 @@
 import { type ESTree } from '@oxlint/plugins';
 import * as v from 'valibot';
 
+import { astIndex } from './ast-index.ts';
 import { forEachAstChild, isLooseAstNode, UnknownArraySchema } from './ast-node-schema.ts';
 
 export function isAstNode(value: unknown): value is ESTree.Node {
@@ -27,6 +28,8 @@ export function childNodes(
 export function attachAstParent(node: ESTree.Node, parent: ESTree.Node | null): void {
   Reflect.set(node, 'parent', parent);
 }
+
+export type AstParentOf = (node: ESTree.Node) => ESTree.Node | null;
 
 export function astParentOf(node: ESTree.Node): ESTree.Node | null {
   const parent: unknown = Reflect.get(node, 'parent');
@@ -133,6 +136,21 @@ export function walkAstSkippingTypeAndJsxMarkup(
   walkAst(root, visit, { skipKeys: TYPE_SUBTREE_KEYS, skipJsxMarkup: true });
 }
 
+/** Program roots use the shared index; other roots keep a targeted walk. */
+export function forEachRuntimeAstNode(
+  root: ESTree.Node,
+  visit: (node: ESTree.Node, parent: ESTree.Node | null) => void,
+): void {
+  if (root.type === 'Program') {
+    const index = astIndex(root);
+    for (const node of index.runtimeNodes()) {
+      visit(node, index.parentOf(node));
+    }
+    return;
+  }
+  walkAstSkippingTypeAndJsxMarkup(root, visit);
+}
+
 export function walkJsxSurfaceNodes(
   root: ESTree.Node,
   visit: (node: ESTree.JSXOpeningElement | ESTree.JSXAttribute) => void,
@@ -195,6 +213,15 @@ export function forEachParamList(
   root: ESTree.Node,
   visit: (params: readonly ESTree.Node[]) => void,
 ): void {
+  if (root.type === 'Program') {
+    for (const node of astIndex(root).runtimeNodes()) {
+      const params = nodeParams(node);
+      if (params != null) {
+        visit(params);
+      }
+    }
+    return;
+  }
   walkAstSkippingTypeSubtrees(root, (node) => {
     const params = nodeParams(node);
     if (params != null) {
@@ -217,23 +244,47 @@ export function eachParamUnion(
   });
 }
 
+function visitFunctionParams(
+  node: ESTree.Node,
+  visit: (params: readonly ESTree.Node[], owner: ESTree.Node) => void,
+): void {
+  const params = nodeParams(node);
+  if (params != null) {
+    visit(params, node);
+  }
+}
+
+/** Typed visitors for runtime function-like nodes that own a `params` list. */
+export function functionParamVisitors(
+  visit: (params: readonly ESTree.Node[], owner: ESTree.Node) => void,
+): {
+  FunctionDeclaration: (node: ESTree.Node) => void;
+  FunctionExpression: (node: ESTree.Node) => void;
+  ArrowFunctionExpression: (node: ESTree.Node) => void;
+} {
+  const onFunction = (node: ESTree.Node): void => {
+    visitFunctionParams(node, visit);
+  };
+  return {
+    FunctionDeclaration: onFunction,
+    FunctionExpression: onFunction,
+    ArrowFunctionExpression: onFunction,
+  };
+}
+
 export function paramUnionBeforeVisitors(
   context: {
-    sourceCode: { ast: ESTree.Node };
     report: (diagnostic: { node: ESTree.Node; messageId: string }) => void;
   },
   messageId: string,
   matches: (union: ESTree.TSUnionType) => boolean,
-): { before: () => false; Program: () => void } {
-  return {
-    before() {
-      eachParamUnion(context.sourceCode.ast, (union) => {
-        if (matches(union)) {
-          context.report({ node: union, messageId });
-        }
-      });
-      return false;
-    },
-    Program() {},
-  };
+): ReturnType<typeof functionParamVisitors> {
+  return functionParamVisitors((params) => {
+    for (const param of params) {
+      const union = paramUnionType(param);
+      if (union != null && matches(union)) {
+        context.report({ node: union, messageId });
+      }
+    }
+  });
 }

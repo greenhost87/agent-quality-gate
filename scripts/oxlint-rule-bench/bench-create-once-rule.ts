@@ -1,10 +1,19 @@
 import { bench, run } from 'mitata';
-import type { Diagnostic, Options, VisitorWithHooks } from '@oxlint/plugins';
+import type { Diagnostic, ESTree, Options, Ranged, VisitorWithHooks } from '@oxlint/plugins';
+import type { Program } from 'oxc-parser';
 
+import { astIndex, astIndexBuildStats, resetAstIndexBuildCount } from '../oxlint-walk/ast-index.ts';
+import { isAstNode, walkAst } from '../oxlint-walk/oxlint-walk.ts';
 import { bindCaseToContext, createBenchRuleContext } from './create-bench-context.js';
 import { parseFixture, walkProgram } from './parse-and-walk.js';
 import { requireCreateOnceRule } from './require-create-once-rule.js';
-import type { Program } from 'oxc-parser';
+
+function walkProgramRoot(program: Program) {
+  if (!isAstNode(program)) {
+    throw new Error('expected AST node');
+  }
+  return program;
+}
 
 function preparedFilename(input: BenchCaseInput, index: number): string {
   return input.filename ?? `/bench/case-${index}.ts`;
@@ -68,7 +77,7 @@ export async function benchCreateOnceRule(input: BenchCreateOnceRuleInput): Prom
   await benchCreateOnceRules([input]);
 }
 
-export async function benchCreateOnceRules(inputs: BenchCreateOnceRuleInput[]): Promise<void> {
+export function registerCreateOnceRules(inputs: BenchCreateOnceRuleInput[]): void {
   for (const input of inputs) {
     const prepared = prepareReplay(input);
     for (const [index, benchCase] of prepared.cases.entries()) {
@@ -77,7 +86,177 @@ export async function benchCreateOnceRules(inputs: BenchCreateOnceRuleInput[]): 
       });
     }
   }
+}
 
+export async function benchCreateOnceRules(inputs: BenchCreateOnceRuleInput[]): Promise<void> {
+  registerCreateOnceRules(inputs);
+  await run();
+}
+
+function prepareSharedAstReplay(input: BenchSharedAstInput): PreparedSharedAstReplay {
+  const parsed = parseFixture(input.filename, input.code);
+  const cwd = input.cwd ?? '/bench';
+  return {
+    name: input.name,
+    filename: input.filename,
+    cwd,
+    code: parsed.code,
+    program: parsed.program,
+    rules: input.rules.map((ruleInput) => {
+      const context = createBenchRuleContext(ruleInput.ruleId);
+      const visitors = requireCreateOnceRule(ruleInput.rule)(context);
+      return {
+        name: ruleInput.name,
+        context,
+        visitors,
+        options: ruleInput.options ?? [],
+      };
+    }),
+  };
+}
+
+export function replaySharedAstPrepared(prepared: PreparedSharedAstReplay): void {
+  for (const rule of prepared.rules) {
+    bindCaseToContext(rule.context, {
+      filename: prepared.filename,
+      cwd: prepared.cwd,
+      code: prepared.code,
+      program: prepared.program,
+      options: rule.options,
+    });
+    if (rule.visitors.before?.() === false) {
+      continue;
+    }
+    walkProgram(prepared.program, rule.visitors);
+    rule.visitors.after?.();
+  }
+}
+
+/** Register a bench that runs multiple createOnce rules against one freshly parsed AST. */
+export function registerSharedAstCreateOnceRules(
+  input: BenchSharedAstInput,
+): PreparedSharedAstReplay {
+  const prepared = prepareSharedAstReplay(input);
+  bench(`${input.name}/shared-ast-all-rules`, () => {
+    replaySharedAstPrepared(prepared);
+  });
+  return prepared;
+}
+
+export async function benchSharedAstCreateOnceRules(input: BenchSharedAstInput): Promise<void> {
+  registerSharedAstCreateOnceRules(input);
+  await run();
+}
+
+export function registerAggregateSameAstBenches(
+  program: Program,
+  label = 'aggregate-same-ast',
+): void {
+  const candidateTypes = [
+    'CallExpression',
+    'ClassDeclaration',
+    'ClassExpression',
+    'ImportExpression',
+    'TSInterfaceDeclaration',
+    'VariableDeclarator',
+    'TSIndexedAccessType',
+    'ObjectExpression',
+    'BinaryExpression',
+    'Literal',
+    'TemplateLiteral',
+  ] as const;
+  const root = walkProgramRoot(program);
+
+  bench(`${label}/repeated-whole-program-walks`, () => {
+    for (const type of candidateTypes) {
+      walkAst(root, (node) => {
+        void (node.type === type);
+      });
+    }
+  });
+
+  bench(`${label}/shared-indexed-dispatch`, () => {
+    const index = astIndex(program);
+    for (const type of candidateTypes) {
+      void index.nodesOfType(type).length;
+    }
+  });
+}
+
+export function measureAggregateSameAst(program: Program): AggregateSameAstResult {
+  const candidateTypes = [
+    'CallExpression',
+    'ClassDeclaration',
+    'ClassExpression',
+    'ImportExpression',
+    'TSInterfaceDeclaration',
+    'VariableDeclarator',
+    'TSIndexedAccessType',
+    'ObjectExpression',
+    'BinaryExpression',
+    'Literal',
+    'TemplateLiteral',
+  ] as const;
+  const root = walkProgramRoot(program);
+
+  const walkStarted = performance.now();
+  let walkHits = 0;
+  for (const type of candidateTypes) {
+    walkAst(root, (node) => {
+      if (node.type === type) {
+        walkHits += 1;
+      }
+    });
+  }
+  const repeatedWalkMs = performance.now() - walkStarted;
+
+  resetAstIndexBuildCount();
+  const indexStarted = performance.now();
+  const index = astIndex(program);
+  let indexedHits = 0;
+  for (const type of candidateTypes) {
+    indexedHits += index.nodesOfType(type).length;
+  }
+  const sharedIndexMs = performance.now() - indexStarted;
+
+  return {
+    candidatePasses: candidateTypes.length,
+    repeatedWalkMs,
+    sharedIndexMs,
+    walkHits,
+    indexedHits,
+    indexBuilds: astIndexBuildStats().builds,
+  };
+}
+
+export function measureAggregateSameAstFixture(
+  filename: string,
+  code: string,
+): AggregateSameAstResult {
+  return measureAggregateSameAst(parseFixture(filename, code).program);
+}
+
+export function registerAggregateSameAstFixtureBenches(
+  filename: string,
+  code: string,
+  label = 'aggregate-same-ast',
+): void {
+  registerAggregateSameAstBenches(parseFixture(filename, code).program, label);
+}
+
+export function formatAggregateSameAstResult(result: AggregateSameAstResult): string {
+  return [
+    'aggregate-same-ast',
+    `candidatePasses=${result.candidatePasses}`,
+    `indexBuilds=${result.indexBuilds}`,
+    `walkHits=${result.walkHits}`,
+    `indexedHits=${result.indexedHits}`,
+    `repeatedWalkMs=${result.repeatedWalkMs.toFixed(3)}`,
+    `sharedIndexMs=${result.sharedIndexMs.toFixed(3)}`,
+  ].join(' ');
+}
+
+export async function runRegisteredBenches(): Promise<void> {
   await run();
 }
 
@@ -134,17 +313,20 @@ export type BenchScope = {
   functionExpressionScope: boolean;
 };
 
+export type BenchGetTextArgs =
+  | []
+  | [node: Ranged | null]
+  | [node: Ranged | null, beforeCount: number | null]
+  | [node: Ranged | null, beforeCount: number | null, afterCount: number | null];
+
 export type BenchSourceCode = {
   readonly text: string;
   readonly hasBOM: boolean;
   readonly ast: Program;
   readonly isESTree: true;
-  getText(
-    node?: { range?: [number, number]; start?: number; end?: number } | null,
-    beforeCount?: number | null,
-    afterCount?: number | null,
-  ): string;
+  getText: (...args: BenchGetTextArgs) => string;
   getScope(node: object): BenchScope;
+  getAncestors(node: ESTree.Node): object[];
 };
 
 export type BenchRuleContext = {
@@ -175,14 +357,6 @@ export type ParsedProgram = {
   program: Program;
 };
 
-export type AstNode = {
-  type: string;
-  parent?: AstNode | null;
-  [key: string]: AstNode | AstNode[] | string | number | boolean | null | undefined;
-};
-
-export type AstChildValue = AstNode | readonly unknown[] | string | number | boolean | null;
-
 export type PreparedCase = {
   name: string;
   filename: string;
@@ -204,4 +378,44 @@ export type PreparedReplay = {
   visitors: VisitorWithHooks;
   context: BenchRuleContext;
   cases: PreparedCase[];
+};
+
+export type SharedAstRuleInput = {
+  name: string;
+  ruleId: string;
+  rule: object;
+  options?: Options;
+};
+
+export type BenchSharedAstInput = {
+  name: string;
+  filename: string;
+  code: string;
+  cwd?: string;
+  rules: SharedAstRuleInput[];
+};
+
+export type PreparedSharedAstRule = {
+  name: string;
+  context: BenchRuleContext;
+  visitors: VisitorWithHooks;
+  options: Options;
+};
+
+export type PreparedSharedAstReplay = {
+  name: string;
+  filename: string;
+  cwd: string;
+  code: string;
+  program: Program;
+  rules: PreparedSharedAstRule[];
+};
+
+export type AggregateSameAstResult = {
+  candidatePasses: number;
+  repeatedWalkMs: number;
+  sharedIndexMs: number;
+  walkHits: number;
+  indexedHits: number;
+  indexBuilds: number;
 };

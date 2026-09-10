@@ -1,7 +1,9 @@
 import type { Diagnostic } from '@oxlint/plugins';
 import type { Program } from 'oxc-parser';
+import * as v from 'valibot';
 
 import type {
+  BenchGetTextArgs,
   BenchRuleContext,
   BenchScope,
   BenchSourceCode,
@@ -52,6 +54,17 @@ function emptyModuleScope(block: Program): BenchScope {
   return scope;
 }
 
+function benchSourceText(state: MutableFileState, ...args: BenchGetTextArgs): string {
+  const [node, beforeCount, afterCount] = args;
+  if (node == null) {
+    return state.code;
+  }
+  const [start, end] = node.range;
+  const from = Math.max(0, start - (beforeCount ?? 0));
+  const to = Math.min(state.code.length, end + (afterCount ?? 0));
+  return state.code.slice(from, to);
+}
+
 function createSourceCode(state: MutableFileState): BenchSourceCode {
   return {
     get text() {
@@ -64,21 +77,18 @@ function createSourceCode(state: MutableFileState): BenchSourceCode {
       return state.program;
     },
     isESTree: true,
-    getText(node, beforeCount, afterCount) {
-      if (node == null) {
-        return state.code;
-      }
-      const start = node.range?.[0] ?? node.start;
-      const end = node.range?.[1] ?? node.end;
-      if (typeof start !== 'number' || typeof end !== 'number') {
-        throw new Error('bench sourceCode.getText requires node range or start/end');
-      }
-      const from = Math.max(0, start - (beforeCount ?? 0));
-      const to = Math.min(state.code.length, end + (afterCount ?? 0));
-      return state.code.slice(from, to);
-    },
+    getText: (...args) => benchSourceText(state, ...args),
     getScope() {
       return emptyModuleScope(state.program);
+    },
+    getAncestors(node) {
+      const ancestors: object[] = [];
+      let current: unknown = Reflect.get(node, 'parent');
+      while (v.is(v.looseObject({}), current)) {
+        ancestors.unshift(current);
+        current = Reflect.get(current, 'parent');
+      }
+      return ancestors;
     },
   };
 }
