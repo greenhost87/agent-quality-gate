@@ -63,20 +63,17 @@ export const noTrivialValibotSchemaAlias = defineRule({
     },
   },
   createOnce(context) {
+    let bindings: ValibotBindings = { namespaces: new Set(), named: new Map() };
     return {
       before() {
-        const bindings = collectValibotBindings(context.sourceCode.ast);
-        for (const statement of context.sourceCode.ast.body) {
-          if (statement.type !== 'ExportNamedDeclaration') {
-            continue;
-          }
-          for (const declarator of exportedConstDeclarators(statement)) {
-            reportTrivialAlias(context, declarator, bindings);
-          }
-        }
-        return false;
+        bindings = collectValibotBindings(context.sourceCode.ast);
+        return undefined;
       },
-      Program() {},
+      ExportNamedDeclaration(node) {
+        for (const declarator of exportedConstDeclarators(node)) {
+          reportTrivialAlias(context, declarator, bindings);
+        }
+      },
     };
   },
 });

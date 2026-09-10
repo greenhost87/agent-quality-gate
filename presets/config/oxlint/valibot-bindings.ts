@@ -1,6 +1,13 @@
 import type { ESTree } from '@oxlint/plugins';
+import * as v from 'valibot';
 
 const VALIBOT_SOURCES = new Set(['valibot', 'valibot/']);
+const CONFIG_BINDINGS_PROP = Symbol.for('agent-quality-gate.valibot.configBindings');
+
+const ValibotBindingsSchema = v.object({
+  namespaces: v.instance(Set),
+  named: v.instance(Map),
+});
 
 function isValibotSource(source: string): boolean {
   return VALIBOT_SOURCES.has(source) || source.startsWith('valibot/');
@@ -30,7 +37,7 @@ function collectFromImportDeclaration(
   }
 }
 
-export function collectValibotBindings(program: ESTree.Program): ValibotBindings {
+function buildValibotBindings(program: ESTree.Program): ValibotBindings {
   const namespaces = new Set<string>();
   const named = new Map<string, string>();
 
@@ -41,6 +48,20 @@ export function collectValibotBindings(program: ESTree.Program): ValibotBindings
   }
 
   return { namespaces, named };
+}
+
+function isValibotBindings(value: unknown): value is ValibotBindings {
+  return v.is(ValibotBindingsSchema, value);
+}
+
+export function collectValibotBindings(program: ESTree.Program): ValibotBindings {
+  const cached: unknown = Reflect.get(program, CONFIG_BINDINGS_PROP);
+  if (isValibotBindings(cached)) {
+    return cached;
+  }
+  const built = buildValibotBindings(program);
+  Reflect.set(program, CONFIG_BINDINGS_PROP, built);
+  return built;
 }
 
 export function calleeExportName(callee: ESTree.Node, bindings: ValibotBindings): string | null {

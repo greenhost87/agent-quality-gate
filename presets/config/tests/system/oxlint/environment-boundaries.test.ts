@@ -41,3 +41,18 @@ test('environment boundaries allow consumers of the environment module', async (
   expect(result.output).toBe('');
   expect(result.status).toBe(0);
 });
+
+test('environment boundaries allow process.env.NEXT_RUNTIME only in instrumentation.ts', async () => {
+  const allowed = await runOxlintFixture(
+    'environment-boundaries/valid/instrumentation-next-runtime',
+    'instrumentation.ts',
+    rule,
+  );
+  expect(allowed.output).toBe('');
+  expect(allowed.status).toBe(0);
+
+  await Promise.all([
+    expectRejected('instrumentation-other-env', 'instrumentation.ts'),
+    expectRejected('next-runtime-outside-instrumentation', 'system/orders/service.ts'),
+  ]);
+});

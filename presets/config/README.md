@@ -38,6 +38,8 @@ Outside `system/config/environment.ts`, these patterns fail lint:
 - `process.env…`
 - `const { env } = process` / assignment destructuring of `process.env`
 
+Exception: `instrumentation.ts` may read `process.env.NEXT_RUNTIME` only (Next.js Edge/Node split). Any other env key there still fails.
+
 ## Valibot rules
 
 With this preset, oxlint also rejects:

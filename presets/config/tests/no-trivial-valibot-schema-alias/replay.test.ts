@@ -3,10 +3,9 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 import { replayCreateOnceRule } from 'agent-quality-gate/oxlint-rule-bench';
-import { createBenchRuleContext } from 'agent-quality-gate/oxlint-rule-bench/create-bench-context';
 import { HOT } from 'agent-quality-gate/oxlint-rule-bench/hot-code';
-import { requireCreateOnceRule } from 'agent-quality-gate/oxlint-rule-bench/require-create-once-rule';
 
+import { itRegistersTypedVisitors } from '../support/expect-typed-visitors.ts';
 import { noTrivialValibotSchemaAliasBench } from './bench.ts';
 
 const nonEmptyPipeFixture = readFileSync(
@@ -17,14 +16,12 @@ const nonEmptyPipeFixture = readFileSync(
   'utf8',
 );
 
-describe('no-trivial-valibot-schema-alias before skip', () => {
-  it('runs the scan in before and skips the visitor walk', () => {
-    const createOnce = requireCreateOnceRule(noTrivialValibotSchemaAliasBench.rule);
-    const context = createBenchRuleContext(noTrivialValibotSchemaAliasBench.ruleId);
-    context.state.filename = '/bench/system/config/schema.ts';
-    const visitors = createOnce(context);
-    expect(visitors.before?.()).toBe(false);
-  });
+describe('no-trivial-valibot-schema-alias visitors', () => {
+  itRegistersTypedVisitors(
+    noTrivialValibotSchemaAliasBench.rule,
+    noTrivialValibotSchemaAliasBench.ruleId,
+    ['ExportNamedDeclaration'],
+  );
 });
 
 describe('no-trivial-valibot-schema-alias reports', () => {
