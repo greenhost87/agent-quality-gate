@@ -174,8 +174,7 @@ export async function testLocalPresetPacks(
   projectRoot: string,
   options?: TestLocalPresetPacksOptions,
 ): Promise<StreamResult> {
-  const exclude =
-    options?.exclude === null ? undefined : (options?.exclude ?? ROOT_TEST_COVERED_PACKS);
+  const exclude = options?.exclude ?? ROOT_TEST_COVERED_PACKS;
   return runLocalPresetPackScript({
     projectRoot,
     scriptName: options?.scriptName ?? 'test',
@@ -198,7 +197,7 @@ export async function testLocalPresetPackIntegrations(projectRoot: string): Prom
     scriptName: 'test:integration',
     failureKind: 'integration',
     okSuffix: ' integration',
-    exclude: null,
+    exclude: new Set(),
   });
 }
 
@@ -216,5 +215,5 @@ export type TestLocalPresetPacksOptions = {
   scriptName?: string;
   failureKind?: string;
   okSuffix?: string;
-  exclude?: ReadonlySet<string> | null;
+  exclude?: ReadonlySet<string>;
 };

@@ -141,7 +141,13 @@ export default defineConfig({
             minimumDescriptionLength: 10,
           },
         ],
-        'typescript/no-empty-object-type': 'error',
+        'typescript/no-empty-object-type': [
+          'error',
+          {
+            allowInterfaces: 'always',
+            allowObjectTypes: 'never',
+          },
+        ],
         'eslint-js/no-restricted-syntax': [
           'error',
           {
@@ -152,12 +158,6 @@ export default defineConfig({
             selector: 'ExportNamedDeclaration > ExportSpecifier',
             message:
               'Do not create export proxy declarations. Export symbols where they are declared.',
-          },
-          {
-            selector:
-              "CallExpression[callee.object.name='JSON'][callee.property.name='parse'][arguments.0.type='CallExpression'][arguments.0.callee.object.name='JSON'][arguments.0.callee.property.name='stringify']",
-            message:
-              'Do not use JSON.parse(JSON.stringify(...)) to normalize values. Compare with toEqual directly, or transform only the received value when persistence changed its shape.',
           },
         ],
       },
@@ -183,7 +183,7 @@ export default defineConfig({
         'typescript/no-empty-object-type': [
           'error',
           {
-            allowInterfaces: 'with-single-extends',
+            allowInterfaces: 'always',
             allowObjectTypes: 'never',
           },
         ],
@@ -298,7 +298,7 @@ export default defineConfig({
           },
           {
             selector:
-              'TSTypeReference[typeName.name=/^(Pick|Omit|Partial|NonNullable)$/], TSExpressionWithTypeArguments[expression.name=/^(Pick|Omit|Partial|NonNullable)$/], TSClassImplements[expression.name=/^(Pick|Omit|Partial|NonNullable)$/]',
+              'TSTypeReference[typeName.name=/^(Pick|Omit|Partial|NonNullable)$/], TSExpressionWithTypeArguments[expression.name=/^(Pick|Omit|Partial|NonNullable)$/], TSInterfaceHeritage[expression.name=/^(Pick|Omit|Partial|NonNullable)$/], TSClassImplements[expression.name=/^(Pick|Omit|Partial|NonNullable)$/]',
             message:
               'Do not use Pick, Omit, Partial, or NonNullable. Write the explicit object shape.',
           },
@@ -306,21 +306,11 @@ export default defineConfig({
             selector: 'TSIntersectionType',
             message: 'Do not use intersection types. Write one explicit named shape.',
           },
-          {
-            selector:
-              "CallExpression[callee.object.name='JSON'][callee.property.name='parse'][arguments.0.type='CallExpression'][arguments.0.callee.object.name='JSON'][arguments.0.callee.property.name='stringify']",
-            message:
-              'Do not use JSON.parse(JSON.stringify(...)) to normalize values. Compare with toEqual directly, or transform only the received value when persistence changed its shape.',
-          },
         ],
       },
     },
     {
-      files: [
-        '**/load-preset-check.ts',
-        '**/load-preset-gate-config.ts',
-        '**/tests/setup/testDatabase.ts',
-      ],
+      files: ['**/load-preset-check.ts', '**/load-preset-gate-config.ts'],
       rules: {
         'aqg/no-dynamic-import': 'off',
       },

@@ -27,22 +27,24 @@ export type SessionStartEvent = {
   reason: string;
 };
 
+export type QualityGateToolDefinition = {
+  name: string;
+  label: string;
+  description: string;
+  parameters: object;
+  promptSnippet: string;
+  promptGuidelines: string[];
+  execute: (
+    toolCallId: string,
+    params: EmptyToolParams,
+    signal: AbortSignal,
+    onUpdate: ((message: string) => void) | undefined,
+    ctx: QualityGateExtensionContext,
+  ) => Promise<QualityGateToolResult>;
+};
+
 export type QualityGateExtensionApi = {
-  registerTool(definition: {
-    name: string;
-    label: string;
-    description: string;
-    parameters: object;
-    promptSnippet: string;
-    promptGuidelines: string[];
-    execute: (
-      toolCallId: string,
-      params: EmptyToolParams,
-      signal: AbortSignal,
-      onUpdate: ((message: string) => void) | undefined,
-      ctx: QualityGateExtensionContext,
-    ) => Promise<QualityGateToolResult>;
-  }): void;
+  registerTool(definition: QualityGateToolDefinition): void;
   getActiveTools(): string[];
   setActiveTools(names: readonly string[]): void;
   on(
