@@ -4,8 +4,27 @@ import * as v from 'valibot';
 const PLAYWRIGHT_CONFIG = 'playwright.config.ts';
 const NEXT_CONFIG = 'next.config.ts';
 
-function packagesAllowedRootModules(presetConfig: Readonly<Record<string, object>>): string[] {
-  const packages = presetConfig.packages;
+const PlainObjectSchema = v.looseObject({});
+type PlainObject = v.InferOutput<typeof PlainObjectSchema>;
+
+function isPlainObject(value: unknown): value is PlainObject {
+  return v.is(PlainObjectSchema, value);
+}
+
+function packagesSectionOf(project: GlobalProject): PlainObject | undefined {
+  const layout = isPlainObject(project.presetConfig.layout)
+    ? project.presetConfig.layout
+    : undefined;
+  const fromLayout =
+    layout !== undefined && isPlainObject(layout.packages) ? layout.packages : undefined;
+  const fromLegacy = isPlainObject(project.presetConfig.packages)
+    ? project.presetConfig.packages
+    : undefined;
+  return fromLayout ?? fromLegacy;
+}
+
+function packagesAllowedRootModules(project: GlobalProject): string[] {
+  const packages = packagesSectionOf(project);
   if (packages === undefined || !('allowedRootModules' in packages)) {
     return [];
   }
@@ -19,29 +38,37 @@ function packagesAllowedRootModules(presetConfig: Readonly<Record<string, object
   );
 }
 
-function hasPreset(presets: readonly string[], name: string): boolean {
-  return presets.includes(name);
-}
-
 function entriesInclude(entries: readonly string[], basename: string): boolean {
   return entries.some((entry) => entry === basename || entry.endsWith(`/${basename}`));
 }
 
+function packagesConfigPathHint(project: GlobalProject): string {
+  const layout = isPlainObject(project.presetConfig.layout)
+    ? project.presetConfig.layout
+    : undefined;
+  if (layout !== undefined && isPlainObject(layout.packages)) {
+    return 'presetConfig.layout.packages.allowedRootModules';
+  }
+  return 'presetConfig.packages.allowedRootModules';
+}
+
 /** Soft config warnings for known packages / playwright / next root-module conflicts. */
 export function collectPresetConflictWarnings(project: GlobalProject): string[] {
-  if (!hasPreset(project.presets, 'packages')) {
+  const packagesSection = packagesSectionOf(project);
+  if (packagesSection === undefined) {
     return [];
   }
-  const allowed = new Set(packagesAllowedRootModules(project.presetConfig));
+  const allowed = new Set(packagesAllowedRootModules(project));
+  const hint = packagesConfigPathHint(project);
   const warnings: string[] = [];
-  if (hasPreset(project.presets, 'playwright') && !allowed.has(PLAYWRIGHT_CONFIG)) {
+  if (project.presets.includes('playwright') && !allowed.has(PLAYWRIGHT_CONFIG)) {
     warnings.push(
-      `verify: preset conflict: packages + playwright require ${PLAYWRIGHT_CONFIG} in presetConfig.packages.allowedRootModules`,
+      `verify: preset conflict: packages + playwright require ${PLAYWRIGHT_CONFIG} in ${hint}`,
     );
   }
   if (entriesInclude(project.entries, NEXT_CONFIG) && !allowed.has(NEXT_CONFIG)) {
     warnings.push(
-      `verify: preset conflict: packages requires ${NEXT_CONFIG} in presetConfig.packages.allowedRootModules when ${NEXT_CONFIG} is in entries`,
+      `verify: preset conflict: packages requires ${NEXT_CONFIG} in ${hint} when ${NEXT_CONFIG} is in entries`,
     );
   }
   return warnings;

@@ -6,10 +6,10 @@ import { readTextFile, writeTextFile } from '../../../process/files/files.js';
 import { afterEach, describe, expect, it } from 'bun:test';
 
 import { executeVerify } from '../../execute-verify/execute-verify.js';
-import { streamResultFromVerifyResult } from '../../public-verify/verify-streams.js';
 import { resolvePresetContract } from '../../../preset-catalog/catalog/preset-catalog.js';
 import { useIsolatedAgentQualityGateHome } from '../../../tests/support/isolated-home.js';
 import { expectRejectedMessage } from '../../../tests/support/expect-rejected.js';
+import { streamResultFromVerifyResult } from '../../public-verify/verify-streams.js';
 import {
   cleanupPresetVerificationProjects,
   cleanSourceFixtureCase,
@@ -58,6 +58,10 @@ describe('preset verification', () => {
       'baseline',
       'layout',
     ]);
+await expectRejectedMessage(resolvePresetContract(['optional-alpha']), 'unknown preset');
+    await expectRejectedMessage(resolvePresetContract(['optional-beta']), 'unknown preset');
+    await expectRejectedMessage(resolvePresetContract(['optional-gamma']), 'unknown preset');
+    await expectRejectedMessage(resolvePresetContract(['optional-delta']), 'unknown preset');
     await expectRejectedMessage(
       resolvePresetContract(['database', 'database-sqlite']),
       'mutually exclusive database drivers',
@@ -352,9 +356,8 @@ describe('preset verification', () => {
       presets: ['config'],
     });
     expect(active.exitCode).not.toBe(0);
-    expect(
-      streamResultFromVerifyResult(active).stdout + streamResultFromVerifyResult(active).stderr,
-    ).toContain('environment-boundaries');
+const activeText = `${streamResultFromVerifyResult(active).stdout}${streamResultFromVerifyResult(active).stderr}`;
+    expect(activeText).toContain('environment-boundaries');
 
     const inactive = await executeVerify({
       projectRoot: withoutPreset,

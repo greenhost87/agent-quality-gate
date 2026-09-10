@@ -24,7 +24,7 @@ export async function createReactProject(tempDirectories: string[]): Promise<str
   const cwd = await makeTrackedTempDirectory(tempDirectories, 'aqg-react-project-');
   await write(
     join(cwd, 'package.json'),
-    `${JSON.stringify({ name: 'react-presentation-fixture', private: true, type: 'module' }, null, 2)}\n`,
+    `${JSON.stringify({ name: 'sample-react-fixture', private: true, type: 'module' }, null, 2)}\n`,
   );
   await write(
     join(cwd, 'tsconfig.json'),

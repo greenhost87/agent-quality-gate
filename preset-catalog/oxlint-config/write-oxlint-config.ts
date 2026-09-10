@@ -92,10 +92,12 @@ export async function writeOxlintConfigForProject(
     ...base,
     plugins: mergedNativePlugins,
     jsPlugins: mergedPlugins,
-    rules: normalizeRuleRecord({
+    // The packaged config already contains native Oxlint settings. Only preset
+    // settings carry AQG phase metadata and need normalization.
+    rules: {
       ...existingRules,
-      ...rules,
-    }),
+      ...normalizeRuleRecord(rules),
+    },
     overrides: [...baseOverrides, ...overrides.map(overrideToJson)],
   };
 

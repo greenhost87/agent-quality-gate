@@ -55,11 +55,8 @@ describe('removeEphemeralProjectConfigs', () => {
     const oxlintConfigPath = join(oxlintDir, 'verify.config.ts');
     const fallowConfigPath = join(fallowDir, 'verify.json');
     const staleOxlintPath = join(oxlintDir, '19b7-mtbxqp7i-ed29e8d5.config.ts');
-    const staleFallowPath = join(fallowDir, 'presentation-duplication-100x-mtbwnqf3-cac9ef5d.json');
-    const staleFallowOutputPath = join(
-      fallowDir,
-      'presentation-duplication-100x-mtbwnqf3-7725fb5c.out.json',
-    );
+    const staleFallowPath = join(fallowDir, 'sample-check-100x-mtbwnqf3-cac9ef5d.json');
+    const staleFallowOutputPath = join(fallowDir, 'sample-check-100x-mtbwnqf3-7725fb5c.out.json');
     await mkdir(oxlintDir, { recursive: true });
     await mkdir(fallowDir, { recursive: true });
     await writeFile(artifactPath, 'export {};\n');

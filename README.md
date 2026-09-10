@@ -109,6 +109,12 @@ Phases are fail-fast and ordered by invalidation direction:
 
 Oxlint runs once; output is split into virtual groups and only the first non-empty group is shown. Deferred lint findings surface as `verify: deferred: N` on stderr and become visible after Fallow boundaries pass. Type-aware Oxlint (via `oxlint-tsgolint`) has a 120s timeout — `hint:type-aware-timeout — .aqg/hints/type-aware-timeout.md` on expiry. Set `AGENT_QUALITY_GATE_VERIFY_TIMING=1` to append `verify-timing:` phase timings to stderr.
 
+### Test implementation integrity
+
+Baseline rejects substitution of imported project implementations in tests (`aqg/no-production-test-substitution`). External packages and builtins remain available as controlled boundaries; unresolved module replacement targets fail closed. The database preset no longer permits spies on DAO namespaces. Playwright interception requires explicit external origins in trusted `presetConfig.playwright.externalMockOrigins`; the default list is empty.
+
+After production hygiene succeeds, verify runs a separate Fallow duplication pass including tests. Only clone groups spanning test and non-test code produce `test-production-copy` findings. Production dead-code policy and its thresholds remain unchanged; test-to-test repetition does not fail this additional check. These are structural clone findings, not proof of assertion quality. Exercise real implementation code rather than copying it into tests, and keep expected results independent.
+
 ### Settle/stop follow-up
 
 - Follow-up budget is **3 attempts** (`QUALITY_GATE_FOLLOW_UP_BUDGET`), then the hook stops and tells the agent to report the blocker to the user. Attempts are tracked per harness under `$AGENT_QUALITY_GATE_HOME/<harness>/stop-attempts/`.
@@ -178,6 +184,7 @@ projects:
 | `database-sqlite`      | none                                                                              | Managed `bun:sqlite` connection, migrations, isolated tests, DAO/test boundaries    |
 | `playwright`           | none                                                                              | `tests/e2e/**/*.pw.ts`; blocks DAO / `system/database` imports                      |
 | `module-placement`     | `directories`, `rootExceptions`                                                   | Concern-depth rule under configured directories                                     |
+| `n8n-lints`            | none                                                                              | Portable n8n-style lints (skipped tests, catch hygiene, string discipline)          |
 
 Home-installed only (for example from `aqg-presets`): `packages` (`presetConfig.packages` with `allowedRootModules` and `declaredDependencies`). Manifest destinations cannot be remapped from `config.yaml`.
 
@@ -236,7 +243,7 @@ Codex MCP/Stop-hook entrypoints ship under `dist/codex/`. Wiring merges the `age
 
 Local `bun run verify` is this repository's development-only self-verify (`scripts/self-verify/self-verify.ts`); it is not included in the released package. It verifies this repo with the packaged Oxlint and Fallow policy (no unit tests). Use `bun run verify:cwd -- <cwd>` to run the same quality-gate path as the MCP/stop-hook tools against any project listed in `~/.agent-quality-gate/config.yaml` (or `AGENT_QUALITY_GATE_HOME/config.yaml`). Use `bun run test` (`scripts/self-test/self-test.ts`) for the repository and pack test suites (it builds the release package first). `bun run outdated` checks `bun outdated` in the project root and every preset pack with a lockfile; `bun run outdated -- --update` runs `bun update --latest`; `--cwd <path>` selects the project root.
 
-Optional preset repositories (for example `aqg-presets`) can import `executeVerify`, `writeVerifyStreams`, `parsePresetManifest`, `oxlintRuleIdsFromManifest`, and `runLocalPresetSteps` from `agent-quality-gate/verify`, and shared AST helpers from `agent-quality-gate/oxlint-walk`, to run baseline Oxlint and Fallow against their TypeScript check modules without listing the repo in global config.
+Optional preset repositories (for example `aqg-presets`) can import `executeVerify`, `writeVerifyStreams`, `parsePresetManifest`, `oxlintRuleIdsFromManifest`, and `runLocalPresetSteps` from `agent-quality-gate/verify`, and shared AST helpers from `agent-quality-gate/oxlint-walk`, to run baseline Oxlint and Fallow against their TypeScript check modules without listing the repo in global config. Compose a `VerifyRequest` (entries, ignorePatterns, fallowIgnoreDependencies, presets, and other fields) and call `executeVerify` directly.
 
 ## License
 

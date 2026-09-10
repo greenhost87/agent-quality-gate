@@ -31,12 +31,12 @@ describe('optionalPresetSourceRoots', () => {
   it('lists optional preset directories and excludes shipped presets', async () => {
     const presetsDirectory = await createPresetsDirectory([
       'baseline',
-      'react-duplication',
-      'oxlint-ui-surface',
+      'optional-alpha',
+      'optional-beta',
     ]);
     expect(optionalPresetSourceRoots(presetsDirectory)).toEqual([
-      join(presetsDirectory, 'oxlint-ui-surface'),
-      join(presetsDirectory, 'react-duplication'),
+      join(presetsDirectory, 'optional-alpha'),
+      join(presetsDirectory, 'optional-beta'),
     ]);
   });
 

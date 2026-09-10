@@ -5,6 +5,7 @@ export type PresetVerifyContext = {
   entries: readonly string[];
   ignorePatterns: readonly string[];
   fallowConfigPath: string;
+  managedFilePaths: ReadonlySet<string>;
 };
 
 export type PresetCheckModule = {

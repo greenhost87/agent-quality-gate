@@ -1,9 +1,9 @@
 import * as v from 'valibot';
 
+import { STOP_HOOK_TIMEOUT_SECONDS } from '../../config/tuning/tuning.js';
 import { readConfigDocument, writeConfigDocument, type ConfigDocument } from './wire-cursor.js';
 import { isExecFormAqgStopHook, wireNestedStopHooksDocument } from './wire-nested-stop-hooks.js';
 
-const STOP_HOOK_TIMEOUT_SECONDS = 120;
 const VERIFY_PERMISSION = 'mcp__agent-quality-gate__verify';
 
 const NestedDocumentSchema = v.looseObject({});

@@ -4,9 +4,27 @@ import { pathToFileURL } from 'node:url';
 import * as v from 'valibot';
 
 import { opaqueCheckResult, type CheckResult } from '../../gate/execute-verify/check-result.js';
+import { attachHintOwners } from '../../gate/execute-verify/check-hints.js';
 import type { ActivatedPreset } from '../contract/preset-contract.types.js';
 import type { PresetCheckModule, PresetVerifyContext } from '../contract/preset-check.types.js';
 import { PRESET_CHECK_MODULE_BASENAMES } from '../contract/preset-check.types.js';
+import {
+  loadPresetGateConfigModule,
+  rawConfigForPreset,
+  toPresetConfigBag,
+} from '../load-gate-config/load-preset-gate-config.js';
+
+function withAttachedHintOwners(result: CheckResult, owner: string): CheckResult {
+  const hints = attachHintOwners(result.hints, owner);
+  if (hints === undefined) {
+    if (result.hints === undefined) {
+      return result;
+    }
+    const { hints: _removed, ...rest } = result;
+    return rest;
+  }
+  return { ...result, hints };
+}
 
 function checkModulePath(presetRoot: string): string | undefined {
   for (const basename of PRESET_CHECK_MODULE_BASENAMES) {
@@ -60,21 +78,54 @@ async function loadPresetCheckModule(
   return importPresetCheckModule(modulePath);
 }
 
+async function loadModuleOrFail<T>(
+  load: () => Promise<T>,
+): Promise<{ ok: true; value: T } | { ok: false; result: CheckResult }> {
+  try {
+    return { ok: true, value: await load() };
+  } catch (error) {
+    return {
+      ok: false,
+      result: failedCheckModuleResult(error instanceof Error ? error : String(error)),
+    };
+  }
+}
+
+async function resolvePresetCheckRawConfig(
+  preset: ActivatedPreset,
+  bag: ReturnType<typeof toPresetConfigBag>,
+): Promise<
+  | { ok: true; checkModule: PresetCheckModule | undefined; raw: object | undefined }
+  | { ok: false; result: CheckResult }
+> {
+  const checkLoaded = await loadModuleOrFail(async () => loadPresetCheckModule(preset));
+  if (!checkLoaded.ok) {
+    return checkLoaded;
+  }
+  const gateLoaded = await loadModuleOrFail(async () => loadPresetGateConfigModule(preset));
+  if (!gateLoaded.ok) {
+    return gateLoaded;
+  }
+  const gateConfig = gateLoaded.value;
+  const raw =
+    gateConfig === undefined ? bag[preset.name] : rawConfigForPreset(gateConfig, preset.name, bag);
+  return { ok: true, checkModule: checkLoaded.value, raw };
+}
+
 export async function runActivePresetPreflights(
   projectRoot: string,
   activated: readonly ActivatedPreset[],
   presetConfig: Readonly<Record<string, object>> = {},
 ): Promise<CheckResult | undefined> {
+  const bag = toPresetConfigBag(presetConfig);
   for (const preset of activated) {
-    let checkModule: PresetCheckModule | undefined;
-    try {
-      checkModule = await loadPresetCheckModule(preset);
-    } catch (error) {
-      return failedCheckModuleResult(error instanceof Error ? error : String(error));
+    const loaded = await resolvePresetCheckRawConfig(preset, bag);
+    if (!loaded.ok) {
+      return loaded.result;
     }
-    const result = await checkModule?.preflight?.(projectRoot, presetConfig[preset.name]);
+    const result = await loaded.checkModule?.preflight?.(projectRoot, loaded.raw);
     if (result !== undefined && result.exitCode !== 0) {
-      return result;
+      return withAttachedHintOwners(result, preset.name);
     }
   }
   return undefined;
@@ -83,18 +134,17 @@ export async function runActivePresetPreflights(
 async function runPresetToolChecks(
   preset: ActivatedPreset,
   context: PresetVerifyContext,
-  presetConfig?: object,
+  bag: ReturnType<typeof toPresetConfigBag>,
 ): Promise<CheckResult[]> {
-  let checkModule: PresetCheckModule | undefined;
-  try {
-    checkModule = await loadPresetCheckModule(preset);
-  } catch (error) {
-    return [failedCheckModuleResult(error instanceof Error ? error : String(error))];
+  const loaded = await resolvePresetCheckRawConfig(preset, bag);
+  if (!loaded.ok) {
+    return [loaded.result];
   }
-  if (checkModule?.runToolChecks === undefined) {
+  if (loaded.checkModule?.runToolChecks === undefined) {
     return [];
   }
-  return checkModule.runToolChecks(context, presetConfig);
+  const results = await loaded.checkModule.runToolChecks(context, loaded.raw);
+  return results.map((result) => withAttachedHintOwners(result, preset.name));
 }
 
 export async function runActivePresetToolChecks(
@@ -102,10 +152,16 @@ export async function runActivePresetToolChecks(
   activated: readonly ActivatedPreset[],
   presetConfig: Readonly<Record<string, object>> = {},
 ): Promise<CheckResult[]> {
-  const perPreset = await Promise.all(
-    activated.map(async (preset) =>
-      runPresetToolChecks(preset, context, presetConfig[preset.name]),
-    ),
+  const bag = toPresetConfigBag(presetConfig);
+  const perPreset = await Promise.allSettled(
+    activated.map(async (preset) => runPresetToolChecks(preset, context, bag)),
   );
-  return perPreset.flat();
+  const results: CheckResult[] = [];
+  for (const settled of perPreset) {
+    if (settled.status === 'rejected') {
+      throw settled.reason;
+    }
+    results.push(...settled.value);
+  }
+  return results;
 }

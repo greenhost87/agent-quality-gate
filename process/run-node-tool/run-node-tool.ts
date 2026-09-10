@@ -13,8 +13,8 @@ import { runCapturedProcess } from '../run-command/run-command.js';
 
 export async function runNodeProcess(options: NodeProcessRunOptions): Promise<ToolRunResult> {
   const result = await runCapturedProcess({
-    command: process.execPath,
-    args: options.args,
+    command: options.runtime === 'native' ? (options.args[0] ?? '') : process.execPath,
+    args: options.runtime === 'native' ? options.args.slice(1) : options.args,
     cwd: options.cwd,
     environment: options.environment,
     timeoutMs: options.timeoutMs,

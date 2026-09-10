@@ -1,8 +1,9 @@
 # Add projects here to enable automatic checks.
 #
 # presets: shipped names from presets/*/manifest.json
-#   (baseline always on; optional: bun-parse, config, database, database-sqlite, playwright, module-placement)
-# and home-installed names from $AGENT_QUALITY_GATE_HOME/presets/<name>/ (for example packages).
+#   (baseline always on; optional: bun-parse, config, database, database-sqlite, playwright, layout)
+# and home-installed names from $AGENT_QUALITY_GATE_HOME/presets/<name>/.
+# Legacy aliases for layout: module-placement, test-colocation, packages.
 #
 # Install optional presets (for example from aqg-presets) with:
 #   bun ./install.ts preset /absolute/path/to/preset-root
@@ -24,12 +25,13 @@
 #   must be rule phases: boundaries, contracts, ui, lint. `boundaries` expands into
 #   one group per plugin; `lint` (the catch-all for untagged rules) is appended last
 #   when missing. boundaryPluginPriority orders plugins inside the boundaries phase.
-#   Defaults: lintGroups [boundaries, contracts, ui], priority [module-placement,
+#   Defaults: lintGroups [boundaries, contracts, lint, ui], priority [module-placement,
 #   config, database, database-sqlite, playwright].
 # verify:
 #   lintGroups:
 #     - boundaries
 #     - contracts
+#     - lint
 #     - ui
 #   boundaryPluginPriority:
 #     - module-placement
@@ -49,12 +51,19 @@
 # allowed class-name / superclass suffixes such as [Error, Element]. An empty list
 # bans every runtime class.
 #
-# presetConfig.module-placement watches directories and requires production modules
-# one concern level deeper (<directory>/<concern>/). Without that section the
-# module-placement preset is a no-op. Optional maxDepth controls nested concern
-# depth, maxFilesPerDirectory prevents flat source piles, and forbidConcernPrefix
-# rejects basenames copied from any ancestor concern. routeCompositionRoots keeps
-# route roots limited to modules referenced by their route manifest.
+# presetConfig.baseline.noNullishExceptUndefined enables aqg/no-nullish-except-undefined
+# (off by default). When true, only `T | undefined` absence is allowed; `null`,
+# optional (`?:`), and non-return `void` forms are reported as errors. Standalone
+# `void` function returns remain allowed.
+#
+# presetConfig.baseline.noMixedNullishTypes controls aqg/no-mixed-nullish-types
+# (error by default). Set false to disable mixing checks for the project.
+#
+# presetConfig.layout (legacy keys: module-placement, test-colocation, packages)
+# is the unified repository layout surface. See presets/layout/README.md.
+# placement watches directories and requires production modules one concern level
+# deeper. testColocation keeps tests out of production trees. packages enforces
+# the declared package import graph (rule stays off until packages is configured).
 
 # Example - this project with the database preset (transitively activates config):
 # projects:
@@ -69,15 +78,19 @@
 #       - scripts/*.ts
 #     presets:
 #       - database
+#       - layout
 #     presetConfig:
 #       baseline:
 #         maxInlineParameterObjectMembers: 3
 #         noClassSuffixes: [Error, Element]
-#       module-placement:
-#         directories:
-#           - system/agents
-#         rootExceptions:
-#           system/agents:
-#             - agents.types.ts
+#       layout:
+#         placement:
+#           directories:
+#             - system/agents
+#           rootExceptions:
+#             system/agents:
+#               - agents.types.ts
+#         testColocation:
+#           policy: aqg-repository
 
 projects: []

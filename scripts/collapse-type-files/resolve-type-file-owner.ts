@@ -2,7 +2,13 @@ import { existsSync } from 'node:fs';
 import { basename, dirname } from 'node:path';
 
 function existingPaths(candidates: readonly string[]): string[] {
-  return candidates.filter((candidate) => existsSync(candidate));
+  const found: string[] = [];
+  for (const candidate of candidates) {
+    if (existsSync(candidate)) {
+      found.push(candidate);
+    }
+  }
+  return found;
 }
 
 function preferOne(paths: readonly string[]): string | null {
