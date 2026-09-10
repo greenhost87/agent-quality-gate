@@ -12,6 +12,7 @@ import noInlineMultilineTestData from './rules/no-inline-multiline-test-data.ts'
 import noManualExportedStringLiteralUnions from './rules/no-manual-exported-string-literal-unions.ts';
 import noNullUndefinedParameterUnion from './rules/no-null-undefined-parameter-union.ts';
 import noOxlintDisableDirectives from './rules/no-oxlint-disable-directives.ts';
+import noProductionTestSubstitution from './rules/no-production-test-substitution.ts';
 import noRuntimeInTypesFiles from './rules/no-runtime-in-types-files.ts';
 import noThinForwarders from './rules/no-thin-forwarders.ts';
 import noTrivialConstWrappers from './rules/no-trivial-const-wrappers.ts';
@@ -33,6 +34,7 @@ const rules = {
   'no-manual-exported-string-literal-unions': noManualExportedStringLiteralUnions,
   'no-null-undefined-parameter-union': noNullUndefinedParameterUnion,
   'no-oxlint-disable-directives': noOxlintDisableDirectives,
+  'no-production-test-substitution': noProductionTestSubstitution,
   'no-runtime-in-types-files': noRuntimeInTypesFiles,
   'no-thin-forwarders': noThinForwarders,
   'no-trivial-const-wrappers': noTrivialConstWrappers,
