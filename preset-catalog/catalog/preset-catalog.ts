@@ -24,6 +24,7 @@ export const SHIPPED_PRESET_NAMES = [
   'database',
   'database-sqlite',
   'layout',
+  'n8n-lints',
   'playwright',
 ] as const;
 

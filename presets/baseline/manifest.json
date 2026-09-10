@@ -17,6 +17,7 @@
       "aqg/no-double-wrapped-expect-equal": "error",
       "aqg/no-dynamic-import": "error",
       "aqg/no-inline-multiline-test-data": "error",
+      "aqg/no-json-parse-json-stringify": "error",
       "aqg/no-oxlint-disable-directives": "error",
       "aqg/no-production-test-substitution": "error"
     },
