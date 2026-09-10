@@ -1,14 +1,18 @@
 import { describe, expect, it } from 'bun:test';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { parseSync } from 'oxc-parser';
 
 import {
   astIndex,
   astIndexBuildStats,
+  clearAstIndex,
   resetAstIndexBuildCount,
 } from 'agent-quality-gate/oxlint-walk/ast-index';
 import {
   eachParamUnion,
   forEachParamList,
+  functionParamVisitors,
   isAstNode,
   nodeParams,
   paramTypeAnnotation,
@@ -19,6 +23,11 @@ import {
   walkAstSkippingTypeSubtrees,
   walkJsxSurfaceNodes,
 } from 'agent-quality-gate/oxlint-walk';
+
+const PARAM_OWNERS_FIXTURE = readFileSync(
+  join(import.meta.dir, 'fixtures', 'param-owners.txt'),
+  'utf8',
+);
 
 function parseProgram(code: string, lang: 'ts' | 'tsx' = 'ts') {
   const parsed = parseSync(`fixture.${lang === 'tsx' ? 'tsx' : 'ts'}`, code, {
@@ -176,6 +185,16 @@ describe('agent-quality-gate/oxlint-walk', () => {
       expect(astIndexBuildStats().builds).toBe(1);
     });
 
+    it('rebuilds after clearAstIndex', () => {
+      const program = parseProgram('const value = 1;');
+      resetAstIndexBuildCount();
+      const first = astIndex(program);
+      clearAstIndex(program);
+      const second = astIndex(program);
+      expect(second).not.toBe(first);
+      expect(astIndexBuildStats().builds).toBe(2);
+    });
+
     it('indexes nodes in source order and resolves parents', () => {
       const program = parseProgram('const a = 1; const b = 2;');
       const index = astIndex(program);
@@ -247,6 +266,33 @@ describe('agent-quality-gate/oxlint-walk', () => {
       expect(astIndexBuildStats().builds).toBe(1);
       forEachParamList(program, () => {});
       expect(astIndexBuildStats().builds).toBe(1);
+    });
+  });
+
+  describe('functionParamVisitors', () => {
+    it('registers declare and signature param owners', () => {
+      const owners: string[] = [];
+      const visitors = functionParamVisitors((_params, owner) => {
+        owners.push(owner.type);
+      });
+      const program = parseProgram(PARAM_OWNERS_FIXTURE);
+      const visitorKeys = [
+        'ArrowFunctionExpression',
+        'FunctionDeclaration',
+        'FunctionExpression',
+        'TSCallSignatureDeclaration',
+        'TSConstructSignatureDeclaration',
+        'TSDeclareFunction',
+        'TSMethodSignature',
+      ] as const;
+      walkAst(program, (node) => {
+        for (const key of visitorKeys) {
+          if (node.type === key) {
+            visitors[key](node);
+          }
+        }
+      });
+      expect(owners.sort()).toEqual([...visitorKeys].sort());
     });
   });
 });

@@ -1,0 +1,11 @@
+declare function declared(x: string): void;
+interface Face {
+  method(x: string): void;
+  (x: string): void;
+  new (x: string): Face;
+}
+function runtime(x: string) {}
+const arrow = (x: string) => x;
+const expr = function (x: string) {
+  return x;
+};

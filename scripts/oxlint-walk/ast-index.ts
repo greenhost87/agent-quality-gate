@@ -30,6 +30,11 @@ export function resetAstIndexBuildCount(): void {
   buildCount = 0;
 }
 
+/** Drop the cached index on `program` so the next `astIndex` call rebuilds. */
+export function clearAstIndex(program: { type: 'Program' }): void {
+  Reflect.deleteProperty(program, AST_INDEX_PROP);
+}
+
 function isProgramAstNode(value: unknown): value is ESTree.Node {
   return v.is(AstNodeSchema, value);
 }

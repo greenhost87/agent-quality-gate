@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'bun:test';
 import { defineRule } from '@oxlint/plugins';
 
-import { benchCreateOnceRule, replayCreateOnceRule } from '../bench-create-once-rule.js';
+import {
+  benchCreateOnceRule,
+  measureAggregateSameAst,
+  replayCreateOnceRule,
+} from '../bench-create-once-rule.js';
+import { astIndex } from '../../oxlint-walk/ast-index.ts';
+import { parseFixture } from '../parse-and-walk.js';
 
 const createOnlyRule = {
   meta: { type: 'problem' as const, schema: [], messages: { x: 'x' } },
@@ -103,5 +109,15 @@ describe('benchCreateOnceRule', () => {
       rule: countingRule,
       cases: [{ name: 'hot', code: 'boom(); quiet();' }],
     });
+  });
+});
+
+describe('measureAggregateSameAst', () => {
+  it('reports cold indexBuilds even after a prior astIndex on the same Program', () => {
+    const { program } = parseFixture('/bench/same-ast.ts', 'const value = 1; boom();');
+    astIndex(program);
+    const result = measureAggregateSameAst(program);
+    expect(result.indexBuilds).toBe(1);
+    expect(result.walkHits).toBe(result.indexedHits);
   });
 });
