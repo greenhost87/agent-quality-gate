@@ -37,6 +37,7 @@ import { selectFirstNonEmptyOxlintDiagnosticGroup } from './oxlint-diagnostics.j
 import { throwInternalVerifyFailure } from '../quality-gate-run/quality-gate-internal-error.js';
 import { settleStage } from './settle-stage.js';
 import { selectSettledParallelVerifyOutcome } from './select-settled-parallel-verify.js';
+import { checkTestProductionCopies } from './test-production-copies.js';
 
 import {
   TYPE_AWARE_OXLINT_TIMEOUT_HINT,
@@ -252,7 +253,20 @@ async function runExecuteVerifyBody(
         })),
       ),
       settleStage(
-        runFallowJson(fallowConfigPath, ['--skip', 'health'], checkResultFromFallowHygieneToolRun),
+        timedCheck(async () => {
+          const hygiene = await runFallowJson(
+            fallowConfigPath,
+            ['--skip', 'health'],
+            checkResultFromFallowHygieneToolRun,
+          );
+          if (hygiene.result.exitCode !== 0) {
+            return hygiene.result;
+          }
+          return mergeCheckResults(
+            hygiene.result,
+            await checkTestProductionCopies(run, projectRoot, fallowConfigPath),
+          );
+        }),
       ),
       settleStage(
         runFallowJson(

@@ -1,6 +1,25 @@
 import { type ESTree, type Scope, type Variable } from '@oxlint/plugins';
 import * as v from 'valibot';
 
+export function staticPropertyName(node: ESTree.Node, computed: boolean): string | null {
+  if (!computed && node.type === 'Identifier') {
+    return node.name;
+  }
+  if (node.type === 'Literal' && typeof node.value === 'string') {
+    return node.value;
+  }
+  return null;
+}
+
+export function staticStringValue(node: ESTree.Node | null): string | null {
+  if (!isStaticString(node)) {
+    return null;
+  }
+  return node.type === 'Literal'
+    ? node.value
+    : node.quasis.map((quasi) => quasi.value.cooked ?? quasi.value.raw).join('');
+}
+
 export function declarationNode(
   statement: ESTree.Node,
 ): ESTree.Declaration | ESTree.ExportDefaultDeclarationKind | ESTree.Node | null {

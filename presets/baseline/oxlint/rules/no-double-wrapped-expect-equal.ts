@@ -2,15 +2,7 @@ import { defineRule, type ESTree } from '@oxlint/plugins';
 
 import { unwrapExpression, walkAst } from 'agent-quality-gate/oxlint-walk';
 
-function staticPropertyName(node: ESTree.Node, computed: boolean): string | null {
-  if (!computed && node.type === 'Identifier') {
-    return node.name;
-  }
-  if (node.type === 'Literal' && typeof node.value === 'string') {
-    return node.value;
-  }
-  return null;
-}
+import { staticPropertyName } from '../ast.ts';
 
 function sameStaticCallee(left: ESTree.Node, right: ESTree.Node): boolean {
   const first = unwrapExpression(left);

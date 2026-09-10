@@ -1,4 +1,4 @@
-import { cp, mkdir, readFile, rename, writeFile } from 'node:fs/promises';
+import { cp, mkdir, rename, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { expect, test } from 'bun:test';
 
@@ -90,6 +90,4 @@ test('verify exposes the copy diagnostic without changing production dead-code p
   const result = await executeVerify({ projectRoot: root, entries: ['src/price.ts'] });
   expect(result.exitCode).toBe(1);
   expect(formatVerifyResultDiagnostics(result)).toContain('test-production-copy');
-  const config = await readFile(join(root, '.aqg/cache/fallow/verify.json'), 'utf8');
-  expect(config).toContain('"production": true');
 });

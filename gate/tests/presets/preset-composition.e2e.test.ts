@@ -2,7 +2,7 @@ import { copyFile, mkdir, mkdtemp, rm, symlink } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { writeTextFile } from '../../../process/files/files.js';
-import { runCapturedProcess } from '../../../process/run-command/run-command.js';
+import { runRequired } from '../../../scripts/run-required/run-required.js';
 
 import { afterEach, describe, expect, it } from 'bun:test';
 
@@ -66,13 +66,7 @@ async function installSharedDependencies(root: string): Promise<void> {
       2,
     )}\n`,
   );
-  const result = await runCapturedProcess({ command: 'bun', args: ['install'], cwd: root });
-  if (result.error !== undefined) {
-    throw result.error;
-  }
-  if (result.exitCode !== 0) {
-    throw new Error(`bun install failed: ${result.stderr || result.stdout}`);
-  }
+  runRequired('bun', ['install'], root, false);
 }
 
 async function createProject(root: string, presets: readonly string[]): Promise<string> {
