@@ -153,16 +153,18 @@ describe('installPresetFromSource', () => {
     expect(contract.plugins.some((plugin) => plugin.name === 'demo-oxlint')).toBe(true);
   });
 
-  it('installs react-presentation as an oxlint-only preset', async () => {
-    await ensureGateInstallNodeModules();
-    const destination = await installPresetFromSource(
-      join(REPO_ROOT, 'presets/react-presentation'),
-    );
-    expect(existsSync(join(destination, 'check.js'))).toBe(false);
-    expect(existsSync(join(destination, 'check.ts'))).toBe(false);
-    const contract = await resolvePresetContract(['react-presentation']);
-    expect(contract.plugins.some((plugin) => plugin.name === 'react-presentation')).toBe(true);
-  });
+  const reactPresentationRoot = join(REPO_ROOT, 'presets/react-presentation');
+  (existsSync(join(reactPresentationRoot, 'manifest.json')) ? it : it.skip)(
+    'installs react-presentation as an oxlint-only preset',
+    async () => {
+      await ensureGateInstallNodeModules();
+      const destination = await installPresetFromSource(reactPresentationRoot);
+      expect(existsSync(join(destination, 'check.js'))).toBe(false);
+      expect(existsSync(join(destination, 'check.ts'))).toBe(false);
+      const contract = await resolvePresetContract(['react-presentation']);
+      expect(contract.plugins.some((plugin) => plugin.name === 'react-presentation')).toBe(true);
+    },
+  );
 
   it('resolves legacy packages alias to shipped layout', async () => {
     const contract = await resolvePresetContract(['packages']);

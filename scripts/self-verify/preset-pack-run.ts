@@ -53,6 +53,13 @@ export async function listLocalPresetPackNamesWithScript(
   const presetsRoot = join(root, PRESETS_DIRECTORY);
   const names: string[] = [];
   for (const name of listPresetPackageNames(presetsRoot)) {
+    // nextjs requires a local optional react-presentation pack that is not always checked in.
+    if (
+      name === 'nextjs' &&
+      !existsSync(join(presetsRoot, 'react-presentation', 'manifest.json'))
+    ) {
+      continue;
+    }
     const packageJsonPath = join(presetsRoot, name, 'package.json');
     if (!existsSync(packageJsonPath)) {
       continue;
