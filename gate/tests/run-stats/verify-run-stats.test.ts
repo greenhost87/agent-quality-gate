@@ -143,7 +143,7 @@ describe('verify run stats', () => {
     });
 
     expect(result.exitCode).toBe(0);
-expect(streamResultFromVerifyResult(result).stdout).toMatch(/^verify: ok \(\d+ms\)\n$/);
+    expect(streamResultFromVerifyResult(result).stdout).toMatch(/^verify: ok \(\d+ms\)\n$/);
 
     const { output: record, raw } = await waitForStatsRecord(cwd);
     const after = Math.floor(Date.now() / 1000);

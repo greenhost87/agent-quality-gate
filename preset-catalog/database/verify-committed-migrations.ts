@@ -99,13 +99,7 @@ function isMigrationPath(path: string): boolean {
 }
 
 function migrationPathsFrom(paths: readonly string[]): string[] {
-  const selected: string[] = [];
-  for (const path of paths) {
-    if (isMigrationPath(path)) {
-      selected.push(path);
-    }
-  }
-  return selected;
+  return paths.flatMap((path) => (isMigrationPath(path) ? [path] : []));
 }
 
 export async function captureCommittedMigrationDiff(

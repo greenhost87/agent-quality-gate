@@ -58,7 +58,7 @@ describe('preset verification', () => {
       'baseline',
       'layout',
     ]);
-await expectRejectedMessage(resolvePresetContract(['optional-alpha']), 'unknown preset');
+    await expectRejectedMessage(resolvePresetContract(['optional-alpha']), 'unknown preset');
     await expectRejectedMessage(resolvePresetContract(['optional-beta']), 'unknown preset');
     await expectRejectedMessage(resolvePresetContract(['optional-gamma']), 'unknown preset');
     await expectRejectedMessage(resolvePresetContract(['optional-delta']), 'unknown preset');
@@ -356,7 +356,7 @@ await expectRejectedMessage(resolvePresetContract(['optional-alpha']), 'unknown 
       presets: ['config'],
     });
     expect(active.exitCode).not.toBe(0);
-const activeText = `${streamResultFromVerifyResult(active).stdout}${streamResultFromVerifyResult(active).stderr}`;
+    const activeText = `${streamResultFromVerifyResult(active).stdout}${streamResultFromVerifyResult(active).stderr}`;
     expect(activeText).toContain('environment-boundaries');
 
     const inactive = await executeVerify({
