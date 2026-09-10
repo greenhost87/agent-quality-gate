@@ -1,0 +1,36 @@
+{
+  "name": "nextjs",
+  "requires": ["react-presentation"],
+  "files": [],
+  "dependencies": [],
+  "oxlint": {
+    "nativePlugins": ["nextjs"],
+    "plugins": [],
+    "rules": {
+      "nextjs/google-font-display": { "severity": "error", "phase": "ui" },
+      "nextjs/google-font-preconnect": { "severity": "error", "phase": "ui" },
+      "nextjs/inline-script-id": { "severity": "error", "phase": "ui" },
+      "nextjs/next-script-for-ga": { "severity": "error", "phase": "ui" },
+      "nextjs/no-assign-module-variable": { "severity": "error", "phase": "ui" },
+      "nextjs/no-async-client-component": { "severity": "error", "phase": "ui" },
+      "nextjs/no-before-interactive-script-outside-document": {
+        "severity": "error",
+        "phase": "ui"
+      },
+      "nextjs/no-css-tags": { "severity": "error", "phase": "ui" },
+      "nextjs/no-document-import-in-page": { "severity": "error", "phase": "ui" },
+      "nextjs/no-duplicate-head": { "severity": "error", "phase": "ui" },
+      "nextjs/no-head-element": { "severity": "error", "phase": "ui" },
+      "nextjs/no-head-import-in-document": { "severity": "error", "phase": "ui" },
+      "nextjs/no-html-link-for-pages": { "severity": "error", "phase": "ui" },
+      "nextjs/no-img-element": { "severity": "error", "phase": "ui" },
+      "nextjs/no-page-custom-font": { "severity": "error", "phase": "ui" },
+      "nextjs/no-script-component-in-head": { "severity": "error", "phase": "ui" },
+      "nextjs/no-styled-jsx-in-document": { "severity": "error", "phase": "ui" },
+      "nextjs/no-sync-scripts": { "severity": "error", "phase": "ui" },
+      "nextjs/no-title-in-document-head": { "severity": "error", "phase": "ui" },
+      "nextjs/no-typos": { "severity": "error", "phase": "ui" },
+      "nextjs/no-unwanted-polyfillio": { "severity": "error", "phase": "ui" }
+    }
+  }
+}

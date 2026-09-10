@@ -1,0 +1,21 @@
+{
+  "name": "@agent-quality-gate/preset-nextjs",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "fmt": "oxfmt",
+    "fmt:check": "oxfmt --check",
+    "lint": "oxlint --deny-warnings --config oxlint.json .",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "bun ../../scripts/self-test/run-preset-tests.ts tests",
+    "verify": "bun run fmt:check && bun run lint && bun run typecheck && bun run test"
+  },
+  "devDependencies": {
+    "@types/bun": "1.4.0",
+    "oxfmt": "0.65.0",
+    "oxlint": "1.80.0",
+    "typescript": "7.0.2"
+  },
+  "packageManager": "bun@1.4.0"
+}
