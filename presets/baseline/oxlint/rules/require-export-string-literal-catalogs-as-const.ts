@@ -23,23 +23,6 @@ function isStringLiteralCatalog(node: ESTree.Node | null): boolean {
   );
 }
 
-function checkDeclarator(
-  context: { report: (diagnostic: { node: ESTree.Node; messageId: string }) => void },
-  node: ESTree.VariableDeclarator,
-  declaration: ESTree.VariableDeclaration,
-): void {
-  if (
-    declaration.kind === 'const' &&
-    declaration.parent.type === 'ExportNamedDeclaration' &&
-    node.id.type === 'Identifier' &&
-    node.init &&
-    isStringLiteralCatalog(node.init) &&
-    (node.id.typeAnnotation != null || !isReadonlyStringLiteralCatalog(node.init))
-  ) {
-    context.report({ node: node.id, messageId: 'invalid' });
-  }
-}
-
 export default defineRule({
   meta: {
     type: 'problem',
@@ -50,28 +33,23 @@ export default defineRule({
     },
   },
   createOnce(context) {
-    function checkProgram(program: ESTree.Program): void {
-      for (const statement of program.body) {
-        if (statement.type !== 'ExportNamedDeclaration') {
-          continue;
-        }
-        const declaration = statement.declaration;
-        if (declaration?.type !== 'VariableDeclaration') {
-          continue;
-        }
-        declaration.parent = statement;
-        for (const item of declaration.declarations) {
-          checkDeclarator(context, item, declaration);
-        }
-      }
-    }
-
     return {
-      before() {
-        checkProgram(context.sourceCode.ast);
-        return false;
+      ExportNamedDeclaration(node) {
+        const declaration = node.declaration;
+        if (declaration?.type !== 'VariableDeclaration' || declaration.kind !== 'const') {
+          return;
+        }
+        for (const item of declaration.declarations) {
+          if (
+            item.id.type === 'Identifier' &&
+            item.init &&
+            isStringLiteralCatalog(item.init) &&
+            (item.id.typeAnnotation != null || !isReadonlyStringLiteralCatalog(item.init))
+          ) {
+            context.report({ node: item.id, messageId: 'invalid' });
+          }
+        }
       },
-      Program() {},
     };
   },
 });

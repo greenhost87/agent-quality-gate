@@ -1,7 +1,6 @@
 import { defineRule, type Variable } from '@oxlint/plugins';
 
 import { variableForName } from '../ast.ts';
-import { walkAst } from 'agent-quality-gate/oxlint-walk';
 
 function hasNonInitWrite(variable: Variable): boolean {
   return variable.references.some((reference) => reference.isWrite() && !reference.init);
@@ -17,33 +16,26 @@ export default defineRule({
   },
   createOnce(context) {
     return {
-      before() {
-        walkAst(context.sourceCode.ast, (node, parent) => {
-          if (node.type !== 'VariableDeclarator') {
-            return;
+      VariableDeclaration(node) {
+        if (node.kind !== 'const') {
+          return;
+        }
+        for (const declarator of node.declarations) {
+          if (declarator.id.type !== 'Identifier' || declarator.init?.type !== 'Identifier') {
+            continue;
           }
-          if (node.id.type !== 'Identifier' || node.init?.type !== 'Identifier') {
-            return;
-          }
-          if (parent?.type !== 'VariableDeclaration' || parent.kind !== 'const') {
-            return;
-          }
-
-          const scope = context.sourceCode.getScope(node.init);
-          const source = variableForName(scope, node.init.name);
+          const scope = context.sourceCode.getScope(declarator.init);
+          const source = variableForName(scope, declarator.init.name);
           if (!source || hasNonInitWrite(source)) {
-            return;
+            continue;
           }
-
           context.report({
-            node: node.id,
+            node: declarator.id,
             messageId: 'identityAlias',
-            data: { from: node.init.name, to: node.id.name },
+            data: { from: declarator.init.name, to: declarator.id.name },
           });
-        });
-        return false;
+        }
       },
-      Program() {},
     };
   },
 });

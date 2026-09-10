@@ -1,0 +1,11 @@
+export function parameter(value: void): void {}
+export function unionParameter(value: string | void): void {}
+export function unionReturn(): string | void {}
+export type UnionCallback = () => string | void;
+export type ParenthesizedUnion = () => (string | void);
+export type Nullable = string | null;
+export function optional(value?: string): void {}
+export interface Values { value: void; optional?: string }
+export const value: void = undefined;
+export function undefinedUnion(): undefined | void {}
+export function nullableReturn(): null | void {}

@@ -1,18 +1,17 @@
 import { describe, expect, it } from 'bun:test';
 
 import { replayCreateOnceRule } from 'agent-quality-gate/oxlint-rule-bench';
-import { createBenchRuleContext } from 'agent-quality-gate/oxlint-rule-bench/create-bench-context';
-import { requireCreateOnceRule } from 'agent-quality-gate/oxlint-rule-bench/require-create-once-rule';
 import { HOT } from '../support/hot-code.ts';
+import { itRegistersTypedVisitors } from '../support/expect-typed-visitors.ts';
 
 import { noClassBench } from './bench.ts';
-describe('no-class before skip', () => {
-  it('runs the scan in before and skips the visitor walk', () => {
-    const createOnce = requireCreateOnceRule(noClassBench.rule);
-    const context = createBenchRuleContext(noClassBench.ruleId);
-    const visitors = createOnce(context);
-    expect(visitors.before?.()).toBe(false);
-  });
+describe('no-class visitors', () => {
+  itRegistersTypedVisitors(
+    noClassBench.rule,
+    noClassBench.ruleId,
+    ['ClassDeclaration', 'ClassExpression'],
+    [{ suffixes: ['Error', 'Element'] }],
+  );
 });
 
 describe('no-class reports', () => {

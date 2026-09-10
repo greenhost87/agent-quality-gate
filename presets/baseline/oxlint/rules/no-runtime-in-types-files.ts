@@ -94,25 +94,21 @@ export default defineRule({
     },
   },
   createOnce(context) {
-    function checkProgram(node: ESTree.Program): void {
-      for (const statement of node.body) {
-        if (!isPermittedTypeFileStatement(statement)) {
-          context.report({ node: statement, messageId: 'invalid' });
-        }
-        checkImportExport(context, statement);
-      }
-    }
-
     return {
-      // Top-level scan only; skip the visitor walk after reporting.
       before() {
         if (!isTypeOnlyFile(context.filename)) {
           return false;
         }
-        checkProgram(context.sourceCode.ast);
-        return false;
+        return undefined;
       },
-      Program() {},
+      Program(node) {
+        for (const statement of node.body) {
+          if (!isPermittedTypeFileStatement(statement)) {
+            context.report({ node: statement, messageId: 'invalid' });
+          }
+          checkImportExport(context, statement);
+        }
+      },
     };
   },
 });

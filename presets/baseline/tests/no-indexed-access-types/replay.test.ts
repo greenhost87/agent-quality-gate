@@ -1,19 +1,15 @@
 import { describe, expect, it } from 'bun:test';
 
 import { replayCreateOnceRule } from 'agent-quality-gate/oxlint-rule-bench';
-import { createBenchRuleContext } from 'agent-quality-gate/oxlint-rule-bench/create-bench-context';
-import { requireCreateOnceRule } from 'agent-quality-gate/oxlint-rule-bench/require-create-once-rule';
 import { HOT } from '../support/hot-code.ts';
+import { itRegistersTypedVisitors } from '../support/expect-typed-visitors.ts';
 import { readRuleFixture } from '../support/read-rule-fixture.ts';
 
 import { noIndexedAccessTypesBench } from './bench.ts';
-describe('no-indexed-access-types before skip', () => {
-  it('runs the scan in before and skips the visitor walk', () => {
-    const createOnce = requireCreateOnceRule(noIndexedAccessTypesBench.rule);
-    const context = createBenchRuleContext(noIndexedAccessTypesBench.ruleId);
-    const visitors = createOnce(context);
-    expect(visitors.before?.()).toBe(false);
-  });
+describe('no-indexed-access-types visitors', () => {
+  itRegistersTypedVisitors(noIndexedAccessTypesBench.rule, noIndexedAccessTypesBench.ruleId, [
+    'TSIndexedAccessType',
+  ]);
 });
 
 describe('no-indexed-access-types reports', () => {

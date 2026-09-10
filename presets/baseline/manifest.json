@@ -18,6 +18,8 @@
       "aqg/no-dynamic-import": "error",
       "aqg/no-inline-multiline-test-data": "error",
       "aqg/no-json-parse-json-stringify": "error",
+      "aqg/no-mixed-nullish-types": "error",
+      "aqg/no-nullish-except-undefined": "off",
       "aqg/no-oxlint-disable-directives": "error",
       "aqg/no-production-test-substitution": "error"
     },
@@ -25,11 +27,12 @@
       {
         "files": ["**/*.{ts,tsx,mts,cts}"],
         "rules": {
-          "aqg/no-empty-extended-interfaces": "error",
+          "max-lines": "off",
+          "aqg/max-code-lines": ["error", { "max": 400 }],
+          "aqg/no-empty-interfaces": "error",
           "aqg/no-identity-aliases": "error",
           "aqg/no-indexed-access-types": "error",
           "aqg/no-manual-exported-string-literal-unions": "error",
-          "aqg/no-null-undefined-parameter-union": "error",
           "aqg/no-runtime-in-types-files": "error",
           "aqg/no-thin-forwarders": "error",
           "aqg/no-trivial-const-wrappers": "error",
@@ -37,6 +40,12 @@
           "aqg/no-useless-exported-type-aliases": "error",
           "aqg/no-wide-parameter-unions": "error",
           "aqg/require-export-string-literal-catalogs-as-const": "error"
+        }
+      },
+      {
+        "files": ["**/*.tsx"],
+        "rules": {
+          "aqg/max-code-lines": ["error", { "max": 500 }]
         }
       }
     ]

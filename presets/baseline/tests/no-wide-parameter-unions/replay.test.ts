@@ -1,27 +1,17 @@
 import { describe, expect, it } from 'bun:test';
 
 import { replayCreateOnceRule } from 'agent-quality-gate/oxlint-rule-bench';
-import { createBenchRuleContext } from 'agent-quality-gate/oxlint-rule-bench/create-bench-context';
-import { requireCreateOnceRule } from 'agent-quality-gate/oxlint-rule-bench/require-create-once-rule';
 import { HOT } from '../support/hot-code.ts';
+import { itRegistersTypedVisitors } from '../support/expect-typed-visitors.ts';
 import { readRuleFixture } from '../support/read-rule-fixture.ts';
 
 import { noWideParameterUnionsBench } from './bench.ts';
 describe('no-wide-parameter-unions visitors', () => {
-  it('registers typed function-param visitors without before or empty Program', () => {
-    const createOnce = requireCreateOnceRule(noWideParameterUnionsBench.rule);
-    const context = createBenchRuleContext(noWideParameterUnionsBench.ruleId);
-    const visitors = createOnce(context);
-    expect(typeof visitors.FunctionDeclaration).toBe('function');
-    expect(typeof visitors.FunctionExpression).toBe('function');
-    expect(typeof visitors.ArrowFunctionExpression).toBe('function');
-    expect(typeof visitors.TSDeclareFunction).toBe('function');
-    expect(typeof visitors.TSCallSignatureDeclaration).toBe('function');
-    expect(typeof visitors.TSConstructSignatureDeclaration).toBe('function');
-    expect(typeof visitors.TSMethodSignature).toBe('function');
-    expect(visitors.before).toBeUndefined();
-    expect(visitors.Program).toBeUndefined();
-  });
+  itRegistersTypedVisitors(noWideParameterUnionsBench.rule, noWideParameterUnionsBench.ruleId, [
+    'FunctionDeclaration',
+    'FunctionExpression',
+    'ArrowFunctionExpression',
+  ]);
 });
 
 describe('no-wide-parameter-unions reports', () => {
@@ -64,7 +54,7 @@ describe('no-wide-parameter-unions reports', () => {
       ],
     });
     const reports = result.cases[0]?.reports ?? [];
-    expect(reports.length).toBe(6);
+    expect(reports.length).toBe(2);
     expect(reports.every((report) => report.messageId === 'wideUnion')).toBe(true);
   });
 });

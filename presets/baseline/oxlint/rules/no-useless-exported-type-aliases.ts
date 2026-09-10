@@ -1,20 +1,4 @@
-import { defineRule, type ESTree } from '@oxlint/plugins';
-
-function checkAlias(
-  context: {
-    report: (diagnostic: { node: ESTree.Node; messageId: string }) => void;
-  },
-  node: ESTree.TSTypeAliasDeclaration,
-): void {
-  if (
-    node.parent.type === 'ExportNamedDeclaration' &&
-    node.typeAnnotation.type === 'TSTypeReference' &&
-    node.typeAnnotation.typeName.type === 'Identifier' &&
-    node.typeAnnotation.typeArguments == null
-  ) {
-    context.report({ node: node.id, messageId: 'uselessAlias' });
-  }
-}
+import { defineRule } from '@oxlint/plugins';
 
 export default defineRule({
   meta: {
@@ -25,26 +9,18 @@ export default defineRule({
     },
   },
   createOnce(context) {
-    function checkProgram(program: ESTree.Program): void {
-      for (const statement of program.body) {
-        if (
-          statement.type === 'ExportNamedDeclaration' &&
-          statement.declaration?.type === 'TSTypeAliasDeclaration'
-        ) {
-          // Parent is set by the parser / prior walks in real oxlint; for the
-          // harness scan, attach it so the same parent check applies.
-          statement.declaration.parent = statement;
-          checkAlias(context, statement.declaration);
-        }
-      }
-    }
-
     return {
-      before() {
-        checkProgram(context.sourceCode.ast);
-        return false;
+      ExportNamedDeclaration(node) {
+        const declaration = node.declaration;
+        if (
+          declaration?.type === 'TSTypeAliasDeclaration' &&
+          declaration.typeAnnotation.type === 'TSTypeReference' &&
+          declaration.typeAnnotation.typeName.type === 'Identifier' &&
+          declaration.typeAnnotation.typeArguments == null
+        ) {
+          context.report({ node: declaration.id, messageId: 'uselessAlias' });
+        }
       },
-      Program() {},
     };
   },
 });

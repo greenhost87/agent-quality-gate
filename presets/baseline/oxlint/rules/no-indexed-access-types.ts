@@ -1,7 +1,5 @@
 import { defineRule, type ESTree } from '@oxlint/plugins';
 
-import { walkAst } from 'agent-quality-gate/oxlint-walk';
-
 function unwrapParenthesizedType(node: ESTree.Node): ESTree.Node {
   let current = node;
   while (current.type === 'TSParenthesizedType') {
@@ -30,18 +28,11 @@ export default defineRule({
   },
   createOnce(context) {
     return {
-      before() {
-        walkAst(context.sourceCode.ast, (node) => {
-          if (node.type !== 'TSIndexedAccessType') {
-            return;
-          }
-          if (!isRuntimeElementType(node)) {
-            context.report({ node, messageId: 'forbidden' });
-          }
-        });
-        return false;
+      TSIndexedAccessType(node) {
+        if (!isRuntimeElementType(node)) {
+          context.report({ node, messageId: 'forbidden' });
+        }
       },
-      Program() {},
     };
   },
 });

@@ -1,7 +1,5 @@
 import { defineRule, type ESTree } from '@oxlint/plugins';
 
-import { walkAst } from 'agent-quality-gate/oxlint-walk';
-
 function isConsoleMethod(name: string): boolean {
   return (
     name === 'debug' ||
@@ -44,15 +42,7 @@ function isConsoleMethodCall(node: ESTree.CallExpression): boolean {
   );
 }
 
-function staticStringValue(node: ESTree.Node | null): string | null {
-  if (node?.type === 'Literal' && typeof node.value === 'string') {
-    return node.value;
-  }
-  if (node?.type === 'TemplateLiteral' && node.expressions.length === 0) {
-    return node.quasis.map((quasi) => quasi.value.cooked ?? quasi.value.raw).join('');
-  }
-  return null;
-}
+import { staticStringValue } from '../ast.ts';
 
 function placeholderCount(format: string): number {
   let count = 0;
@@ -86,25 +76,21 @@ export default defineRule({
   },
   createOnce(context) {
     return {
-      before() {
-        walkAst(context.sourceCode.ast, (node) => {
-          if (node.type !== 'CallExpression' || !isConsoleMethodCall(node)) {
-            return;
+      CallExpression(node) {
+        if (!isConsoleMethodCall(node)) {
+          return;
+        }
+        if (node.arguments.length <= 1) {
+          if (node.arguments[0] && staticStringValue(node.arguments[0]) === null) {
+            context.report({ node, messageId: 'dynamic' });
           }
-          if (node.arguments.length <= 1) {
-            if (node.arguments[0] && staticStringValue(node.arguments[0]) === null) {
-              context.report({ node, messageId: 'dynamic' });
-            }
-            return;
-          }
-          const format = staticStringValue(node.arguments[0] ?? null);
-          if (format === null || placeholderCount(format) !== node.arguments.length - 1) {
-            context.report({ node, messageId: 'mismatch' });
-          }
-        });
-        return false;
+          return;
+        }
+        const format = staticStringValue(node.arguments[0] ?? null);
+        if (format === null || placeholderCount(format) !== node.arguments.length - 1) {
+          context.report({ node, messageId: 'mismatch' });
+        }
       },
-      Program() {},
     };
   },
 });

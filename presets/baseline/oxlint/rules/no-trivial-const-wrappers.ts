@@ -1,7 +1,6 @@
 import { defineRule, type ESTree } from '@oxlint/plugins';
 
 import { declarationNode, directReturnExpression, isFunctionLike } from '../ast.ts';
-import { walkAst } from 'agent-quality-gate/oxlint-walk';
 
 function unwrapExpression(node: ESTree.Expression): ESTree.Expression {
   if (
@@ -76,51 +75,45 @@ export default defineRule({
     },
   },
   createOnce(context) {
-    function checkTopLevelWrappers(program: ESTree.Program): void {
-      for (const statement of program.body) {
-        const declaration = declarationNode(statement);
-        if (
-          declaration?.type === 'FunctionDeclaration' &&
-          declaration.id &&
-          trivialConstWrapper(declaration)
-        ) {
-          context.report({
-            node: declaration.id,
-            messageId: 'trivialConstWrapper',
-            data: { name: declaration.id.name },
-          });
-        }
-        if (declaration?.type !== 'VariableDeclaration') {
-          continue;
-        }
-        for (const item of declaration.declarations) {
+    return {
+      Program(program) {
+        for (const statement of program.body) {
+          const declaration = declarationNode(statement);
           if (
-            item.id.type === 'Identifier' &&
-            item.init &&
-            isFunctionLike(item.init) &&
-            trivialConstWrapper(item.init)
+            declaration?.type === 'FunctionDeclaration' &&
+            declaration.id &&
+            trivialConstWrapper(declaration)
           ) {
             context.report({
-              node: item.id,
+              node: declaration.id,
               messageId: 'trivialConstWrapper',
-              data: { name: item.id.name },
+              data: { name: declaration.id.name },
             });
           }
-        }
-      }
-    }
-
-    return {
-      before() {
-        checkTopLevelWrappers(context.sourceCode.ast);
-        walkAst(context.sourceCode.ast, (node) => {
-          if (node.type === 'CallExpression' && castIncludesCall(node)) {
-            context.report({ node, messageId: 'castIncludes' });
+          if (declaration?.type !== 'VariableDeclaration') {
+            continue;
           }
-        });
-        return false;
+          for (const item of declaration.declarations) {
+            if (
+              item.id.type === 'Identifier' &&
+              item.init &&
+              isFunctionLike(item.init) &&
+              trivialConstWrapper(item.init)
+            ) {
+              context.report({
+                node: item.id,
+                messageId: 'trivialConstWrapper',
+                data: { name: item.id.name },
+              });
+            }
+          }
+        }
       },
-      Program() {},
+      CallExpression(node) {
+        if (castIncludesCall(node)) {
+          context.report({ node, messageId: 'castIncludes' });
+        }
+      },
     };
   },
 });

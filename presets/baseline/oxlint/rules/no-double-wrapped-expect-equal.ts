@@ -1,6 +1,6 @@
 import { defineRule, type ESTree } from '@oxlint/plugins';
 
-import { unwrapExpression, walkAst } from 'agent-quality-gate/oxlint-walk';
+import { unwrapExpression } from 'agent-quality-gate/oxlint-walk';
 
 import { staticPropertyName } from '../ast.ts';
 
@@ -65,28 +65,21 @@ export default defineRule({
   },
   createOnce(context) {
     return {
-      before() {
-        walkAst(context.sourceCode.ast, (node) => {
-          if (node.type !== 'CallExpression') {
-            return;
-          }
-          const parsed = parseExpectToEqual(node);
-          if (!parsed) {
-            return;
-          }
-          const receivedCall = callExpression(parsed.received);
-          const expectedCall = callExpression(parsed.expected);
-          if (
-            receivedCall !== null &&
-            expectedCall !== null &&
-            sameStaticCallee(receivedCall.callee, expectedCall.callee)
-          ) {
-            context.report({ node, messageId: 'doubleWrapped' });
-          }
-        });
-        return false;
+      CallExpression(node) {
+        const parsed = parseExpectToEqual(node);
+        if (!parsed) {
+          return;
+        }
+        const receivedCall = callExpression(parsed.received);
+        const expectedCall = callExpression(parsed.expected);
+        if (
+          receivedCall !== null &&
+          expectedCall !== null &&
+          sameStaticCallee(receivedCall.callee, expectedCall.callee)
+        ) {
+          context.report({ node, messageId: 'doubleWrapped' });
+        }
       },
-      Program() {},
     };
   },
 });
