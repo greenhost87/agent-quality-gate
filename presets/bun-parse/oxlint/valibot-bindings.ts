@@ -1,8 +1,22 @@
 import type { ESTree } from '@oxlint/plugins';
+import * as v from 'valibot';
 
 import { forEachValibotImportSpecifier } from './valibot-imports.ts';
 import { importedName } from './import-specifier-name.ts';
 import { memberName } from './member-name.ts';
+
+const PARSE_BINDINGS_PROP = Symbol.for('agent-quality-gate.valibot.parseBindings');
+const SCHEMA_BINDINGS_PROP = Symbol.for('agent-quality-gate.valibot.schemaBindings');
+
+const ParseValibotBindingsSchema = v.object({
+  named: v.instance(Set),
+  namespaces: v.instance(Set),
+});
+
+const SchemaValibotBindingsSchema = v.object({
+  namespaces: v.instance(Set),
+  named: v.instance(Map),
+});
 
 function noteNamespaceImport(specifier: ESTree.Node, namespaces: Set<string>): void {
   if (specifier.type === 'ImportNamespaceSpecifier') {
@@ -23,7 +37,7 @@ export function noteParseValibotImportSpecifier(
   }
 }
 
-export function collectParseValibotBindings(root: ESTree.Node): ParseValibotBindings {
+function buildParseValibotBindings(root: ESTree.Node): ParseValibotBindings {
   const bindings: ParseValibotBindings = { named: new Set(), namespaces: new Set() };
   forEachValibotImportSpecifier(root, (specifier) => {
     noteParseValibotImportSpecifier(specifier, bindings);
@@ -31,7 +45,7 @@ export function collectParseValibotBindings(root: ESTree.Node): ParseValibotBind
   return bindings;
 }
 
-export function collectSchemaValibotBindings(program: ESTree.Program): SchemaValibotBindings {
+function buildSchemaValibotBindings(program: ESTree.Program): SchemaValibotBindings {
   const bindings: SchemaValibotBindings = { namespaces: new Set(), named: new Map() };
   forEachValibotImportSpecifier(program, (specifier) => {
     noteNamespaceImport(specifier, bindings.namespaces);
@@ -43,6 +57,37 @@ export function collectSchemaValibotBindings(program: ESTree.Program): SchemaVal
     }
   });
   return bindings;
+}
+
+function isParseValibotBindings(value: unknown): value is ParseValibotBindings {
+  return v.is(ParseValibotBindingsSchema, value);
+}
+
+function isSchemaValibotBindings(value: unknown): value is SchemaValibotBindings {
+  return v.is(SchemaValibotBindingsSchema, value);
+}
+
+export function collectParseValibotBindings(root: ESTree.Node): ParseValibotBindings {
+  if (root.type !== 'Program') {
+    return buildParseValibotBindings(root);
+  }
+  const cached: unknown = Reflect.get(root, PARSE_BINDINGS_PROP);
+  if (isParseValibotBindings(cached)) {
+    return cached;
+  }
+  const built = buildParseValibotBindings(root);
+  Reflect.set(root, PARSE_BINDINGS_PROP, built);
+  return built;
+}
+
+export function collectSchemaValibotBindings(program: ESTree.Program): SchemaValibotBindings {
+  const cached: unknown = Reflect.get(program, SCHEMA_BINDINGS_PROP);
+  if (isSchemaValibotBindings(cached)) {
+    return cached;
+  }
+  const built = buildSchemaValibotBindings(program);
+  Reflect.set(program, SCHEMA_BINDINGS_PROP, built);
+  return built;
 }
 
 export function schemaCalleeExportName(

@@ -1,6 +1,6 @@
 import type { ESTree } from '@oxlint/plugins';
 
-import { astParentOf, unwrapExpression } from '../../../scripts/oxlint-walk/oxlint-walk.ts';
+import { type AstParentOf, unwrapExpression } from '../../../scripts/oxlint-walk/oxlint-walk.ts';
 import {
   collectParseValibotBindings,
   noteParseValibotImportSpecifier,
@@ -62,8 +62,8 @@ export function isValibotParseCall(
   );
 }
 
-function enclosingFunction(node: ESTree.Node): ESTree.Node | null {
-  for (let current = astParentOf(node); current != null; current = astParentOf(current)) {
+function enclosingFunction(node: ESTree.Node, parentOf: AstParentOf): ESTree.Node | null {
+  for (let current = parentOf(node); current != null; current = parentOf(current)) {
     if (FUNCTION_TYPES.has(current.type)) {
       return current;
     }
@@ -71,10 +71,14 @@ function enclosingFunction(node: ESTree.Node): ESTree.Node | null {
   return null;
 }
 
-export function isValidationInput(node: ESTree.Node, bindings: ParseValibotBindings): boolean {
+export function isValidationInput(
+  node: ESTree.Node,
+  bindings: ParseValibotBindings,
+  parentOf: AstParentOf,
+): boolean {
   let current = node;
   for (;;) {
-    const parent = astParentOf(current);
+    const parent = parentOf(current);
     if (parent == null) {
       return false;
     }
@@ -88,10 +92,13 @@ export function isValidationInput(node: ESTree.Node, bindings: ParseValibotBindi
   }
 }
 
-function rawVariable(node: ESTree.CallExpression): ESTree.VariableDeclarator | null {
+function rawVariable(
+  node: ESTree.CallExpression,
+  parentOf: AstParentOf,
+): ESTree.VariableDeclarator | null {
   let current: ESTree.Node = node;
   for (;;) {
-    const parent = astParentOf(current);
+    const parent = parentOf(current);
     if (parent?.type === 'VariableDeclarator') {
       return parent.init === current && parent.id.type === 'Identifier' ? parent : null;
     }
@@ -100,11 +107,6 @@ function rawVariable(node: ESTree.CallExpression): ESTree.VariableDeclarator | n
     }
     current = parent;
   }
-}
-
-function isDeclarationIdentifier(node: ESTree.Node): boolean {
-  const parent = astParentOf(node);
-  return parent?.type === 'VariableDeclarator' && parent.id === node;
 }
 
 export type RawJsonTrackEntry = {
@@ -127,15 +129,16 @@ export function createRawJsonValidationTracker(): RawJsonValidationTracker {
 export function registerDeferredRawJsonValidation(
   tracker: RawJsonValidationTracker,
   call: ESTree.CallExpression,
+  parentOf: AstParentOf,
 ): boolean {
-  const declaration = rawVariable(call);
+  const declaration = rawVariable(call, parentOf);
   if (declaration?.id.type !== 'Identifier') {
     return false;
   }
   const entry: RawJsonTrackEntry = {
     initCall: call,
     declaration,
-    owner: enclosingFunction(call),
+    owner: enclosingFunction(call, parentOf),
     sawValidation: false,
     escaped: false,
   };
@@ -153,6 +156,7 @@ export function noteTrackedRawJsonIdentifier(
   node: ESTree.Node,
   bindings: ParseValibotBindings,
   tracker: RawJsonValidationTracker,
+  parentOf: AstParentOf,
 ): void {
   if (node.type !== 'Identifier') {
     return;
@@ -165,13 +169,14 @@ export function noteTrackedRawJsonIdentifier(
     if (entry.escaped) {
       continue;
     }
-    if (node === entry.declaration.id || isDeclarationIdentifier(node)) {
+    const parent = parentOf(node);
+    if (parent?.type === 'VariableDeclarator' && parent.id === node) {
       continue;
     }
-    if (enclosingFunction(node) !== entry.owner) {
+    if (enclosingFunction(node, parentOf) !== entry.owner) {
       continue;
     }
-    if (isValidationInput(node, bindings)) {
+    if (isValidationInput(node, bindings, parentOf)) {
       entry.sawValidation = true;
     } else {
       entry.escaped = true;

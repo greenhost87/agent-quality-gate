@@ -1,10 +1,9 @@
-import { defineRule, type Context, type ESTree, type Options } from '@oxlint/plugins';
+import { defineRule, type ESTree, type Options } from '@oxlint/plugins';
 import * as v from 'valibot';
 
-import {
-  unwrapExpression,
-  walkAstSkippingTypeAndJsxMarkup,
-} from '../../../scripts/oxlint-walk/oxlint-walk.ts';
+import { createOptionsRefCache } from '../../../scripts/oxlint-options-ref-cache/options-ref-cache.ts';
+import { unwrapExpression } from '../../../scripts/oxlint-walk/oxlint-walk.ts';
+
 import { isUnderPathSegment, projectPath } from './project-path.ts';
 import { isTypeofObjectLiteral } from './typeof-object-sides.ts';
 
@@ -146,35 +145,6 @@ function notePlainObjectRecipes(
   }
 }
 
-function scanTypeofObjectIssues(
-  context: Context,
-  root: ESTree.Node,
-  banArrayIsArray: boolean,
-): void {
-  const anchors = new Set<ESTree.Node>();
-  const suppressed = new Set<ESTree.Node>();
-
-  walkAstSkippingTypeAndJsxMarkup(root, (node) => {
-    if (node.type === 'LogicalExpression' && node.operator === '&&') {
-      notePlainObjectRecipes(node, anchors, suppressed);
-    }
-    if (anchors.has(node)) {
-      context.report({ node, messageId: 'plainObjectRecipe' });
-      return;
-    }
-    if (suppressed.has(node)) {
-      return;
-    }
-    if (isTypeofObjectCompare(node)) {
-      context.report({ node, messageId: 'typeofObject' });
-      return;
-    }
-    if (banArrayIsArray && node.type === 'CallExpression' && isArrayIsArrayCall(node)) {
-      context.report({ node, messageId: 'arrayIsArray' });
-    }
-  });
-}
-
 export const noTypeofObject = defineRule({
   meta: {
     type: 'problem',
@@ -197,9 +167,14 @@ export const noTypeofObject = defineRule({
     },
   },
   createOnce(context) {
+    const modeCache = createOptionsRefCache(readMode);
+    let banArrayIsArray = true;
+    let anchors = new Set<ESTree.Node>();
+    let suppressed = new Set<ESTree.Node>();
+
     return {
       before() {
-        const mode = readMode(context.options);
+        const mode = modeCache.get(context.options);
         if (mode === 'off') {
           return false;
         }
@@ -207,15 +182,40 @@ export const noTypeofObject = defineRule({
         if (isUnderPathSegment(relativePath, 'tests')) {
           return false;
         }
-        const banArrayIsArray = mode === 'strict';
+        banArrayIsArray = mode === 'strict';
         const source = context.sourceCode.text;
         if (!source.includes('typeof') && (!banArrayIsArray || !source.includes('isArray'))) {
           return false;
         }
-        scanTypeofObjectIssues(context, context.sourceCode.ast, banArrayIsArray);
-        return false;
+        anchors = new Set();
+        suppressed = new Set();
+        return undefined;
       },
-      Program() {},
+      LogicalExpression(node) {
+        if (node.operator === '&&') {
+          notePlainObjectRecipes(node, anchors, suppressed);
+        }
+      },
+      BinaryExpression(node) {
+        if (anchors.has(node)) {
+          context.report({ node, messageId: 'plainObjectRecipe' });
+          return;
+        }
+        if (suppressed.has(node)) {
+          return;
+        }
+        if (isTypeofObjectCompare(node)) {
+          context.report({ node, messageId: 'typeofObject' });
+        }
+      },
+      CallExpression(node) {
+        if (suppressed.has(node)) {
+          return;
+        }
+        if (banArrayIsArray && isArrayIsArrayCall(node)) {
+          context.report({ node, messageId: 'arrayIsArray' });
+        }
+      },
     };
   },
 });

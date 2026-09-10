@@ -1,8 +1,8 @@
 import { type Context, type ESTree, type Scope, type Variable } from '@oxlint/plugins';
 
 import {
+  forEachRuntimeAstNode,
   unwrapExpression,
-  walkAstSkippingTypeAndJsxMarkup,
 } from '../../../scripts/oxlint-walk/oxlint-walk.ts';
 import { importedName } from './import-specifier-name.ts';
 import { memberName } from './member-name.ts';
@@ -111,7 +111,7 @@ export function noteConstBunFileBinding(
 /** Collects imported `file` factories and `const` values initialized from Bun file factories. */
 export function collectBunFileBindings(context: Context, root: ESTree.Node): BunFileBindings {
   const bindings = createEmptyBunFileBindings();
-  walkAstSkippingTypeAndJsxMarkup(root, (node, parent) => {
+  const visitNode = (node: ESTree.Node, parent: ESTree.Node | null): void => {
     if (node.type === 'ImportDeclaration' && node.source.value === 'bun') {
       for (const specifier of node.specifiers) {
         noteBunFileImport(context, specifier, bindings);
@@ -120,7 +120,9 @@ export function collectBunFileBindings(context: Context, root: ESTree.Node): Bun
     if (node.type === 'VariableDeclarator') {
       noteConstBunFileBinding(context, node, parent, bindings);
     }
-  });
+  };
+
+  forEachRuntimeAstNode(root, visitNode);
   return bindings;
 }
 

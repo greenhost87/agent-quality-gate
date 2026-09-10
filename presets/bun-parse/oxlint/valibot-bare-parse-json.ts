@@ -1,9 +1,7 @@
 import type { Context, ESTree } from '@oxlint/plugins';
 
-import {
-  unwrapExpression,
-  walkAstSkippingTypeAndJsxMarkup,
-} from '../../../scripts/oxlint-walk/oxlint-walk.ts';
+import { astIndex } from '../../../scripts/oxlint-walk/ast-index.ts';
+import { unwrapExpression } from '../../../scripts/oxlint-walk/oxlint-walk.ts';
 import { collectSchemaConsts, valibotCallName } from './handmade-json-schema.ts';
 import {
   collectParseValibotBindings,
@@ -97,14 +95,14 @@ export function scanBareParseJsonViolations(
   const parseBindings: ParseValibotBindings = collectParseValibotBindings(root);
   const schemas = collectSchemaConsts(root);
 
-  walkAstSkippingTypeAndJsxMarkup(root, (node) => {
+  for (const node of astIndex(root).runtimeNodesOfType('CallExpression')) {
     if (node.type !== 'CallExpression' || !isValibotParseCall(node, parseBindings)) {
-      return;
+      continue;
     }
     const schemaArg = node.arguments[0];
     if (!isBareJsonTextPipeExpr(schemaArg, schemas, schemaBindings)) {
-      return;
+      continue;
     }
     context.report({ node, messageId: 'unvalidatedParseJson' });
-  });
+  }
 }
