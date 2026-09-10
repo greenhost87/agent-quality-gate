@@ -9,6 +9,7 @@ import noEmptyExtendedInterfaces from './rules/no-empty-extended-interfaces.ts';
 import noIdentityAliases from './rules/no-identity-aliases.ts';
 import noIndexedAccessTypes from './rules/no-indexed-access-types.ts';
 import noInlineMultilineTestData from './rules/no-inline-multiline-test-data.ts';
+import noJsonParseJsonStringify from './rules/no-json-parse-json-stringify.ts';
 import noManualExportedStringLiteralUnions from './rules/no-manual-exported-string-literal-unions.ts';
 import noNullUndefinedParameterUnion from './rules/no-null-undefined-parameter-union.ts';
 import noOxlintDisableDirectives from './rules/no-oxlint-disable-directives.ts';
@@ -31,6 +32,7 @@ const rules = {
   'no-identity-aliases': noIdentityAliases,
   'no-indexed-access-types': noIndexedAccessTypes,
   'no-inline-multiline-test-data': noInlineMultilineTestData,
+  'no-json-parse-json-stringify': noJsonParseJsonStringify,
   'no-manual-exported-string-literal-unions': noManualExportedStringLiteralUnions,
   'no-null-undefined-parameter-union': noNullUndefinedParameterUnion,
   'no-oxlint-disable-directives': noOxlintDisableDirectives,
