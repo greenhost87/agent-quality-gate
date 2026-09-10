@@ -8,13 +8,13 @@ import { HOT } from 'agent-quality-gate/oxlint-rule-bench/hot-code';
 import { scriptsBoundariesBench } from './bench.ts';
 
 describe('scripts-boundaries before skip', () => {
-  it('runs the scan in before and skips the visitor walk', () => {
+  it('does not skip app files; visitors scan imports', () => {
     const createOnce = requireCreateOnceRule(scriptsBoundariesBench.rule);
     const context = createBenchRuleContext(scriptsBoundariesBench.ruleId);
     context.state.filename = '/bench/app/load.ts';
     context.state.cwd = '/bench';
     const visitors = createOnce(context);
-    expect(visitors.before?.()).toBe(false);
+    expect(visitors.before?.()).toBeUndefined();
   });
 
   it('skips files under scripts/', () => {

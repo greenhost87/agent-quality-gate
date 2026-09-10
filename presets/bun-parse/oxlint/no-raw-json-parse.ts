@@ -1,9 +1,9 @@
 import { defineRule, type Context, type ESTree } from '@oxlint/plugins';
 
 import {
-  attachAstParent,
+  isAstNode,
+  type AstParentOf,
   unwrapExpression,
-  walkAstSkippingTypeAndJsxMarkup,
 } from '../../../scripts/oxlint-walk/oxlint-walk.ts';
 import {
   createEmptyBunFileBindings,
@@ -15,13 +15,12 @@ import {
 import type { BunFileBindings } from './bun-file-bindings.ts';
 import { memberName } from './member-name.ts';
 import { isUnderPathSegment, projectPath } from './project-path.ts';
-import type { ParseValibotBindings } from './valibot-bindings.ts';
+import { collectParseValibotBindings, type ParseValibotBindings } from './valibot-bindings.ts';
 import {
   createRawJsonValidationTracker,
   isDeferredRawJsonValidated,
   isValidationInput,
   noteTrackedRawJsonIdentifier,
-  noteValibotBindingsFromImport,
   registerDeferredRawJsonValidation,
   trackedRawJsonEntries,
   type RawJsonValidationTracker,
@@ -116,45 +115,13 @@ function reportRawJsonCall(
   }
 }
 
-function noteRawJsonWalkNode(
-  context: Context,
-  node: ESTree.Node,
-  parent: ESTree.Node | null,
-  trackValibot: boolean,
-  valibotBindings: ParseValibotBindings,
-  fileBindings: BunFileBindings,
-  rawJsonTracker: RawJsonValidationTracker,
-): void {
-  attachAstParent(node, parent);
-
-  if (node.type === 'ImportDeclaration') {
-    if (trackValibot) {
-      noteValibotBindingsFromImport(node, valibotBindings);
-    }
-    if (node.source.value === 'bun') {
-      for (const specifier of node.specifiers) {
-        noteBunFileImport(context, specifier, fileBindings);
-      }
-    }
-    return;
-  }
-
-  if (node.type === 'VariableDeclarator') {
-    noteConstBunFileBinding(context, node, parent, fileBindings);
-    return;
-  }
-
-  if (trackValibot && node.type === 'Identifier' && rawJsonTracker.byName.size > 0) {
-    noteTrackedRawJsonIdentifier(node, valibotBindings, rawJsonTracker);
-  }
-}
-
 function visitRawJsonCallExpression(
   context: Context,
   node: ESTree.CallExpression,
   fileBindings: BunFileBindings,
   valibotBindings: ParseValibotBindings,
   rawJsonTracker: RawJsonValidationTracker,
+  parentOf: AstParentOf,
 ): void {
   if (rawJsonCallKind(context, node, fileBindings) != null) {
     reportRawJsonCall(context, node, fileBindings);
@@ -164,47 +131,16 @@ function visitRawJsonCallExpression(
   if (!isBunJsonSource(context, node, fileBindings)) {
     return;
   }
-  if (isValidationInput(node, valibotBindings)) {
+  if (isValidationInput(node, valibotBindings, parentOf)) {
     return;
   }
-  if (registerDeferredRawJsonValidation(rawJsonTracker, node)) {
+  if (registerDeferredRawJsonValidation(rawJsonTracker, node, parentOf)) {
     return;
   }
   context.report({ node, messageId: 'unvalidatedBunJson' });
 }
 
-function scanRawJsonCalls(context: Context, root: ESTree.Node, sourceText: string): void {
-  const trackValibot = sourceImportsValibot(sourceText);
-  const valibotBindings: ParseValibotBindings = { named: new Set(), namespaces: new Set() };
-  const fileBindings = createEmptyBunFileBindings();
-  const rawJsonTracker = createRawJsonValidationTracker();
-
-  walkAstSkippingTypeAndJsxMarkup(root, (node, parent) => {
-    noteRawJsonWalkNode(
-      context,
-      node,
-      parent,
-      trackValibot,
-      valibotBindings,
-      fileBindings,
-      rawJsonTracker,
-    );
-    if (node.type !== 'CallExpression') {
-      return;
-    }
-    visitRawJsonCallExpression(context, node, fileBindings, valibotBindings, rawJsonTracker);
-  });
-
-  for (const entry of trackedRawJsonEntries(rawJsonTracker)) {
-    if (!isDeferredRawJsonValidated(entry)) {
-      context.report({ node: entry.initCall, messageId: 'unvalidatedBunJson' });
-    }
-  }
-
-  if (trackValibot && sourceUsesParseJson(sourceText)) {
-    scanBareParseJsonViolations(context, context.sourceCode.ast, sourceText);
-  }
-}
+const EMPTY_VALIBOT_BINDINGS: ParseValibotBindings = { named: new Set(), namespaces: new Set() };
 
 export const noRawJsonParse = defineRule({
   meta: {
@@ -219,19 +155,72 @@ export const noRawJsonParse = defineRule({
     },
   },
   createOnce(context) {
+    let trackValibot = false;
+    let scanBareParseJson = false;
+    let valibotBindings: ParseValibotBindings = EMPTY_VALIBOT_BINDINGS;
+    let fileBindings = createEmptyBunFileBindings();
+    let rawJsonTracker = createRawJsonValidationTracker();
+
+    function parentOf(node: ESTree.Node): ESTree.Node | null {
+      const ancestors = context.sourceCode.getAncestors(node);
+      const parent: unknown = ancestors[ancestors.length - 1];
+      return isAstNode(parent) ? parent : null;
+    }
+
     return {
       before() {
         const relativePath = projectPath(context);
+        const sourceText = context.sourceCode.text;
         if (
           isUnderPathSegment(relativePath, 'tests') ||
-          !/\b(?:JSON|json|readableStreamToJSON|parseJson)\b/u.test(context.sourceCode.text)
+          !/\b(?:JSON|json|readableStreamToJSON|parseJson)\b/u.test(sourceText)
         ) {
           return false;
         }
-        scanRawJsonCalls(context, context.sourceCode.ast, context.sourceCode.text);
-        return false;
+        trackValibot = sourceImportsValibot(sourceText);
+        valibotBindings = trackValibot
+          ? collectParseValibotBindings(context.sourceCode.ast)
+          : EMPTY_VALIBOT_BINDINGS;
+        fileBindings = createEmptyBunFileBindings();
+        rawJsonTracker = createRawJsonValidationTracker();
+        scanBareParseJson = trackValibot && sourceUsesParseJson(sourceText);
+        return undefined;
       },
-      Program() {},
+      ImportDeclaration(node) {
+        if (node.source.value === 'bun') {
+          for (const specifier of node.specifiers) {
+            noteBunFileImport(context, specifier, fileBindings);
+          }
+        }
+      },
+      VariableDeclarator(node) {
+        noteConstBunFileBinding(context, node, parentOf(node), fileBindings);
+      },
+      CallExpression(node) {
+        visitRawJsonCallExpression(
+          context,
+          node,
+          fileBindings,
+          valibotBindings,
+          rawJsonTracker,
+          parentOf,
+        );
+      },
+      Identifier(node) {
+        if (trackValibot && rawJsonTracker.byName.size > 0) {
+          noteTrackedRawJsonIdentifier(node, valibotBindings, rawJsonTracker, parentOf);
+        }
+      },
+      after() {
+        for (const entry of trackedRawJsonEntries(rawJsonTracker)) {
+          if (!isDeferredRawJsonValidated(entry)) {
+            context.report({ node: entry.initCall, messageId: 'unvalidatedBunJson' });
+          }
+        }
+        if (scanBareParseJson) {
+          scanBareParseJsonViolations(context, context.sourceCode.ast, context.sourceCode.text);
+        }
+      },
     };
   },
 });

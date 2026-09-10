@@ -1,7 +1,6 @@
 import { defineRule, type Context, type ESTree } from '@oxlint/plugins';
 import { posix } from 'node:path';
 
-import { walkAstSkippingTypeAndJsxMarkup } from '../../../scripts/oxlint-walk/oxlint-walk.ts';
 import { isUnderPathSegment, pathHasPrefix, projectPath } from './project-path.ts';
 
 function staticModuleSpecifier(source: ESTree.Node | null): string | null {
@@ -85,32 +84,27 @@ export const scriptsBoundaries = defineRule({
     },
   },
   createOnce(context) {
+    let relativePath = '';
     return {
       before() {
-        const relativePath = projectPath(context);
+        relativePath = projectPath(context);
         if (isScriptsPath(relativePath) || isUnderPathSegment(relativePath, 'tests')) {
           return false;
         }
-        const program = context.sourceCode.ast;
-        for (const statement of program.body) {
-          if (
-            statement.type === 'ImportDeclaration' ||
-            statement.type === 'ExportAllDeclaration' ||
-            statement.type === 'ExportNamedDeclaration'
-          ) {
-            reportScriptsImport(context, statement, relativePath);
-          }
-        }
-        if (context.sourceCode.text.includes('import(')) {
-          walkAstSkippingTypeAndJsxMarkup(program, (node) => {
-            if (node.type === 'ImportExpression') {
-              reportScriptsImport(context, node, relativePath);
-            }
-          });
-        }
-        return false;
+        return undefined;
       },
-      Program() {},
+      ImportDeclaration(node) {
+        reportScriptsImport(context, node, relativePath);
+      },
+      ExportAllDeclaration(node) {
+        reportScriptsImport(context, node, relativePath);
+      },
+      ExportNamedDeclaration(node) {
+        reportScriptsImport(context, node, relativePath);
+      },
+      ImportExpression(node) {
+        reportScriptsImport(context, node, relativePath);
+      },
     };
   },
 });

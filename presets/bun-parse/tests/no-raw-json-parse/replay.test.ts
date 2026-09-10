@@ -8,12 +8,21 @@ import { HOT } from 'agent-quality-gate/oxlint-rule-bench/hot-code';
 import { noRawJsonParseBench } from './bench.ts';
 
 describe('no-raw-json-parse before skip', () => {
-  it('runs the scan in before and skips the visitor walk', () => {
+  it('skips tests/ and source without JSON markers', () => {
+    const createOnce = requireCreateOnceRule(noRawJsonParseBench.rule);
+    const context = createBenchRuleContext(noRawJsonParseBench.ruleId);
+    context.state.filename = '/bench/tests/utils.ts';
+    const visitors = createOnce(context);
+    expect(visitors.before?.()).toBe(false);
+  });
+
+  it('does not skip when scanning via visitors', () => {
     const createOnce = requireCreateOnceRule(noRawJsonParseBench.rule);
     const context = createBenchRuleContext(noRawJsonParseBench.ruleId);
     context.state.filename = '/bench/utils.ts';
+    context.state.code = 'JSON.parse("{}");\n';
     const visitors = createOnce(context);
-    expect(visitors.before?.()).toBe(false);
+    expect(visitors.before?.()).toBeUndefined();
   });
 });
 

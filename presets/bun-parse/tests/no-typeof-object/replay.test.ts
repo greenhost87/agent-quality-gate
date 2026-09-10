@@ -8,12 +8,21 @@ import { HOT } from 'agent-quality-gate/oxlint-rule-bench/hot-code';
 import { noTypeofObjectBench } from './bench.ts';
 
 describe('no-typeof-object before skip', () => {
-  it('runs the scan in before and skips the visitor walk', () => {
+  it('skips tests/ without scanning', () => {
+    const createOnce = requireCreateOnceRule(noTypeofObjectBench.rule);
+    const context = createBenchRuleContext(noTypeofObjectBench.ruleId);
+    context.state.filename = '/bench/tests/utils.ts';
+    const visitors = createOnce(context);
+    expect(visitors.before?.()).toBe(false);
+  });
+
+  it('does not skip when scanning via visitors', () => {
     const createOnce = requireCreateOnceRule(noTypeofObjectBench.rule);
     const context = createBenchRuleContext(noTypeofObjectBench.ruleId);
     context.state.filename = '/bench/utils.ts';
+    context.state.code = 'typeof value === "object";\n';
     const visitors = createOnce(context);
-    expect(visitors.before?.()).toBe(false);
+    expect(visitors.before?.()).toBeUndefined();
   });
 });
 
