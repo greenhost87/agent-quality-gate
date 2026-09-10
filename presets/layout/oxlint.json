@@ -1,0 +1,25 @@
+{
+  "categories": {
+    "correctness": "off"
+  },
+  "ignorePatterns": ["node_modules/**", ".*/**", "tests/**"],
+  "jsPlugins": [
+    {
+      "name": "aqg",
+      "specifier": "../baseline/oxlint/index.ts"
+    },
+    {
+      "name": "module-placement",
+      "specifier": "./oxlint/module-placement.ts"
+    },
+    {
+      "name": "packages",
+      "specifier": "./oxlint/package-boundaries.ts"
+    }
+  ],
+  "rules": {
+    "aqg/no-inline-multiline-test-data": "error",
+    "module-placement/module-placement": "error",
+    "packages/package-boundaries": "off"
+  }
+}
