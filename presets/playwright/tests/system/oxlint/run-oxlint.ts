@@ -7,7 +7,7 @@ const oxlintPath = resolve('node_modules/.bin/oxlint');
 const pluginPath = resolve(import.meta.dir, '../../../oxlint/playwright.ts');
 const fixturesRoot = resolve(import.meta.dir, '../../../.quality-fixtures');
 
-async function writeRuleConfig(rule: string) {
+async function writeRuleConfig(rule: string, options?: object) {
   const workspace = realpathSync(mkdtempSync(join(tmpdir(), 'playwright-')));
   const configPath = join(workspace, 'oxlint.json');
   await write(
@@ -15,14 +15,19 @@ async function writeRuleConfig(rule: string) {
     JSON.stringify({
       categories: { correctness: 'off' },
       jsPlugins: [{ name: 'playwright', specifier: pluginPath }],
-      rules: { [rule]: 'error' },
+      rules: { [rule]: options === undefined ? 'error' : ['error', options] },
     }),
   );
   return { workspace, configPath };
 }
 
-export async function runOxlintFixture(fixture: string, entry: string, rule: string) {
-  const { workspace, configPath } = await writeRuleConfig(rule);
+export async function runOxlintFixture(
+  fixture: string,
+  entry: string,
+  rule: string,
+  options?: object,
+) {
+  const { workspace, configPath } = await writeRuleConfig(rule, options);
   const caseRoot = join(fixturesRoot, fixture);
   const sourcePath = join(caseRoot, entry);
   const child = spawn({

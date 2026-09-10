@@ -6,9 +6,9 @@ import { writeTextFile } from '../../../../process/files/files.ts';
 import { afterEach, describe, expect, it } from 'bun:test';
 
 import { executeVerify } from '../../../../gate/execute-verify/execute-verify.ts';
-import { streamResultFromVerifyResult } from '../../../../gate/public-verify/verify-streams.ts';
 import { resolvePresetContract } from '../../../../preset-catalog/catalog/preset-catalog.ts';
 import { useIsolatedAgentQualityGateHome } from '../../../../tests/support/isolated-home.ts';
+import { verifyPresentedText } from '../../../../tests/support/verify-result-text.ts';
 
 useIsolatedAgentQualityGateHome();
 
@@ -64,14 +64,11 @@ describe('playwright preset contract', () => {
       entries: ['src/index.ts'],
       presets: ['playwright'],
     });
+    const output = verifyPresentedText(result);
     expect(result.exitCode).toBe(1);
-    expect(streamResultFromVerifyResult(result).stderr).toContain(
-      'scripts/playwright-web-server.ts (missing)',
-    );
-    expect(streamResultFromVerifyResult(result).stderr).toContain(
-      'example .aqg/playwright/scripts/playwright-web-server.ts',
-    );
-    expect(streamResultFromVerifyResult(result).stderr).not.toContain('playwright-config:');
+    expect(output).toContain('scripts/playwright-web-server.ts (missing)');
+    expect(output).toContain('example .aqg/playwright/scripts/playwright-web-server.ts');
+    expect(output).not.toContain('playwright-config:');
   });
 
   it('requires a Playwright config when @playwright/test is a dependency', async () => {
@@ -97,7 +94,7 @@ describe('playwright preset contract', () => {
       entries: ['src/index.ts'],
     });
     expect(inactive.exitCode).toBe(0);
-    expect(streamResultFromVerifyResult(inactive).stderr).not.toContain('playwright-config:');
+    expect(verifyPresentedText(inactive)).not.toContain('playwright/config');
 
     const active = await executeVerify({
       projectRoot: cwd,
@@ -105,7 +102,8 @@ describe('playwright preset contract', () => {
       presets: ['playwright'],
     });
     expect(active.exitCode).toBe(1);
-    expect(streamResultFromVerifyResult(active).stderr).toContain(
+    expect(verifyPresentedText(active)).toContain('playwright/config');
+    expect(verifyPresentedText(active)).toContain(
       'add playwright.config.ts with use.baseURL and webServer',
     );
   });

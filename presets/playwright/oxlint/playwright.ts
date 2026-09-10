@@ -6,7 +6,7 @@ import {
   type ESTree,
 } from '@oxlint/plugins';
 
-import { walkAst } from '../../../scripts/oxlint-walk/oxlint-walk.ts';
+import { externalNetworkOnly, staticName } from './external-network-only.ts';
 
 const e2eDirectoryPattern = /(?:^|\/)tests\/e2e\//u;
 const playwrightConfigPattern = /(?:^|\/)playwright\.config\.[cm]?[jt]s$/u;
@@ -43,22 +43,12 @@ function identifierName(node: ESTree.Node): string | null {
   return node.type === 'Identifier' ? node.name : null;
 }
 
-function propertyName(node: ESTree.Node): string | null {
-  if (node.type === 'Identifier') {
-    return node.name;
-  }
-  if (node.type === 'Literal' && typeof node.value === 'string') {
-    return node.value;
-  }
-  return null;
-}
-
 function objectProperty(object: ESTree.ObjectExpression, name: string): ESTree.Node | null {
   for (const property of object.properties) {
     if (property.type !== 'Property' || property.computed) {
       continue;
     }
-    if (propertyName(property.key) === name) {
+    if (staticName(property.key) === name) {
       return property;
     }
   }
@@ -72,7 +62,7 @@ function isDefineConfigCallee(node: ESTree.Node): boolean {
   return (
     node.type === 'MemberExpression' &&
     !node.computed &&
-    propertyName(node.property) === 'defineConfig'
+    staticName(node.property) === 'defineConfig'
   );
 }
 
@@ -108,20 +98,6 @@ function isPlaywrightConfigComplete(config: ESTree.ObjectExpression): boolean {
   );
 }
 
-function createForE2eFilesOnce(context: Context, runScan: (relativePath: string) => void) {
-  return {
-    before() {
-      const relativePath = projectPath(context);
-      if (!e2eDirectoryPattern.test(relativePath)) {
-        return false;
-      }
-      runScan(relativePath);
-      return false;
-    },
-    Program() {},
-  };
-}
-
 function reportE2eFilename(context: Context, node: ESTree.Program, relativePath: string): void {
   if (!allowedE2eSourcePattern.test(relativePath)) {
     context.report({ node, messageId: 'filename' });
@@ -149,7 +125,7 @@ function reportBrowserLaunch(context: Context, node: ESTree.CallExpression): voi
   if (node.callee.type !== 'MemberExpression' || node.callee.computed) {
     return;
   }
-  if (propertyName(node.callee.property) !== 'launch') {
+  if (staticName(node.callee.property) !== 'launch') {
     return;
   }
   if (browserLaunchNames.has(identifierName(node.callee.object) ?? '')) {
@@ -161,29 +137,10 @@ function reportBunSpawn(context: Context, node: ESTree.MemberExpression): void {
   if (node.computed) {
     return;
   }
-  if (identifierName(node.object) !== 'Bun' || propertyName(node.property) !== 'spawn') {
+  if (identifierName(node.object) !== 'Bun' || staticName(node.property) !== 'spawn') {
     return;
   }
   context.report({ node, messageId: 'spawn' });
-}
-
-function inspectE2eRunnerNode(context: Context, node: ESTree.Node, relativePath: string): void {
-  switch (node.type) {
-    case 'Program':
-      reportE2eFilename(context, node, relativePath);
-      break;
-    case 'ImportDeclaration':
-      reportE2eImports(context, node);
-      break;
-    case 'CallExpression':
-      reportBrowserLaunch(context, node);
-      break;
-    case 'MemberExpression':
-      reportBunSpawn(context, node);
-      break;
-    default:
-      break;
-  }
 }
 
 function reportBlackBoxImport(context: Context, node: ESTree.ImportDeclaration): void {
@@ -216,11 +173,28 @@ export const e2eRunner = defineRule({
     },
   },
   createOnce(context) {
-    return createForE2eFilesOnce(context, (relativePath) => {
-      walkAst(context.sourceCode.ast, (node) => {
-        inspectE2eRunnerNode(context, node, relativePath);
-      });
-    });
+    let relativePath = '';
+    return {
+      before() {
+        relativePath = projectPath(context);
+        if (!e2eDirectoryPattern.test(relativePath)) {
+          return false;
+        }
+        return undefined;
+      },
+      Program(node) {
+        reportE2eFilename(context, node, relativePath);
+      },
+      ImportDeclaration(node) {
+        reportE2eImports(context, node);
+      },
+      CallExpression(node) {
+        reportBrowserLaunch(context, node);
+      },
+      MemberExpression(node) {
+        reportBunSpawn(context, node);
+      },
+    };
   },
 });
 
@@ -234,13 +208,17 @@ export const e2eBlackBox = defineRule({
     },
   },
   createOnce(context) {
-    return createForE2eFilesOnce(context, () => {
-      walkAst(context.sourceCode.ast, (node) => {
-        if (node.type === 'ImportDeclaration') {
-          reportBlackBoxImport(context, node);
+    return {
+      before() {
+        if (!e2eDirectoryPattern.test(projectPath(context))) {
+          return false;
         }
-      });
-    });
+        return undefined;
+      },
+      ImportDeclaration(node) {
+        reportBlackBoxImport(context, node);
+      },
+    };
   },
 });
 
@@ -258,19 +236,15 @@ export const playwrightConfig = defineRule({
         if (!playwrightConfigPattern.test(projectPath(context))) {
           return false;
         }
-        walkAst(context.sourceCode.ast, (node) => {
-          if (node.type !== 'ExportDefaultDeclaration') {
-            return;
-          }
-          const config = configObjectFromDefaultExport(node);
-          if (config === null || isPlaywrightConfigComplete(config)) {
-            return;
-          }
-          context.report({ node, messageId: 'required' });
-        });
-        return false;
+        return undefined;
       },
-      Program() {},
+      ExportDefaultDeclaration(node) {
+        const config = configObjectFromDefaultExport(node);
+        if (config === null || isPlaywrightConfigComplete(config)) {
+          return;
+        }
+        context.report({ node, messageId: 'required' });
+      },
     };
   },
 });
@@ -282,6 +256,7 @@ export const playwrightPlugin = {
   rules: {
     'e2e-runner': e2eRunner,
     'e2e-black-box': e2eBlackBox,
+    'external-network-only': externalNetworkOnly,
     config: playwrightConfig,
   },
 };

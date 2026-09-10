@@ -5,17 +5,11 @@ import { createBenchRuleContext } from 'agent-quality-gate/oxlint-rule-bench/cre
 import { requireCreateOnceRule } from 'agent-quality-gate/oxlint-rule-bench/require-create-once-rule';
 import { HOT } from 'agent-quality-gate/oxlint-rule-bench/hot-code';
 
+import { itRegistersTypedVisitors } from '../support/expect-typed-visitors.ts';
 import { e2eBlackBoxBench } from './bench.ts';
 
-describe('e2e-black-box before skip', () => {
-  it('runs the scan in before and skips the visitor walk', () => {
-    const createOnce = requireCreateOnceRule(e2eBlackBoxBench.rule);
-    const context = createBenchRuleContext(e2eBlackBoxBench.ruleId);
-    context.state.filename = '/bench/tests/e2e/visualizer.pw.ts';
-    context.state.cwd = '/bench';
-    const visitors = createOnce(context);
-    expect(visitors.before?.()).toBe(false);
-  });
+describe('e2e-black-box visitors', () => {
+  itRegistersTypedVisitors(e2eBlackBoxBench.rule, e2eBlackBoxBench.ruleId, ['ImportDeclaration']);
 
   it('skips non-e2e files without scanning', () => {
     const createOnce = requireCreateOnceRule(e2eBlackBoxBench.rule);

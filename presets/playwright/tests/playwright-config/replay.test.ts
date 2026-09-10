@@ -4,17 +4,13 @@ import { replayCreateOnceRule } from 'agent-quality-gate/oxlint-rule-bench';
 import { createBenchRuleContext } from 'agent-quality-gate/oxlint-rule-bench/create-bench-context';
 import { requireCreateOnceRule } from 'agent-quality-gate/oxlint-rule-bench/require-create-once-rule';
 
+import { itRegistersTypedVisitors } from '../support/expect-typed-visitors.ts';
 import { playwrightConfigBench } from './bench.ts';
 
-describe('playwright-config before skip', () => {
-  it('runs the scan in before and skips the visitor walk', () => {
-    const createOnce = requireCreateOnceRule(playwrightConfigBench.rule);
-    const context = createBenchRuleContext(playwrightConfigBench.ruleId);
-    context.state.filename = '/bench/playwright.config.ts';
-    context.state.cwd = '/bench';
-    const visitors = createOnce(context);
-    expect(visitors.before?.()).toBe(false);
-  });
+describe('playwright-config visitors', () => {
+  itRegistersTypedVisitors(playwrightConfigBench.rule, playwrightConfigBench.ruleId, [
+    'ExportDefaultDeclaration',
+  ]);
 
   it('skips non-config files without scanning', () => {
     const createOnce = requireCreateOnceRule(playwrightConfigBench.rule);
