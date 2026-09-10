@@ -116,8 +116,10 @@ describe('verify phases', () => {
     expect(verifyPresentedText(result)).toContain('boundary-violation');
     expect(verifyPresentedText(result)).not.toContain('no-class');
     expect(phases[0]).toBe('cycles');
-    expect(new Set(phases.slice(1))).toEqual(new Set(['oxlint', 'boundaries', 'structural']));
-    expect(phases).toHaveLength(4);
+    expect(new Set(phases.slice(1))).toEqual(
+      new Set(['oxlint', 'boundaries', 'hygiene', 'complexity', 'structural']),
+    );
+    expect(phases).toHaveLength(6);
   });
 
   it('runs all verify phases on the success path', async () => {

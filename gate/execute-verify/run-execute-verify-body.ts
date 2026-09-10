@@ -252,11 +252,7 @@ async function runExecuteVerifyBody(
         })),
       ),
       settleStage(
-        runFallowJson(
-          fallowConfigPath,
-          ['--skip', 'health'],
-          checkResultFromFallowHygieneToolRun,
-        ),
+        runFallowJson(fallowConfigPath, ['--skip', 'health'], checkResultFromFallowHygieneToolRun),
       ),
       settleStage(
         runFallowJson(

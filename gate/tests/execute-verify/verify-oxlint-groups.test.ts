@@ -244,6 +244,7 @@ describe('oxlint virtual groups', () => {
       'boundaries:database',
       'boundaries:playwright',
       'lint',
+      'ui',
     ]);
     expect(groups.find((group) => group.id === 'lint')?.ruleIds.has('aqg/no-class')).toBe(true);
   });
@@ -258,8 +259,8 @@ describe('oxlint virtual groups', () => {
     expect(groups.map((group) => group.id)).toEqual([
       'boundaries:database',
       'contracts',
-      'ui',
       'lint',
+      'ui',
     ]);
   });
 
