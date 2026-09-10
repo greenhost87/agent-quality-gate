@@ -7,12 +7,16 @@ import { HOT } from '../support/hot-code.ts';
 import { readRuleFixture } from '../support/read-rule-fixture.ts';
 
 import { noWideParameterUnionsBench } from './bench.ts';
-describe('no-wide-parameter-unions before skip', () => {
-  it('runs the scan in before and skips the visitor walk', () => {
+describe('no-wide-parameter-unions visitors', () => {
+  it('registers typed function-param visitors without before or empty Program', () => {
     const createOnce = requireCreateOnceRule(noWideParameterUnionsBench.rule);
     const context = createBenchRuleContext(noWideParameterUnionsBench.ruleId);
     const visitors = createOnce(context);
-    expect(visitors.before?.()).toBe(false);
+    expect(typeof visitors.FunctionDeclaration).toBe('function');
+    expect(typeof visitors.FunctionExpression).toBe('function');
+    expect(typeof visitors.ArrowFunctionExpression).toBe('function');
+    expect(visitors.before).toBeUndefined();
+    expect(visitors.Program).toBeUndefined();
   });
 });
 
