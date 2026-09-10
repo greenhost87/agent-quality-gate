@@ -18,7 +18,7 @@ export const LOCAL_PRESET_PACKAGE_VERIFY_PRESETS = [
   'bun-parse',
   'config',
   'database',
-  'module-placement',
+  'layout',
   'playwright',
 ] as const;
 

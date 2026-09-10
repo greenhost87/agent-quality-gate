@@ -9,13 +9,7 @@ import { useIsolatedAgentQualityGateHome } from '../../../tests/support/isolated
 
 useIsolatedAgentQualityGateHome();
 
-const PHASE_PRESETS = [
-  'bun-parse',
-  'config',
-  'database',
-  'module-placement',
-  'playwright',
-] as const;
+const PHASE_PRESETS = ['bun-parse', 'config', 'database', 'layout', 'playwright'] as const;
 
 function groupIdForRule(
   groups: ReturnType<typeof oxlintVirtualGroupsFromRules>,
@@ -59,20 +53,22 @@ describe('preset phase + gate-config options', () => {
     }
   });
 
-  it('preserves module-placement phase while applying presetConfig options', async () => {
-    const contract = await resolvePresetContract(['module-placement']);
+  it('preserves layout placement phase while applying presetConfig options', async () => {
+    const contract = await resolvePresetContract(['layout']);
     const rules = { ...contract.rules };
     await applyPresetGateConfig(rules, contract.activated, {
-      'module-placement': {
-        directories: ['system/agents', 'app/components/ui'],
-        rootExceptions: { 'system/agents': ['agents.types.ts'] },
-        forbidConcernPrefix: ['system/agents'],
-        maxDepth: { 'app/components/ui': 2 },
-        maxFilesPerDirectory: { 'app/components/ui': 12 },
-        routeCompositionRoots: {
-          'system/agents': {
-            manifest: 'app/routes.ts',
-            presentationRoot: 'app/components/ui',
+      layout: {
+        placement: {
+          directories: ['system/agents', 'app/components/ui'],
+          rootExceptions: { 'system/agents': ['agents.types.ts'] },
+          forbidConcernPrefix: ['system/agents'],
+          maxDepth: { 'app/components/ui': 2 },
+          maxFilesPerDirectory: { 'app/components/ui': 12 },
+          routeCompositionRoots: {
+            'system/agents': {
+              manifest: 'app/routes.ts',
+              presentationRoot: 'app/components/ui',
+            },
           },
         },
       },

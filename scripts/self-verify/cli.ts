@@ -18,14 +18,7 @@ const LOCAL_ENTRIES = [
   'install.ts',
 ] as const;
 
-const LOCAL_PRESETS = [
-  'bun-parse',
-  'config',
-  'database',
-  'module-placement',
-  'playwright',
-  'test-colocation',
-] as const;
+const LOCAL_PRESETS = ['bun-parse', 'config', 'database', 'layout', 'playwright'] as const;
 
 const LOCAL_MODULE_PLACEMENT = {
   directories: ['presets/baseline/tests', 'scripts', 'gate', 'config', 'preset-catalog', 'process'],
@@ -52,12 +45,14 @@ export function localVerifyRequest(): VerifyRequest {
     presets: LOCAL_PRESETS,
     skipPresetProjectChecks: true,
     presetConfig: {
-      'module-placement': {
-        directories: [...LOCAL_MODULE_PLACEMENT.directories],
-        rootExceptions: { ...LOCAL_MODULE_PLACEMENT.rootExceptions },
+      layout: {
+        placement: {
+          directories: [...LOCAL_MODULE_PLACEMENT.directories],
+          rootExceptions: { ...LOCAL_MODULE_PLACEMENT.rootExceptions },
+        },
+        testColocation: { policy: 'aqg-repository' },
       },
       baseline: { maxInlineParameterObjectMembers: 3 },
-      'test-colocation': { policy: 'aqg-repository' },
     },
     fallowIgnoreDependencies: ['@testcontainers/postgresql', 'testcontainers', '@oxlint/plugins'],
     okLabel: 'repository',

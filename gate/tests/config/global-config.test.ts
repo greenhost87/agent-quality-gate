@@ -174,11 +174,8 @@ describe('global config presetConfig', () => {
 });
 
 describe('global config package presets', () => {
-  it('accepts home-installed preset names and stores packages presetConfig', async () => {
+  it('accepts layout packages alias and stores packages presetConfig', async () => {
     const project = await writeProjectRoot();
-    const packagesSource = await writeNamedPresetRoot('packages');
-    await ensureGateInstallNodeModules();
-    await installPresetFromSource(packagesSource);
     const configPath = await writeConfig({
       projects: [
         {
@@ -202,6 +199,24 @@ describe('global config package presets', () => {
         declaredDependencies: { orders: ['shopify'] },
       },
     });
+  });
+
+  it('accepts home-installed preset names', async () => {
+    const project = await writeProjectRoot();
+    const optionalSource = await writeNamedPresetRoot('demo-optional');
+    await ensureGateInstallNodeModules();
+    await installPresetFromSource(optionalSource);
+    const configPath = await writeConfig({
+      projects: [
+        {
+          root: project,
+          entries: ['src/index.ts'],
+          presets: ['demo-optional', 'config'],
+        },
+      ],
+    });
+    const config = await readGlobalQualityGateConfig(configPath);
+    expect(config.projects[0]?.presets).toEqual(['demo-optional', 'config']);
   });
 
   it('drops unknown preset names instead of rejecting the project', async () => {
@@ -237,9 +252,6 @@ describe('global config package presets', () => {
 
   it('warns when packages + playwright omit playwright.config.ts from allowedRootModules', async () => {
     const project = await writeProjectRoot();
-    const packagesSource = await writeNamedPresetRoot('packages');
-    await ensureGateInstallNodeModules();
-    await installPresetFromSource(packagesSource);
     const configPath = await writeConfig({
       projects: [
         {
@@ -263,9 +275,6 @@ describe('global config package presets', () => {
 
   it('warns when packages lists next.config.ts in entries but not allowedRootModules', async () => {
     const project = await writeProjectRoot();
-    const packagesSource = await writeNamedPresetRoot('packages');
-    await ensureGateInstallNodeModules();
-    await installPresetFromSource(packagesSource);
     const configPath = await writeConfig({
       projects: [
         {
@@ -288,9 +297,6 @@ describe('global config package presets', () => {
 
   it('stays quiet when packages + playwright allowlist includes companion root configs', async () => {
     const project = await writeProjectRoot();
-    const packagesSource = await writeNamedPresetRoot('packages');
-    await ensureGateInstallNodeModules();
-    await installPresetFromSource(packagesSource);
     const configPath = await writeConfig({
       projects: [
         {
