@@ -1,9 +1,13 @@
-import { executeVerify } from './node_modules/agent-quality-gate/dist/extensions/verify.js';
+import {
+  executeVerify,
+  streamResultFromVerifyResult,
+} from './node_modules/agent-quality-gate/dist/extensions/public-verify.js';
 
-const result = await executeVerify({
+const verifyResult = await executeVerify({
   projectRoot: process.cwd(),
   entries: ['src/index.ts', 'tests/example.test.ts'],
 });
+const result = streamResultFromVerifyResult(verifyResult);
 const diagnostics = `${result.stdout}\n${result.stderr}`;
 if (result.exitCode === 0) {
   console.error(JSON.stringify(result));

@@ -103,7 +103,13 @@ function isMigrationPath(path: string): boolean {
 }
 
 function migrationPathsFrom(paths: readonly string[]): string[] {
-  return paths.filter((path) => isMigrationPath(path));
+  const selected: string[] = [];
+  for (const path of paths) {
+    if (isMigrationPath(path)) {
+      selected.push(path);
+    }
+  }
+  return selected;
 }
 
 export function captureCommittedMigrationDiff(

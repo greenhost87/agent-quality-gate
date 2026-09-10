@@ -23,6 +23,7 @@ import {
   shortHint,
   type HintDocId,
 } from './hint-docs.js';
+import { formatVerifyResultDiagnostics } from './format-diagnostics.js';
 
 export const QUALITY_GATE_FOLLOW_UP_BUDGET = 3;
 
@@ -225,12 +226,6 @@ async function materializeFollowUpArtifacts(
   ]);
 }
 
-function formatDiagnostics(result: VerifyResult): string {
-  return [result.stdout.trimEnd(), result.stderr.trimEnd()]
-    .filter((value) => value.length > 0)
-    .join('\n\n');
-}
-
 function diagnosticLineCount(diagnostics: string): number {
   if (diagnostics.length === 0) {
     return 0;
@@ -328,7 +323,7 @@ export async function executeQualityGateForCwd(
       projectRoot,
       result: {
         ...result,
-        stderr: `${warningBlock}${result.stderr}`,
+        statusStderr: `${warningBlock}${result.statusStderr ?? ''}`,
       },
     };
   } catch (error) {
@@ -344,7 +339,7 @@ export async function followUpForSettledResult(run: QualityGateRun): Promise<str
   if (run.kind !== 'ran' || run.result.exitCode === 0) {
     return undefined;
   }
-  const diagnostics = formatDiagnostics(run.result);
+  const diagnostics = formatVerifyResultDiagnostics(run.result);
   const hints = collectCompactHints(diagnostics);
   await materializeFollowUpArtifacts(run.projectRoot, hints, diagnostics);
   return [
@@ -382,9 +377,14 @@ export async function toolOutput(run: QualityGateRun): Promise<string> {
     return VERIFY_UNAVAILABLE_AGENT_MESSAGE;
   }
   if (run.result.exitCode === 0) {
-    return run.result.stdout.trimEnd() || 'verify: ok';
+    const warnings = formatVerifyResultDiagnostics({
+      ...run.result,
+      deferredCount: undefined,
+    });
+    const ok = (run.result.statusStdout ?? '').trimEnd() || 'verify: ok';
+    return [warnings, ok].filter((part) => part.length > 0).join('\n');
   }
-  return (await followUpForSettledResult(run)) ?? formatDiagnostics(run.result);
+  return (await followUpForSettledResult(run)) ?? formatVerifyResultDiagnostics(run.result);
 }
 
 export type QualityGateRun =

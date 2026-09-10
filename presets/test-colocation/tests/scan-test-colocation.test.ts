@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'bun:test';
 
 import { listFallowDiscoveredFiles } from '../../../gate/preflight/fallow-analysis.js';
+import { checkPresentedText } from '../../../tests/support/verify-result-text.js';
 import {
   findTestColocationViolationsFromRelativePaths,
   rejectMisplacedTestsFromRelativePaths,
@@ -44,14 +45,14 @@ describe('test-colocation scan', () => {
     const files = await listFixtureFiles(root);
     const result = rejectMisplacedTestsFromRelativePaths(files, 'application');
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain('system/workflows/draft/example.test.ts');
+    expect(checkPresentedText(result)).toContain('system/workflows/draft/example.test.ts');
   });
 
   it('allows application tests and setup helpers under tests/', async () => {
     const root = await materialize('valid-application');
     const files = await listFixtureFiles(root);
     const result = rejectMisplacedTestsFromRelativePaths(files, 'application');
-    expect(result).toEqual({ exitCode: 0, stdout: '', stderr: '' });
+    expect(result).toEqual({ exitCode: 0, diagnostics: [] });
   });
 
   it('finds violations from an explicit relative path list', async () => {

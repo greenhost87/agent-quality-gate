@@ -294,7 +294,7 @@ describe('release package', () => {
       expect(text.includes('packaged Oxlint assets failed')).toBe(false);
       expect(text.includes('packaged Oxlint/Fallow assets not found')).toBe(false);
       expect(result.isError).toBe(true);
-      expect(text.includes('eslint(no-debugger)')).toBe(true);
+      expect(text.includes('no-debugger')).toBe(true);
       expect(text.includes('Fix only the violations listed below')).toBe(true);
     } finally {
       await client.close();
@@ -359,7 +359,7 @@ describe('release package', () => {
       expect(text.includes('packaged Oxlint assets failed')).toBe(false);
       expect(text.includes('packaged Oxlint/Fallow assets not found')).toBe(false);
       expect(result.isError).toBe(true);
-      expect(text.includes('eslint(no-debugger)')).toBe(true);
+      expect(text.includes('no-debugger')).toBe(true);
       expect(text.includes('Fix only the violations listed below')).toBe(true);
     } finally {
       await client.close();

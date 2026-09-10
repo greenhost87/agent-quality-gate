@@ -3,7 +3,7 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import * as v from 'valibot';
 
-import type { VerifyResult } from '../../gate/execute-verify/execute-verify.js';
+import type { StreamResult } from '../../gate/public-verify/verify-streams.js';
 import { formatStepOk } from '../../gate/execute-verify/verify-ok-message.js';
 import { runCapturedProcess } from '../../process/run-command/run-command.js';
 import { hasBunLockfile } from './has-bun-lockfile.js';
@@ -76,7 +76,7 @@ async function ensurePresetDependencies(
   presetRoot: string,
   presetName: string,
   step: string,
-): Promise<VerifyResult | null> {
+): Promise<StreamResult | null> {
   const installArgs = hasBunLockfile(presetRoot)
     ? (['install', '--frozen-lockfile'] as const)
     : (['install'] as const);
@@ -98,7 +98,7 @@ async function ensurePresetDependencies(
 
 async function runLocalPresetPackScript(
   options: RunLocalPresetPackScriptOptions,
-): Promise<VerifyResult> {
+): Promise<StreamResult> {
   const root = resolveProjectRoot(options.projectRoot);
   const names = (await listLocalPresetPackNamesWithScript(root, options.scriptName)).filter(
     (name) => options.exclude === undefined || !options.exclude.has(name),
@@ -135,7 +135,7 @@ async function runLocalPresetPackScript(
   );
 }
 
-export async function verifyLocalPresetPacks(projectRoot: string): Promise<VerifyResult> {
+export async function verifyLocalPresetPacks(projectRoot: string): Promise<StreamResult> {
   return runSameNamedPackScript(projectRoot, 'verify');
 }
 
@@ -143,14 +143,14 @@ export async function listLocalPresetPackFmtNames(projectRoot: string): Promise<
   return listLocalPresetPackNamesWithScript(projectRoot, 'fmt');
 }
 
-export async function formatLocalPresetPacks(projectRoot: string): Promise<VerifyResult> {
+export async function formatLocalPresetPacks(projectRoot: string): Promise<StreamResult> {
   return runSameNamedPackScript(projectRoot, 'fmt');
 }
 
 async function runSameNamedPackScript(
   projectRoot: string,
   scriptName: string,
-): Promise<VerifyResult> {
+): Promise<StreamResult> {
   return runLocalPresetPackScript({
     projectRoot,
     scriptName,
@@ -163,7 +163,7 @@ async function runSameNamedPackScript(
 export async function testLocalPresetPacks(
   projectRoot: string,
   options?: TestLocalPresetPacksOptions,
-): Promise<VerifyResult> {
+): Promise<StreamResult> {
   const exclude =
     options?.exclude === null ? undefined : (options?.exclude ?? ROOT_TEST_COVERED_PACKS);
   return runLocalPresetPackScript({
@@ -182,7 +182,7 @@ export async function listLocalPresetPackIntegrationTestNames(
   return listLocalPresetPackNamesWithScript(projectRoot, 'test:integration');
 }
 
-export async function testLocalPresetPackIntegrations(projectRoot: string): Promise<VerifyResult> {
+export async function testLocalPresetPackIntegrations(projectRoot: string): Promise<StreamResult> {
   return testLocalPresetPacks(projectRoot, {
     scriptName: 'test:integration',
     failureKind: 'integration',

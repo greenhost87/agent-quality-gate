@@ -4,7 +4,7 @@ import { join } from 'node:path';
 
 import { afterEach } from 'bun:test';
 
-import { executeVerify } from '../../gate/execute-verify/execute-verify.js';
+import { executeVerify, type VerifyResult } from '../../gate/execute-verify/execute-verify.js';
 import { writeTextFile } from '../../process/files/files.js';
 import { runCapturedProcess } from '../../process/run-command/run-command.js';
 import { readFixture } from './fixture-files.js';
@@ -17,10 +17,7 @@ export const EXECUTE_VERIFY_FIXTURE_ENTRIES = ['src/index.ts'] as const;
 export function useExecuteVerifyProjects(): {
   createTypeScriptProject: (indexFixture: string) => Promise<string>;
   makeTempDirectory: (prefix: string) => Promise<string>;
-  runVerify: (
-    cwd: string,
-    entries?: readonly string[],
-  ) => Promise<{ exitCode: number; stdout: string; stderr: string }>;
+  runVerify: (cwd: string, entries?: readonly string[]) => Promise<VerifyResult>;
   initializeGitRepository: (cwd: string) => Promise<void>;
   runCommand: (
     command: string,
@@ -85,7 +82,7 @@ export function useExecuteVerifyProjects(): {
   async function runVerify(
     cwd: string,
     entries: readonly string[] = EXECUTE_VERIFY_FIXTURE_ENTRIES,
-  ): Promise<{ exitCode: number; stdout: string; stderr: string }> {
+  ): Promise<VerifyResult> {
     return executeVerify({
       projectRoot: cwd,
       entries,

@@ -1,4 +1,8 @@
-import type { ToolRunResult } from '../../gate/execute-verify/execute-verify.ts';
+import {
+  checkResultFromDiagnostics,
+  failedCheckResult,
+  type CheckResult,
+} from '../../gate/execute-verify/check-result.ts';
 import {
   captureCommittedMigrationDiff,
   restoreCommittedMigrations,
@@ -8,14 +12,10 @@ import {
 
 export async function committedMigrationsPreflight(
   projectRoot: string,
-): Promise<ToolRunResult | undefined> {
+): Promise<CheckResult | undefined> {
   const check = verifyCommittedMigrations(projectRoot);
   if (!check.ok) {
-    return {
-      exitCode: 1,
-      stdout: '',
-      stderr: `verify: ${check.error}\n`,
-    };
+    return failedCheckResult(1, `verify: ${check.error}`);
   }
   if (check.violations.length === 0) {
     return undefined;
@@ -27,9 +27,17 @@ export async function committedMigrationsPreflight(
   const lead = restored.ok
     ? 'verify: restored committed migration files'
     : 'verify: committed migration files must not be changed';
-  return {
-    exitCode: 1,
-    stdout: '',
-    stderr: `${lead}\ndatabase-committed-migration\n`,
-  };
+  return checkResultFromDiagnostics(
+    [
+      {
+        source: 'database',
+        ruleId: 'database-committed-migration',
+        severity: 'error',
+        message: lead,
+      },
+    ],
+    {
+      hints: [{ kind: 'builtin', id: 'database-committed-migration' }],
+    },
+  );
 }

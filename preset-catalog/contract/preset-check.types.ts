@@ -1,4 +1,4 @@
-import type { ToolRunResult } from '../../gate/execute-verify/execute-verify.js';
+import type { CheckResult } from '../../gate/execute-verify/check-result.js';
 
 export type PresetVerifyContext = {
   projectRoot: string;
@@ -11,8 +11,8 @@ export type PresetCheckModule = {
   preflight?: (
     projectRoot: string,
     presetConfig?: object,
-  ) => ToolRunResult | undefined | Promise<ToolRunResult | undefined>;
-  runToolChecks?: (context: PresetVerifyContext, presetConfig?: object) => Promise<ToolRunResult[]>;
+  ) => CheckResult | undefined | Promise<CheckResult | undefined>;
+  runToolChecks?: (context: PresetVerifyContext, presetConfig?: object) => Promise<CheckResult[]>;
 };
 
 export const PRESET_CHECK_MODULE_BASENAMES = ['check.js', 'check.ts'] as const;

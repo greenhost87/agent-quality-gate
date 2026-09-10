@@ -2,7 +2,7 @@ import {
   fallowCacheEnvironment,
   listFallowDiscoveredFiles,
 } from '../../gate/preflight/fallow-analysis.ts';
-import type { ToolRunResult } from '../../gate/execute-verify/execute-verify.ts';
+import { opaqueCheckResult, type CheckResult } from '../../gate/execute-verify/check-result.ts';
 import type {
   PresetCheckModule,
   PresetVerifyContext,
@@ -17,16 +17,14 @@ import { formatPrefixedViolations } from '../../scripts/self-verify/repo-walk.ts
 async function testColocationBoundaryChecks(
   context: PresetVerifyContext,
   presetConfig?: object,
-): Promise<ToolRunResult[]> {
+): Promise<CheckResult[]> {
   const config = parsePresetConfig(presetConfig);
   if (config === undefined) {
     return [
-      {
-        exitCode: 1,
-        stdout: '',
-        stderr:
-          'verify: test-colocation requires presetConfig.test-colocation.policy (aqg-repository | application)\n',
-      },
+      opaqueCheckResult(
+        1,
+        'verify: test-colocation requires presetConfig.test-colocation.policy (aqg-repository | application)\n',
+      ),
     ];
   }
   const listResult = await listFallowDiscoveredFiles({
@@ -51,5 +49,4 @@ const checkModule: PresetCheckModule = {
   runToolChecks: testColocationBoundaryChecks,
 };
 
-export const preflight = checkModule.preflight;
 export const runToolChecks = checkModule.runToolChecks;

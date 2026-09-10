@@ -116,10 +116,8 @@ describe('verify phases', () => {
     expect(verifyPresentedText(result)).toContain('boundary-violation');
     expect(verifyPresentedText(result)).not.toContain('no-class');
     expect(phases[0]).toBe('cycles');
-    expect(new Set(phases.slice(1))).toEqual(
-      new Set(['oxlint', 'boundaries', 'hygiene', 'complexity', 'structural']),
-    );
-    expect(phases).toHaveLength(6);
+    expect(new Set(phases.slice(1))).toEqual(new Set(['oxlint', 'boundaries', 'structural']));
+    expect(phases).toHaveLength(4);
   });
 
   it('runs all verify phases on the success path', async () => {
@@ -204,9 +202,11 @@ describe('verify phases', () => {
     expect(result.exitCode).toBe(0);
 
     const phases = ['cycles', 'boundaries', 'hygiene', 'complexity', 'structural'] as const;
-    const configPaths = phases.map((phase) => configPathsByPhase[phase]);
+    const configPaths = phases
+      .map((phase) => configPathsByPhase[phase])
+      .filter((path): path is string => path !== undefined && path.length > 0);
     expect(new Set(configPaths).size).toBe(1);
-    expect(configPaths[0]?.endsWith('.aqg/cache/fallow/verify.json')).toBe(true);
+    expect(configPaths.some((path) => path.endsWith('.aqg/fallow/verify.json'))).toBe(true);
 
     for (const phase of phases) {
       const rules = rulesByPhase[phase];

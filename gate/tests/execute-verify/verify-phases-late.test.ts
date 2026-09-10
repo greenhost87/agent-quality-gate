@@ -50,7 +50,7 @@ describe('verify phases late failures', () => {
     expect(verifyPresentedText(result)).toContain('unused-export');
     expect(phases[0]).toBe('cycles');
     expect(new Set(phases.slice(1))).toEqual(
-      new Set(['boundaries', 'hygiene', 'complexity', 'structural']),
+      new Set(['boundaries', 'structural', 'hygiene', 'complexity']),
     );
     expect(phases).toHaveLength(5);
   });

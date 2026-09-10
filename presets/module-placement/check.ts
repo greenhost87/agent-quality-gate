@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
-import type { ToolRunResult } from '../../gate/execute-verify/execute-verify.ts';
+import { opaqueCheckResult, type CheckResult } from '../../gate/execute-verify/check-result.ts';
 import {
   fallowCacheEnvironment,
   listFallowDiscoveredFiles,
@@ -22,7 +22,7 @@ import {
 async function modulePlacementBoundaryChecks(
   context: PresetVerifyContext,
   presetConfig?: object,
-): Promise<ToolRunResult[]> {
+): Promise<CheckResult[]> {
   const config = parsePresetConfig(presetConfig);
   if (
     config === undefined ||
@@ -49,11 +49,10 @@ async function modulePlacementBoundaryChecks(
       source = await readFile(join(context.projectRoot, policy.manifest), 'utf8');
     } catch {
       return [
-        {
-          exitCode: 1,
-          stdout: '',
-          stderr: `verify: module-placement cannot read route manifest ${policy.manifest}\n`,
-        },
+        opaqueCheckResult(
+          1,
+          `verify: module-placement cannot read route manifest ${policy.manifest}\n`,
+        ),
       ];
     }
     routePolicies.push({

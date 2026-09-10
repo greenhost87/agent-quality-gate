@@ -1,6 +1,5 @@
 import { getOptionalEnv } from '../read-env/read-env.js';
-import { joinStreams } from '../../process/run-command/stream-utils.js';
-import type { PhaseTimings, ToolRunResult, VerifyResult } from './execute-verify.js';
+import type { PhaseTimings, VerifyResult } from './execute-verify.js';
 
 export const VERIFY_TIMING_ENV = 'AGENT_QUALITY_GATE_VERIFY_TIMING';
 
@@ -32,17 +31,17 @@ export function withVerifyTiming(
   if (getOptionalEnv(VERIFY_TIMING_ENV) === undefined) {
     return result;
   }
+  const timingText = formatVerifyTiming(timings, Math.round(performance.now() - startedAt));
   return {
     ...result,
-    stderr: joinStreams([
-      result.stderr,
-      formatVerifyTiming(timings, Math.round(performance.now() - startedAt)),
-    ]),
+    statusStderr: [result.statusStderr, timingText]
+      .filter((part): part is string => part !== undefined && part.length > 0)
+      .join(''),
   };
 }
 
-export async function timedTool(run: () => Promise<ToolRunResult>): Promise<{
-  result: ToolRunResult;
+export async function timedCheck<T>(run: () => Promise<T>): Promise<{
+  result: T;
   ms: number;
 }> {
   const startedAt = performance.now();

@@ -6,6 +6,7 @@ import { readTextFile, writeTextFile } from '../../../process/files/files.js';
 import { afterEach, describe, expect, it } from 'bun:test';
 
 import { executeVerify } from '../../execute-verify/execute-verify.js';
+import { streamResultFromVerifyResult } from '../../public-verify/verify-streams.js';
 import { resolvePresetContract } from '../../../preset-catalog/catalog/preset-catalog.js';
 import { useIsolatedAgentQualityGateHome } from '../../../tests/support/isolated-home.js';
 import { expectRejectedMessage } from '../../../tests/support/expect-rejected.js';
@@ -84,9 +85,13 @@ describe('preset verification', () => {
       presets: ['config'],
     });
     expect(ok.exitCode).toBe(1);
-    expect(ok.stderr).toContain('managed preset files do not match');
-    expect(ok.stderr).toContain('system/config/environment.ts (missing)');
-    expect(ok.stderr).toContain('example .aqg/config/system/config/environment.ts');
+    expect(streamResultFromVerifyResult(ok).stderr).toContain('managed preset files do not match');
+    expect(streamResultFromVerifyResult(ok).stderr).toContain(
+      'system/config/environment.ts (missing)',
+    );
+    expect(streamResultFromVerifyResult(ok).stderr).toContain(
+      'example .aqg/config/system/config/environment.ts',
+    );
 
     const badRange = await executeVerify({
       projectRoot: incompatible,
@@ -94,7 +99,7 @@ describe('preset verification', () => {
       presets: ['database'],
     });
     expect(badRange.exitCode).toBe(1);
-    expect(badRange.stderr).toContain('incompatible');
+    expect(streamResultFromVerifyResult(badRange).stderr).toContain('incompatible');
 
     const missingDep = await executeVerify({
       projectRoot: missing,
@@ -102,7 +107,7 @@ describe('preset verification', () => {
       presets: ['database'],
     });
     expect(missingDep.exitCode).toBe(1);
-    expect(missingDep.stderr).toContain('missing');
+    expect(streamResultFromVerifyResult(missingDep).stderr).toContain('missing');
   });
 
   it('rejects a devDependency that also appears in dependencies', async () => {
@@ -119,7 +124,7 @@ describe('preset verification', () => {
       presets: ['config', 'database'],
     });
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain(
+    expect(streamResultFromVerifyResult(result).stderr).toContain(
       'belongs in "devDependencies" but also appears in "dependencies"',
     );
   });
@@ -136,9 +141,9 @@ describe('preset verification', () => {
       presets: ['database'],
     });
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain('ignoreScripts');
-    expect(result.stderr).toContain('ssh2');
-    expect(result.stderr).toContain('cpu-features');
+    expect(streamResultFromVerifyResult(result).stderr).toContain('ignoreScripts');
+    expect(streamResultFromVerifyResult(result).stderr).toContain('ssh2');
+    expect(streamResultFromVerifyResult(result).stderr).toContain('cpu-features');
   });
 
   it('reports missing and modified managed files with .aqg examples and passes after copy', async () => {
@@ -157,8 +162,12 @@ describe('preset verification', () => {
 
     const first = await executeVerify(request);
     expect(first.exitCode).toBe(1);
-    expect(first.stderr).toContain('system/config/environment.ts (missing)');
-    expect(first.stderr).toContain('example .aqg/config/system/config/environment.ts');
+    expect(streamResultFromVerifyResult(first).stderr).toContain(
+      'system/config/environment.ts (missing)',
+    );
+    expect(streamResultFromVerifyResult(first).stderr).toContain(
+      'example .aqg/config/system/config/environment.ts',
+    );
     expect(existsSync(managedPath)).toBe(false);
     expect(existsSync(examplePath)).toBe(true);
 
@@ -167,21 +176,25 @@ describe('preset verification', () => {
 
     const second = await executeVerify(request);
     expect(second.exitCode).toBe(0);
-    expect(second.stdout).toContain('verify: ok');
+    expect(streamResultFromVerifyResult(second).stdout).toContain('verify: ok');
 
     await writeTextFile(managedPath, '// tampered\n');
 
     const third = await executeVerify(request);
     expect(third.exitCode).toBe(1);
-    expect(third.stderr).toContain('system/config/environment.ts (modified)');
-    expect(third.stderr).toContain('example .aqg/config/system/config/environment.ts');
+    expect(streamResultFromVerifyResult(third).stderr).toContain(
+      'system/config/environment.ts (modified)',
+    );
+    expect(streamResultFromVerifyResult(third).stderr).toContain(
+      'example .aqg/config/system/config/environment.ts',
+    );
     expect(await readTextFile(managedPath)).toBe('// tampered\n');
 
     await writeTextFile(managedPath, await readTextFile(examplePath));
 
     const fourth = await executeVerify(request);
     expect(fourth.exitCode).toBe(0);
-    expect(fourth.stdout).toContain('verify: ok');
+    expect(streamResultFromVerifyResult(fourth).stdout).toContain('verify: ok');
   });
 
   it('points database managed-file mismatches to the integration test example', async () => {
@@ -199,7 +212,9 @@ describe('preset verification', () => {
     });
 
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain('hint:database-examples — .aqg/database/database-examples.md');
+    expect(streamResultFromVerifyResult(result).stderr).toContain(
+      'hint:database-examples — .aqg/database/database-examples.md',
+    );
   });
 
   it('refuses symlink destinations, symlink parents, and non-file destinations', async () => {
@@ -216,7 +231,7 @@ describe('preset verification', () => {
       presets: ['config'],
     });
     expect(symlinkResult.exitCode).toBe(1);
-    expect(symlinkResult.stderr).toContain('symlink');
+    expect(streamResultFromVerifyResult(symlinkResult).stderr).toContain('symlink');
 
     const directoryProject = await createProject({
       dependencies: configDependencies,
@@ -229,7 +244,7 @@ describe('preset verification', () => {
       presets: ['config'],
     });
     expect(directoryResult.exitCode).toBe(1);
-    expect(directoryResult.stderr).toContain('non-file');
+    expect(streamResultFromVerifyResult(directoryResult).stderr).toContain('non-file');
 
     const outside = await makeTempDirectory('aqg-preset-outside-');
     const parentLinkProject = await createProject({
@@ -245,7 +260,7 @@ describe('preset verification', () => {
       presets: ['config'],
     });
     expect(missingThroughLink.exitCode).toBe(1);
-    expect(missingThroughLink.stderr).toContain('symlink parent');
+    expect(streamResultFromVerifyResult(missingThroughLink).stderr).toContain('symlink parent');
     expect(existsSync(join(outside, 'config', 'environment.ts'))).toBe(false);
 
     await writeTextFile(join(outside, 'config', 'environment.ts'), '// tampered\n');
@@ -255,7 +270,7 @@ describe('preset verification', () => {
       presets: ['config'],
     });
     expect(modifiedThroughLink.exitCode).toBe(1);
-    expect(modifiedThroughLink.stderr).toContain('symlink parent');
+    expect(streamResultFromVerifyResult(modifiedThroughLink).stderr).toContain('symlink parent');
     expect(await readTextFile(join(outside, 'config', 'environment.ts'))).toBe('// tampered\n');
 
     const partialOutside = await makeTempDirectory('aqg-preset-partial-outside-');
@@ -277,8 +292,8 @@ describe('preset verification', () => {
       presets: ['database'],
     });
     expect(partial.exitCode).toBe(1);
-    expect(partial.stderr).toContain('symlink parent');
-    expect(partial.stderr).toContain('tests/setup/testDatabase.ts');
+    expect(streamResultFromVerifyResult(partial).stderr).toContain('symlink parent');
+    expect(streamResultFromVerifyResult(partial).stderr).toContain('tests/setup/testDatabase.ts');
     expect(existsSync(join(partialProject, 'system', 'config', 'environment.ts'))).toBe(false);
     expect(existsSync(join(partialProject, 'system', 'database', 'connection.ts'))).toBe(false);
     expect(existsSync(join(partialOutside, 'setup', 'testDatabase.ts'))).toBe(false);
@@ -297,9 +312,9 @@ describe('preset verification', () => {
     });
 
     expect(result.exitCode).toBe(1);
-    expect(result.stdout).toBe('');
-    expect(result.stderr).toContain('preset dependency check failed');
-    expect(result.stderr).not.toContain('eslint(no-debugger)');
+    expect(streamResultFromVerifyResult(result).stdout).toBe('');
+    expect(streamResultFromVerifyResult(result).stderr).toContain('preset dependency check failed');
+    expect(streamResultFromVerifyResult(result).stderr).not.toContain('eslint(no-debugger)');
   });
 
   it('enforces preset oxlint rules only when the preset is active', async () => {
@@ -317,8 +332,12 @@ describe('preset verification', () => {
       presets: ['config'],
     });
     expect(missing.exitCode).toBe(1);
-    expect(missing.stderr).toContain('managed preset files do not match');
-    expect(missing.stderr).toContain('example .aqg/config/system/config/environment.ts');
+    expect(streamResultFromVerifyResult(missing).stderr).toContain(
+      'managed preset files do not match',
+    );
+    expect(streamResultFromVerifyResult(missing).stderr).toContain(
+      'example .aqg/config/system/config/environment.ts',
+    );
 
     const examplePath = join(withPreset, '.aqg', 'config', 'system', 'config', 'environment.ts');
     await mkdir(join(withPreset, 'system', 'config'), { recursive: true });
@@ -333,7 +352,9 @@ describe('preset verification', () => {
       presets: ['config'],
     });
     expect(active.exitCode).not.toBe(0);
-    expect(active.stdout + active.stderr).toContain('environment-boundaries');
+    expect(
+      streamResultFromVerifyResult(active).stdout + streamResultFromVerifyResult(active).stderr,
+    ).toContain('environment-boundaries');
 
     const inactive = await executeVerify({
       projectRoot: withoutPreset,
@@ -367,16 +388,22 @@ describe('preset verification', () => {
       presets: ['database'],
     });
     expect(rejected.exitCode).toBe(1);
-    expect(rejected.stderr).toContain('database-concurrent-script:test');
-    expect(rejected.stderr).not.toContain('database-concurrent-script:test:unit');
-    expect(rejected.stderr).not.toContain('eslint(');
+    expect(streamResultFromVerifyResult(rejected).stderr).toContain(
+      'database-concurrent-script:test',
+    );
+    expect(streamResultFromVerifyResult(rejected).stderr).not.toContain(
+      'database-concurrent-script:test:unit',
+    );
+    expect(streamResultFromVerifyResult(rejected).stderr).not.toContain('eslint(');
 
     const inactive = await executeVerify({
       projectRoot: withoutDatabase,
       entries: ['src/index.ts'],
       presets: ['config'],
     });
-    expect(inactive.stderr).not.toContain('database-concurrent-script');
+    expect(streamResultFromVerifyResult(inactive).stderr).not.toContain(
+      'database-concurrent-script',
+    );
   });
 
   it('allows bun test --parallel scripts when the database preset is active', async () => {
@@ -397,6 +424,6 @@ describe('preset verification', () => {
       entries: ['src/index.ts'],
       presets: ['database'],
     });
-    expect(result.stderr).not.toContain('database-concurrent-script');
+    expect(streamResultFromVerifyResult(result).stderr).not.toContain('database-concurrent-script');
   });
 });

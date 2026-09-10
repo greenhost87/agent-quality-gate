@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'bun:test';
 
 import { listFallowDiscoveredFiles } from '../../../gate/preflight/fallow-analysis.js';
+import { formatVerifyResultDiagnostics } from '../../../gate/quality-gate-run/format-diagnostics.js';
 import {
   rejectMisplacedTestsFromRelativePaths,
   type TestColocationPolicy,
@@ -43,50 +44,54 @@ describe('local test colocation', () => {
     const root = await materialize('invalid-top-level');
     const result = await rejectMisplacedTests(root);
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain('test-colocation:');
-    expect(result.stderr).toContain('tests/example.test.ts');
+    expect(formatVerifyResultDiagnostics(result)).toContain('test-colocation');
+    expect(formatVerifyResultDiagnostics(result)).toContain('tests/example.test.ts');
   });
 
   it('rejects test files outside owner tests directories', async () => {
     const root = await materialize('invalid-loose');
     const result = await rejectMisplacedTests(root);
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain('gate/example.test.ts');
+    expect(formatVerifyResultDiagnostics(result)).toContain('gate/example.test.ts');
   });
 
   it('rejects bench files outside owner tests directories', async () => {
     const root = await materialize('invalid-bench-loose');
     const result = await rejectMisplacedTests(root);
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain('gate/example.bench.ts');
+    expect(formatVerifyResultDiagnostics(result)).toContain('gate/example.bench.ts');
   });
 
   it('allows colocated owner tests, preset example tests, and shared support helpers', async () => {
     const root = await materialize('valid');
     const result = await rejectMisplacedTests(root);
-    expect(result).toEqual({ exitCode: 0, stdout: '', stderr: '' });
+    expect(result).toEqual({ exitCode: 0, diagnostics: [] });
   });
 
   it('rejects application test files outside tests/', async () => {
     const root = await materialize('invalid-application-colocated');
     const result = await rejectMisplacedTests(root, 'application');
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain('system/workflows/draft/example.test.ts');
-    expect(result.stderr).toContain('test and bench files must live under tests/');
+    expect(formatVerifyResultDiagnostics(result)).toContain(
+      'system/workflows/draft/example.test.ts',
+    );
+    expect(formatVerifyResultDiagnostics(result)).toContain(
+      'test and bench files must live under tests/',
+    );
   });
 
   it('allows application tests and setup helpers under tests/', async () => {
     const root = await materialize('valid-application');
     const result = await rejectMisplacedTests(root, 'application');
-    expect(result).toEqual({ exitCode: 0, stdout: '', stderr: '' });
+    expect(result).toEqual({ exitCode: 0, diagnostics: [] });
   });
 
   it('rejects database setup files under tests/setup/', async () => {
     const root = await materialize('invalid-setup');
     const result = await rejectMisplacedTests(root);
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain('tests/setup/helper.ts');
-    expect(result.stderr).toContain(
+    expect(formatVerifyResultDiagnostics(result)).toContain('tests/setup/helper.ts');
+    expect(formatVerifyResultDiagnostics(result)).toContain(
       'top-level tests/ may only hold shared helpers under tests/support/',
     );
   });
@@ -95,8 +100,8 @@ describe('local test colocation', () => {
     const root = await materialize('invalid-example');
     const result = await rejectMisplacedTests(root);
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain('tests/database.integration.ts');
-    expect(result.stderr).toContain(
+    expect(formatVerifyResultDiagnostics(result)).toContain('tests/database.integration.ts');
+    expect(formatVerifyResultDiagnostics(result)).toContain(
       'top-level tests/ may only hold shared helpers under tests/support/',
     );
   });

@@ -1,7 +1,6 @@
 import { existsSync } from 'node:fs';
 import { mkdir, readdir, stat, symlink } from 'node:fs/promises';
 import { join } from 'node:path';
-import { setTimeout as sleep } from 'node:timers/promises';
 import { writeTextFile } from '../../../process/files/files.js';
 
 import { describe, expect, it } from 'bun:test';
@@ -253,26 +252,17 @@ describe('verify', () => {
     expect(cache.isDirectory()).toBe(true);
   });
 
-  it('reuses unchanged generated Oxlint and Fallow configs across verify runs', async () => {
+  it('removes ephemeral Oxlint and Fallow configs after verify', async () => {
     const cwd = await createTypeScriptProject('clean-function/src/index.ts');
 
-    const first = await runVerify(cwd);
-    const fallowConfig = join(cwd, '.aqg', 'cache', 'fallow', 'verify.json');
-    const oxlintConfig = join(cwd, '.aqg', 'cache', 'oxlint', 'verify.config.ts');
+    const result = await runVerify(cwd);
+    const fallowConfig = join(cwd, '.aqg', 'fallow', 'verify.json');
+    const oxlintConfig = join(cwd, '.aqg', 'oxlint', 'verify.config.ts');
 
-    expect(first.exitCode).toBe(0);
+    expect(result.exitCode).toBe(0);
     expect(existsSync(join(cwd, '.fallowrc.json'))).toBe(false);
-    expect(existsSync(fallowConfig)).toBe(true);
-    expect(existsSync(oxlintConfig)).toBe(true);
-    const firstFallowMtime = (await stat(fallowConfig)).mtimeMs;
-    const firstOxlintMtime = (await stat(oxlintConfig)).mtimeMs;
-
-    await sleep(10);
-    const second = await runVerify(cwd);
-
-    expect(second.exitCode).toBe(0);
-    expect((await stat(fallowConfig)).mtimeMs).toBe(firstFallowMtime);
-    expect((await stat(oxlintConfig)).mtimeMs).toBe(firstOxlintMtime);
+    expect(existsSync(fallowConfig)).toBe(false);
+    expect(existsSync(oxlintConfig)).toBe(false);
   });
 
   it('checks nested generated-directory names with Oxlint', async () => {

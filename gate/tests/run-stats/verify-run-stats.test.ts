@@ -12,6 +12,7 @@ import { agentQualityGateHome } from '../../../config/agent-quality-gate-home/ag
 import { canonicalizePath } from '../../../process/files/paths.js';
 import { createEnv } from '../../read-env/read-env.js';
 import { executeVerify } from '../../execute-verify/execute-verify.js';
+import { streamResultFromVerifyResult } from '../../public-verify/verify-streams.js';
 import { runMcpVerify } from '../../mcp-verify/mcp-verify.js';
 import { useIsolatedAgentQualityGateHome } from '../../../tests/support/isolated-home.js';
 import * as v from 'valibot';
@@ -142,7 +143,7 @@ describe('verify run stats', () => {
     });
 
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toMatch(/^verify: ok \(\d+ms\)\n$/);
+    expect(streamResultFromVerifyResult(result).stdout).toMatch(/^verify: ok \(\d+ms\)\n$/);
 
     const { output: record, raw } = await waitForStatsRecord(cwd);
     const after = Math.floor(Date.now() / 1000);

@@ -2,16 +2,19 @@
 
 import { createCli, reportCommandError, runCli } from '../../process/command/command.js';
 import { executeVerify } from '../../gate/execute-verify/execute-verify.js';
-import type { VerifyResult } from '../../gate/execute-verify/execute-verify.js';
 import { formatVerifyOk } from '../../gate/execute-verify/verify-ok-message.js';
 import { localVerifyRequest } from './cli.js';
 import { verifyLocalPresetPackages } from './preset-baseline-verify.js';
 import { rejectCrossPresetImports } from './preset-isolation.js';
 import { verifyLocalPresetPacks } from './preset-pack-run.js';
 import { firstNonZeroResult } from '../../gate/public-verify/preset-verify-result.js';
-import { writeVerifyStreams } from '../../gate/public-verify/verify-streams.js';
+import {
+  streamResultFromVerifyResult,
+  writeVerifyStreams,
+  type StreamResult,
+} from '../../gate/public-verify/verify-streams.js';
 
-function timedOk(label: string, startedAt: number): VerifyResult {
+function timedOk(label: string, startedAt: number): StreamResult {
   return {
     exitCode: 0,
     stdout: formatVerifyOk(label, Math.round(performance.now() - startedAt)),
@@ -30,11 +33,12 @@ try {
     }
     writeVerifyStreams(timedOk('preset isolation', isolationStartedAt));
 
-    const [repository, packages, packs] = await Promise.all([
+    const [repositoryVerify, packages, packs] = await Promise.all([
       executeVerify(localVerifyRequest()),
       verifyLocalPresetPackages(process.cwd()),
       verifyLocalPresetPacks(process.cwd()),
     ]);
+    const repository = streamResultFromVerifyResult(repositoryVerify);
     writeVerifyStreams(repository);
     writeVerifyStreams(packages);
     writeVerifyStreams(packs);

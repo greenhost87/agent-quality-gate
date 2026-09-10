@@ -1,0 +1,18 @@
+{
+  "entry": ["src/index.ts"],
+  "rules": {
+    "unlisted-dependencies": "error",
+    "unused-dependencies": "off",
+    "unused-dev-dependencies": "off",
+    "unused-optional-dependencies": "off",
+    "unused-files": "off",
+    "unused-exports": "off",
+    "unused-types": "off",
+    "duplicate-exports": "off",
+    "type-only-dependencies": "off",
+    "test-only-dependencies": "off",
+    "circular-dependencies": "off",
+    "re-export-cycle": "off",
+    "unresolved-imports": "off"
+  }
+}

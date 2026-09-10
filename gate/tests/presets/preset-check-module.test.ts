@@ -10,6 +10,7 @@ import {
   homePresetsDirectory,
 } from '../../../config/agent-quality-gate-home/agent-quality-gate-home.js';
 import { executeVerify } from '../../execute-verify/execute-verify.js';
+import { streamResultFromVerifyResult } from '../../public-verify/verify-streams.js';
 import { useIsolatedAgentQualityGateHome } from '../../../tests/support/isolated-home.js';
 
 useIsolatedAgentQualityGateHome();
@@ -62,6 +63,8 @@ describe('preset check module loading', () => {
     });
 
     expect(result.exitCode).toBe(1);
-    expect(result.stderr).toContain('must export preflight and/or runToolChecks');
+    expect(streamResultFromVerifyResult(result).stderr).toContain(
+      'must export preflight and/or runToolChecks',
+    );
   });
 });
