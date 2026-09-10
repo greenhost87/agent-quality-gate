@@ -4,6 +4,12 @@ export {
   readFallowConfigFile,
 } from '../../config/verify-config-files/verify-config-files.js';
 export type { FallowConfig } from '../../config/verify-config-files/verify-config-files.js';
+export type { CheckHint } from '../execute-verify/check-hints.js';
+export type {
+  CheckResult,
+  Diagnostic,
+  DiagnosticLocation,
+} from '../execute-verify/check-result.js';
 export type { ToolRunResult } from '../execute-verify/execute-verify.js';
 export {
   fallowCacheEnvironment,

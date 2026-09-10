@@ -1,3 +1,4 @@
+import { FALLOW_UI_RULE_IDS } from './fallow-structural-findings.js';
 import { oxlintRulePhaseOf } from '../../preset-catalog/oxlint-config/oxlint-rule-phase.js';
 import {
   DEFAULT_OXLINT_RULE_PHASE,
@@ -15,8 +16,8 @@ const BOUNDARY_PLUGIN_PRIORITY = [
   'playwright',
 ] as const;
 
-/** Canonical group order used when config.yaml does not define one; `lint` is always appended last. */
-const DEFAULT_GROUP_ORDER = ['boundaries', 'contracts', 'ui'] as const;
+/** Canonical group order used when config.yaml does not define one; `lint` is appended last when a custom order omits it. */
+const DEFAULT_GROUP_ORDER = ['boundaries', 'contracts', 'lint', 'ui'] as const;
 
 const KNOWN_GROUP_ORDER = new Set<string>(OXLINT_RULE_PHASES);
 
@@ -57,7 +58,7 @@ function collectRulesByPhase(
   return { rulesByPhase, boundaryRulesByPlugin };
 }
 
-function normalizedGroupOrder(groupOrder: readonly string[] | undefined): string[] {
+export function lintGroupOrder(groupOrder: readonly string[] | undefined): string[] {
   const known = groupOrder?.filter((entry) => KNOWN_GROUP_ORDER.has(entry));
   const result: string[] = [];
   for (const entry of known ?? DEFAULT_GROUP_ORDER) {
@@ -99,8 +100,8 @@ function lintCatchAllGroup(
 /**
  * Ordered oxlint output groups for the verify phases. Group order and boundary plugin priority
  * come from config.yaml (`lintGroups`, `boundaryPluginPriority`); defaults keep the Gate-owned
- * layout: tagged boundary rules first (sub-prioritized by plugin), then contracts, then ui, then
- * the catch-all semantic lint group. Rules without a tag stay in lint. Includes both top-level
+ * layout: tagged boundary rules first (sub-prioritized by plugin), then contracts, then
+ * the catch-all semantic lint group, then ui. Rules without a tag stay in lint. Includes both top-level
  * rules and override rules so a future `phase:` inside `overrides` is not silently demoted.
  */
 export function oxlintVirtualGroupsFromRules(
@@ -110,8 +111,9 @@ export function oxlintVirtualGroupsFromRules(
   options: OxlintGroupOrderOptions = {},
 ): OxlintOutputGroup[] {
   const { rulesByPhase, boundaryRulesByPlugin } = collectRulesByPhase(rules, overrides);
+  for (const ruleId of FALLOW_UI_RULE_IDS) addRule(rulesByPhase, 'ui', ruleId);
   const groups: OxlintOutputGroup[] = [];
-  for (const entry of normalizedGroupOrder(options.groupOrder)) {
+  for (const entry of lintGroupOrder(options.groupOrder)) {
     if (entry === 'boundaries') {
       groups.push(
         ...boundaryGroups(
