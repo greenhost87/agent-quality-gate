@@ -141,16 +141,19 @@ describe('followUpForSettledResult hints', () => {
       for (const extra of hintCase.extraStdoutFixtures ?? []) {
         stdoutParts.push(await readFixture(FIXTURES_ROOT, extra));
       }
+      const opaqueParts = [
+        ...stdoutParts,
+        ...(hintCase.stderrFixture === undefined
+          ? []
+          : [await readFixture(FIXTURES_ROOT, hintCase.stderrFixture)]),
+      ];
       const message = await followUpForSettledResult({
         kind: 'ran',
         projectRoot,
         result: {
           exitCode: 1,
-          stdout: stdoutParts.join('\n'),
-          stderr:
-            hintCase.stderrFixture === undefined
-              ? ''
-              : await readFixture(FIXTURES_ROOT, hintCase.stderrFixture),
+          diagnostics: [],
+          opaqueText: opaqueParts.join('\n'),
         },
       });
       if (message === undefined) {
@@ -175,8 +178,8 @@ describe('followUpForSettledResult hints', () => {
       projectRoot,
       result: {
         exitCode: 1,
-        stdout: await readFixture(FIXTURES_ROOT, 'handmade-json-types.txt'),
-        stderr: '',
+        diagnostics: [],
+        opaqueText: await readFixture(FIXTURES_ROOT, 'handmade-json-types.txt'),
       },
     });
     expect(message).toContain('hint:bun-parse-json');
@@ -198,8 +201,8 @@ describe('followUpForSettledResult hints', () => {
       projectRoot,
       result: {
         exitCode: 1,
-        stdout: await readFixture(FIXTURES_ROOT, 'handmade-json-types.txt'),
-        stderr: '',
+        diagnostics: [],
+        opaqueText: await readFixture(FIXTURES_ROOT, 'handmade-json-types.txt'),
       },
     });
     expect(message).toContain('hint:bun-parse-json');
@@ -213,8 +216,8 @@ describe('followUpForSettledResult hints', () => {
       projectRoot,
       result: {
         exitCode: 1,
-        stdout: await readFixture(FIXTURES_ROOT, 'raw-json-parse.txt'),
-        stderr: '',
+        diagnostics: [],
+        opaqueText: await readFixture(FIXTURES_ROOT, 'raw-json-parse.txt'),
       },
     });
     const hintPath = join(projectRoot, '.aqg', 'hints', 'bun-parse-json.md');
@@ -234,8 +237,8 @@ describe('followUpForSettledResult hints', () => {
       projectRoot,
       result: {
         exitCode: 1,
-        stdout: await readFixture(FIXTURES_ROOT, 'database-boundaries.txt'),
-        stderr: '',
+        diagnostics: [],
+        opaqueText: await readFixture(FIXTURES_ROOT, 'database-boundaries.txt'),
       },
     });
     const hintPath = join(projectRoot, '.aqg', 'hints', 'database-boundary.md');
@@ -252,8 +255,8 @@ describe('followUpForSettledResult hints', () => {
       projectRoot,
       result: {
         exitCode: 1,
-        stdout: await readFixture(FIXTURES_ROOT, 'duplication.txt'),
-        stderr: '',
+        diagnostics: [],
+        opaqueText: await readFixture(FIXTURES_ROOT, 'duplication.txt'),
       },
     });
     if (message === undefined) {
@@ -282,7 +285,11 @@ describe('followUpForSettledResult diagnostic spill', () => {
     const message = await followUpForSettledResult({
       kind: 'ran',
       projectRoot,
-      result: { exitCode: 1, stdout: diagnostics, stderr: '' },
+      result: {
+        exitCode: 1,
+        diagnostics: [],
+        opaqueText: diagnostics,
+      },
     });
     if (message === undefined) {
       throw new Error('expected follow-up message');
@@ -303,7 +310,11 @@ describe('followUpForSettledResult diagnostic spill', () => {
     const message = await followUpForSettledResult({
       kind: 'ran',
       projectRoot,
-      result: { exitCode: 1, stdout: diagnostics, stderr: '' },
+      result: {
+        exitCode: 1,
+        diagnostics: [],
+        opaqueText: diagnostics,
+      },
     });
     if (message === undefined) {
       throw new Error('expected follow-up message');
@@ -336,7 +347,11 @@ describe('followUpForSettledResult diagnostic spill', () => {
     const message = await followUpForSettledResult({
       kind: 'ran',
       projectRoot,
-      result: { exitCode: 1, stdout: diagnostics, stderr: '' },
+      result: {
+        exitCode: 1,
+        diagnostics: [],
+        opaqueText: diagnostics,
+      },
     });
     expect(message).toContain('hint:code-duplication');
     expect(message).toContain('hint:presentation-duplication');

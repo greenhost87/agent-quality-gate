@@ -18,7 +18,9 @@ export function fallowPhase(args: readonly string[]): string {
   if (skipIndex >= 0 && args[skipIndex + 1] === 'health') {
     return 'hygiene';
   }
-  if (args.includes('json')) return 'structural';
+  if (args.includes('--fail-on-issues')) {
+    return 'structural';
+  }
   return 'unknown';
 }
 

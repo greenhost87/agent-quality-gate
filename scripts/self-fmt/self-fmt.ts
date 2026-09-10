@@ -3,7 +3,7 @@
 import { join } from 'node:path';
 
 import { createCli, reportCommandError, runCli } from '../../process/command/command.js';
-import type { VerifyResult } from '../../gate/execute-verify/execute-verify.js';
+import type { StreamResult } from '../../gate/public-verify/verify-streams.js';
 import { formatFmtOk } from '../../gate/execute-verify/verify-ok-message.js';
 import { exitCodeAfterWritingResults } from '../../gate/public-verify/verify-streams.js';
 import {
@@ -17,7 +17,7 @@ export function repositoryOxfmtArgs(packFmtNames: readonly string[]): string[] {
   return ['.', ...packFmtNames.map((name) => `!presets/${name}/**`)];
 }
 
-async function formatLocalRepository(projectRoot: string): Promise<VerifyResult> {
+async function formatLocalRepository(projectRoot: string): Promise<StreamResult> {
   const root = resolveProjectRoot(projectRoot);
   const startedAt = performance.now();
   const packFmtNames = await listLocalPresetPackFmtNames(root);

@@ -1,4 +1,5 @@
 import { formatPrefixedViolations } from '../../scripts/self-verify/repo-walk.js';
+import type { CheckResult } from '../../gate/execute-verify/check-result.js';
 
 const TEST_FILE_PATTERN = /\.(?:test|spec|bench)\.(?:[cm]?[jt]sx?)$/u;
 
@@ -120,11 +121,7 @@ export function findTestColocationViolationsFromRelativePaths(
 export function rejectMisplacedTestsFromRelativePaths(
   relativePaths: readonly string[],
   policy: TestColocationPolicy = 'aqg-repository',
-): {
-  exitCode: number;
-  stdout: string;
-  stderr: string;
-} {
+): CheckResult {
   const violations = findTestColocationViolationsFromRelativePaths(relativePaths, policy);
   return formatPrefixedViolations(
     'test-colocation',

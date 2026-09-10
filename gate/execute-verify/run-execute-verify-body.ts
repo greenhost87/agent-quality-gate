@@ -1,4 +1,10 @@
 import {
+  checkHasFindings,
+  failedCheckResult,
+  mergeCheckResults,
+  type CheckResult,
+} from './check-result.js';
+import {
   removeEphemeralProjectConfigs,
   verifyFallowConfigPathForProject,
 } from '../../config/agent-quality-gate-home/agent-quality-gate-home.js';
@@ -9,39 +15,66 @@ import {
 } from '../../config/verify-config-files/verify-config-files.js';
 import { invalidProjectRelativeEntries } from '../../config/entries/entries.js';
 
-import { fallowCacheEnvironment } from '../preflight/fallow-analysis.js';
+import { fallowToolRun } from './fallow-tool-run.js';
+import {
+  checkResultFromFallowBoundariesToolRun,
+  checkResultFromFallowComplexityToolRun,
+  checkResultFromFallowCyclesToolRun,
+  checkResultFromFallowHygieneToolRun,
+} from './fallow-json-diagnostics.js';
 import { packagedFallowConfigPath } from '../../config/packaged-assets/packaged-assets.js';
 import { runActivePresetToolChecks } from '../../preset-catalog/load-check/load-preset-check.js';
+import type { ActivatedPreset } from '../../preset-catalog/contract/preset-contract.types.js';
 import { QualityGateInternalError } from '../quality-gate-run/quality-gate-internal-error.js';
-import { joinStreams, mergeIgnorePatterns } from '../../process/run-command/stream-utils.js';
-import { timedTool, withVerifyTiming } from './verify-timing.js';
+import { mergeIgnorePatterns } from '../../process/run-command/stream-utils.js';
+import { timedCheck, withVerifyTiming } from './verify-timing.js';
 import {
-  applyIgnoredOxlintRules,
-  fallowCliArgs,
-  fallowExecutablePath,
+  checkResultFromOxlintToolRun,
   oxlintToolRun,
-  removeFallowInformation,
   writeFallowConfigWithEntries,
 } from './verify-tool-run.js';
-import { selectFirstNonEmptyOxlintGroup } from './filter-oxlint-agent-output.js';
+import { selectFirstNonEmptyOxlintDiagnosticGroup } from './oxlint-diagnostics.js';
+import { checkFallowStructuralFindings } from './fallow-structural-findings.js';
 
+import {
+  TYPE_AWARE_OXLINT_TIMEOUT_HINT,
+  TYPE_AWARE_OXLINT_TIMEOUT_MS,
+} from '../../config/tuning/tuning.js';
 import { DEFAULT_OXLINT_RULE_PHASE } from '../../preset-catalog/oxlint-config/oxlint-rule-setting.js';
 import { groupOrderOptions, runPresetPreflight } from './preset-preflight.js';
 import type {
   ExecuteVerifyOutcome,
+  OxlintOutputGroup,
   OxlintPhaseContext,
   PhaseTimings,
   ToolRunner,
+  ToolRunResult,
   VerifyRequest,
   VerifyResult,
 } from './execute-verify.js';
 
-export const TYPE_AWARE_OXLINT_TIMEOUT_MS = 120_000;
-
-export const TYPE_AWARE_OXLINT_TIMEOUT_HINT =
-  'hint:type-aware-timeout — .aqg/hints/type-aware-timeout.md';
-
 const PACKAGED_FALLOW_CONFIG_PATH = packagedFallowConfigPath();
+
+type FallowCheckRunner = (
+  analysisArgs: readonly string[],
+  toCheckResult: (raw: ToolRunResult) => CheckResult,
+) => Promise<{ result: CheckResult; ms: number }>;
+
+type BoundaryParallelPhaseOptions = {
+  run: ToolRunner;
+  projectRoot: string;
+  request: VerifyRequest;
+  typeAware: boolean;
+  activated: readonly ActivatedPreset[];
+  lintGroups: readonly OxlintOutputGroup[];
+  oxlintArgs: readonly string[];
+  oxlintEnvironment: Record<string, string>;
+  ignorePatterns: readonly string[];
+  fallowConfigPath: string;
+  runFallowCheck: FallowCheckRunner;
+  cyclesTimings: PhaseTimings;
+  phasesStartedAt: number;
+};
 
 function caughtErrorMessage(error: Error | string): string {
   return error instanceof Error ? error.message : error;
@@ -72,7 +105,7 @@ async function runOxlintVirtualPhases(
   context: OxlintPhaseContext,
 ): Promise<{ result?: VerifyResult; selectedGroupId?: string; ms: number }> {
   const oxlintTimeoutMs = context.typeAware ? TYPE_AWARE_OXLINT_TIMEOUT_MS : undefined;
-  const oxlintTimed = await timedTool(async () => {
+  const oxlintTimed = await timedCheck(async () => {
     const raw = await run({
       name: 'oxlint',
       args: context.args,
@@ -82,55 +115,49 @@ async function runOxlintVirtualPhases(
       timeoutMessage: oxlintTimeoutMs === undefined ? undefined : TYPE_AWARE_OXLINT_TIMEOUT_HINT,
       failurePrefix: 'verify: failed to start ',
     });
-    return applyIgnoredOxlintRules(raw, context.ignoreRuleIds);
+    return checkResultFromOxlintToolRun(raw, context.ignoreRuleIds);
   });
-  if (oxlintTimed.result.exitCode === 0) {
+  if (oxlintTimed.result.exitCode === 0 && !checkHasFindings(oxlintTimed.result)) {
     return { ms: oxlintTimed.ms };
   }
-
-  const initialStdout = selectFirstNonEmptyOxlintGroup(
-    oxlintTimed.result.stdout,
-    context.lintGroups,
-  );
-  const initialStderr = selectFirstNonEmptyOxlintGroup(
-    oxlintTimed.result.stderr,
-    context.lintGroups,
-  );
-  if (!initialStdout.hasIssues && !initialStderr.hasIssues) {
-    // Crash without issue lines: show everything unfiltered and do not defer it behind Fallow.
-    return { result: { ...oxlintTimed.result }, ms: oxlintTimed.ms };
+  if ((oxlintTimed.result.failures?.length ?? 0) > 0 && !checkHasFindings(oxlintTimed.result)) {
+    const message = (oxlintTimed.result.failures ?? [])
+      .map((failure) => failure.message)
+      .join('\n');
+    return {
+      result: {
+        ...oxlintTimed.result,
+        statusStderr: message.endsWith('\n') ? message : `${message}\n`,
+      },
+      ms: oxlintTimed.ms,
+    };
   }
 
-  const selectedGroupIndex = Math.min(
-    ...[initialStdout.groupIndex, initialStderr.groupIndex].filter(
-      (index): index is number => index !== undefined,
-    ),
+  const selection = selectFirstNonEmptyOxlintDiagnosticGroup(
+    oxlintTimed.result.diagnostics,
+    context.lintGroups,
   );
-  const stdoutSelection = initialStdout.hasIssues
-    ? selectFirstNonEmptyOxlintGroup(
-        oxlintTimed.result.stdout,
-        context.lintGroups,
-        selectedGroupIndex,
-      )
-    : initialStdout;
-  const stderrSelection = initialStderr.hasIssues
-    ? selectFirstNonEmptyOxlintGroup(
-        oxlintTimed.result.stderr,
-        context.lintGroups,
-        selectedGroupIndex,
-      )
-    : initialStderr;
-  const deferredCount = stdoutSelection.deferredCount + stderrSelection.deferredCount;
+  if (!selection.hasIssues) {
+    return {
+      result: { ...oxlintTimed.result },
+      ms: oxlintTimed.ms,
+    };
+  }
+
   return {
     result: {
       exitCode: oxlintTimed.result.exitCode,
-      stdout: stdoutSelection.text,
-      stderr: joinStreams([
-        stderrSelection.text,
-        deferredCount > 0 ? `verify: deferred: ${String(deferredCount)}\n` : '',
-      ]),
+      diagnostics: selection.diagnostics,
+      ...(oxlintTimed.result.hints === undefined ? {} : { hints: oxlintTimed.result.hints }),
+      ...(oxlintTimed.result.failures === undefined
+        ? {}
+        : { failures: oxlintTimed.result.failures }),
+      ...(oxlintTimed.result.opaqueText === undefined
+        ? {}
+        : { opaqueText: oxlintTimed.result.opaqueText }),
+      deferredCount: selection.deferredCount,
     },
-    selectedGroupId: context.lintGroups[selectedGroupIndex]?.id ?? DEFAULT_OXLINT_RULE_PHASE,
+    selectedGroupId: context.lintGroups[selection.groupIndex ?? 0]?.id ?? DEFAULT_OXLINT_RULE_PHASE,
     ms: oxlintTimed.ms,
   };
 }
@@ -142,6 +169,106 @@ function oxlintFailurePrecedingFallow(
   return selectedGroupId === DEFAULT_OXLINT_RULE_PHASE ? undefined : result;
 }
 
+function firstFailedResult(
+  ...results: readonly (VerifyResult | undefined)[]
+): VerifyResult | undefined {
+  return results.find((result) => result !== undefined && result.exitCode !== 0);
+}
+
+async function runBoundaryParallelPhase(
+  options: BoundaryParallelPhaseOptions,
+): Promise<
+  ExecuteVerifyOutcome | { continue: true; lintTimings: PhaseTimings; structural: CheckResult }
+> {
+  const presetBoundaryContext = {
+    projectRoot: options.projectRoot,
+    entries: options.request.entries,
+    ignorePatterns: options.ignorePatterns,
+    fallowConfigPath: options.fallowConfigPath,
+  };
+  const [oxlintRun, boundariesRun, presetBoundariesTimed, structuralTimed] = await Promise.all([
+    runOxlintVirtualPhases(options.run, options.projectRoot, {
+      args: options.oxlintArgs,
+      environment: options.oxlintEnvironment,
+      typeAware: options.typeAware,
+      ignoreRuleIds: new Set(options.request.ignoreOxlintRuleIds ?? []),
+      lintGroups: options.lintGroups,
+    }),
+    options.runFallowCheck(
+      ['dead-code', '--boundary-violations'],
+      checkResultFromFallowBoundariesToolRun,
+    ),
+    timedCheck(async () => {
+      try {
+        const checks = await runActivePresetToolChecks(
+          presetBoundaryContext,
+          options.activated,
+          options.request.presetConfig ?? {},
+        );
+        return mergeCheckResults(...checks);
+      } catch (error) {
+        return throwInternalVerifyFailure(error instanceof Error ? error : String(error));
+      }
+    }),
+    timedCheck(async () =>
+      checkFallowStructuralFindings(options.run, options.projectRoot, options.fallowConfigPath),
+    ),
+  ]);
+  const lintTimings: PhaseTimings = {
+    ...options.cyclesTimings,
+    lintMs: oxlintRun.ms,
+    boundariesMs: boundariesRun.ms,
+    presetsMs: presetBoundariesTimed.ms + structuralTimed.ms,
+  };
+  const failure = firstFailedResult(
+    oxlintFailurePrecedingFallow(oxlintRun.result, oxlintRun.selectedGroupId),
+    presetBoundariesTimed.result.exitCode !== 0 ? presetBoundariesTimed.result : undefined,
+    boundariesRun.result.exitCode !== 0 ? boundariesRun.result : undefined,
+    structuralTimed.result.exitCode !== 0 ? structuralTimed.result : undefined,
+    oxlintRun.result,
+  );
+  if (failure !== undefined) {
+    return {
+      result: withVerifyTiming(failure, lintTimings, options.phasesStartedAt),
+      timings: lintTimings,
+    };
+  }
+  return { continue: true, lintTimings, structural: structuralTimed.result };
+}
+
+async function runHygieneComplexityPhase(
+  runFallowCheck: FallowCheckRunner,
+  lintTimings: PhaseTimings,
+  structural: CheckResult,
+  phasesStartedAt: number,
+): Promise<ExecuteVerifyOutcome> {
+  const postBoundaryTimings: PhaseTimings = { ...lintTimings };
+  const [hygieneRun, complexityRun] = await Promise.all([
+    runFallowCheck(['--skip', 'health'], checkResultFromFallowHygieneToolRun),
+    runFallowCheck(['health', '--complexity'], checkResultFromFallowComplexityToolRun),
+  ]);
+  postBoundaryTimings.hygieneMs = hygieneRun.ms;
+  postBoundaryTimings.complexityMs = complexityRun.ms;
+  const failure = firstFailedResult(
+    hygieneRun.result.exitCode !== 0 ? hygieneRun.result : undefined,
+    complexityRun.result.exitCode !== 0 ? complexityRun.result : undefined,
+  );
+  if (failure !== undefined) {
+    return {
+      result: withVerifyTiming(failure, postBoundaryTimings, phasesStartedAt),
+      timings: postBoundaryTimings,
+    };
+  }
+  return {
+    result: withVerifyTiming(
+      mergeCheckResults({ exitCode: 0, diagnostics: [] }, structural),
+      postBoundaryTimings,
+      phasesStartedAt,
+    ),
+    timings: postBoundaryTimings,
+  };
+}
+
 async function runExecuteVerifyBody(
   request: VerifyRequest,
   run: ToolRunner,
@@ -151,11 +278,7 @@ async function runExecuteVerifyBody(
   const entriesError = invalidProjectRelativeEntries(request.entries);
   if (entriesError !== undefined) {
     return {
-      result: {
-        exitCode: 2,
-        stdout: '',
-        stderr: `verify: ${entriesError}\n`,
-      },
+      result: failedCheckResult(2, `verify: ${entriesError}`),
     };
   }
 
@@ -178,8 +301,6 @@ async function runExecuteVerifyBody(
   );
 
   const oxlintInvocation = oxlintToolRun(preflight.oxlintConfigPath, ignorePatterns);
-  const fallowEnvironment = fallowCacheEnvironment(projectRoot);
-  const fallowExecutable = fallowExecutablePath();
   const fallowConfigPath = await writeFallowConfigWithEntries(
     PACKAGED_FALLOW_CONFIG_PATH,
     projectRoot,
@@ -191,162 +312,54 @@ async function runExecuteVerifyBody(
   );
   ephemeral.fallowConfigPaths.push(fallowConfigPath);
   const phasesStartedAt = performance.now();
-  const runFallow = async (configPath: string, extraPrefix: readonly string[]) => {
-    return await timedTool(async () => {
-      return await run({
-        name: 'fallow',
-        args: fallowCliArgs(fallowExecutable, configPath, projectRoot, extraPrefix),
-        environment: fallowEnvironment,
-        cwd: projectRoot,
-        failurePrefix: 'verify: failed to start ',
-      });
+  const runFallowCheck = async (
+    analysisArgs: readonly string[],
+    toCheckResult: (raw: ToolRunResult) => CheckResult,
+  ) => {
+    return await timedCheck(async () => {
+      const raw = await run(fallowToolRun(projectRoot, fallowConfigPath, analysisArgs, 'json'));
+      return toCheckResult(raw);
     });
   };
 
   // Phase 1 - cycles (fail-fast): re-export cycles, circular deps, unresolved imports only.
-  const cyclesRun = await runFallow(fallowConfigPath, [
-    'dead-code',
-    '--re-export-cycles',
-    '--circular-deps',
-    '--unresolved-imports',
-  ]);
+  const cyclesRun = await runFallowCheck(
+    ['dead-code', '--re-export-cycles', '--circular-deps', '--unresolved-imports'],
+    checkResultFromFallowCyclesToolRun,
+  );
   const cyclesTimings: PhaseTimings = { cyclesMs: cyclesRun.ms };
   if (cyclesRun.result.exitCode !== 0) {
     return {
-      result: withVerifyTiming(
-        {
-          exitCode: cyclesRun.result.exitCode,
-          stdout: removeFallowInformation(cyclesRun.result.stdout),
-          stderr: cyclesRun.result.stderr,
-        },
-        cyclesTimings,
-        phasesStartedAt,
-      ),
+      result: withVerifyTiming(cyclesRun.result, cyclesTimings, phasesStartedAt),
       timings: cyclesTimings,
     };
   }
 
-  // Phases 2+3 - oxlint, preset boundary checks, and Fallow boundaries in parallel.
-  // Boundary findings from oxlint fail immediately; semantic-lint boundary findings are
-  // held until the Fallow boundary check has passed.
-  const presetBoundaryContext = {
+  // Phases 2+3 - oxlint, preset boundary checks, Fallow boundaries, and structural in parallel.
+  const boundaryPhase = await runBoundaryParallelPhase({
+    run,
     projectRoot,
-    entries: request.entries,
+    request,
+    typeAware: preflight.typeAware,
+    activated: preflight.activated,
+    lintGroups: preflight.lintGroups,
+    oxlintArgs: oxlintInvocation.args,
+    oxlintEnvironment: oxlintInvocation.environment,
     ignorePatterns,
     fallowConfigPath,
-  };
-  const [oxlintRun, boundariesRun, presetBoundariesTimed] = await Promise.all([
-    runOxlintVirtualPhases(run, projectRoot, {
-      args: oxlintInvocation.args,
-      environment: oxlintInvocation.environment,
-      typeAware: preflight.typeAware,
-      ignoreRuleIds: new Set(request.ignoreOxlintRuleIds ?? []),
-      lintGroups: preflight.lintGroups,
-    }),
-    runFallow(fallowConfigPath, ['dead-code', '--boundary-violations']),
-    timedTool(async () => {
-      try {
-        const checks = await runActivePresetToolChecks(
-          presetBoundaryContext,
-          preflight.activated,
-          request.presetConfig ?? {},
-        );
-        return {
-          exitCode: Math.max(0, ...checks.map((check) => check.exitCode)),
-          stdout: joinStreams(checks.map((check) => check.stdout)),
-          stderr: joinStreams(checks.map((check) => check.stderr)),
-        };
-      } catch (error) {
-        return throwInternalVerifyFailure(error instanceof Error ? error : String(error));
-      }
-    }),
-  ]);
-  const lintTimings: PhaseTimings = {
-    ...cyclesTimings,
-    lintMs: oxlintRun.ms,
-    boundariesMs: boundariesRun.ms,
-    presetsMs: presetBoundariesTimed.ms,
-  };
-  const immediateOxlintFailure = oxlintFailurePrecedingFallow(
-    oxlintRun.result,
-    oxlintRun.selectedGroupId,
-  );
-  if (immediateOxlintFailure !== undefined) {
-    return {
-      result: withVerifyTiming(immediateOxlintFailure, lintTimings, phasesStartedAt),
-      timings: lintTimings,
-    };
-  }
-  if (presetBoundariesTimed.result.exitCode !== 0) {
-    return {
-      result: withVerifyTiming(presetBoundariesTimed.result, lintTimings, phasesStartedAt),
-      timings: lintTimings,
-    };
-  }
-  if (boundariesRun.result.exitCode !== 0) {
-    return {
-      result: withVerifyTiming(
-        {
-          exitCode: boundariesRun.result.exitCode,
-          stdout: removeFallowInformation(boundariesRun.result.stdout),
-          stderr: boundariesRun.result.stderr,
-        },
-        lintTimings,
-        phasesStartedAt,
-      ),
-      timings: lintTimings,
-    };
-  }
-  if (oxlintRun.result !== undefined) {
-    return {
-      result: withVerifyTiming(oxlintRun.result, lintTimings, phasesStartedAt),
-      timings: lintTimings,
-    };
+    runFallowCheck,
+    cyclesTimings,
+    phasesStartedAt,
+  });
+  if (!('continue' in boundaryPhase)) {
+    return boundaryPhase;
   }
 
   // Phases 4+5 - hygiene and complexity.
-  const postBoundaryTimings: PhaseTimings = { ...lintTimings };
-  const [hygieneRun, complexityRun] = await Promise.all([
-    runFallow(fallowConfigPath, ['--skip', 'health']),
-    runFallow(fallowConfigPath, ['health', '--complexity']),
-  ]);
-  postBoundaryTimings.hygieneMs = hygieneRun.ms;
-  postBoundaryTimings.complexityMs = complexityRun.ms;
-  if (hygieneRun.result.exitCode !== 0) {
-    return {
-      result: withVerifyTiming(
-        {
-          exitCode: hygieneRun.result.exitCode,
-          stdout: removeFallowInformation(hygieneRun.result.stdout),
-          stderr: hygieneRun.result.stderr,
-        },
-        postBoundaryTimings,
-        phasesStartedAt,
-      ),
-      timings: postBoundaryTimings,
-    };
-  }
-  if (complexityRun.result.exitCode !== 0) {
-    return {
-      result: withVerifyTiming(
-        {
-          exitCode: complexityRun.result.exitCode,
-          stdout: removeFallowInformation(complexityRun.result.stdout),
-          stderr: complexityRun.result.stderr,
-        },
-        postBoundaryTimings,
-        phasesStartedAt,
-      ),
-      timings: postBoundaryTimings,
-    };
-  }
-
-  return {
-    result: withVerifyTiming(
-      { exitCode: 0, stdout: '', stderr: '' },
-      postBoundaryTimings,
-      phasesStartedAt,
-    ),
-    timings: postBoundaryTimings,
-  };
+  return await runHygieneComplexityPhase(
+    runFallowCheck,
+    boundaryPhase.lintTimings,
+    boundaryPhase.structural,
+    phasesStartedAt,
+  );
 }

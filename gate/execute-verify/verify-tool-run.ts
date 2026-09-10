@@ -8,18 +8,12 @@ import {
 } from '../../config/verify-config-files/verify-config-files.js';
 import { writeTextIfChanged } from '../../process/files/files.js';
 import { getOptionalEnv } from '../read-env/read-env.js';
-import { filterOxlintAgentOutput } from './filter-oxlint-agent-output.js';
+import { checkResultFromDiagnostics, failedCheckResult, type CheckResult } from './check-result.js';
+import { diagnosticsFromOxlintJson, parseOxlintJsonOutput } from './oxlint-json.js';
+import { filterIgnoredOxlintDiagnostics } from './oxlint-diagnostics.js';
 import type { ToolRunResult } from './execute-verify.js';
 
 const require = createRequire(import.meta.url);
-
-const FALLOW_INFORMATIONAL_PREFIXES = [
-  'health-score:',
-  'vital-signs:',
-  'file-score:',
-  'hotspot:',
-  'refactoring-target:',
-];
 
 export function packageRoot(packageName: string): string {
   return dirname(require.resolve(`${packageName}/package.json`));
@@ -57,7 +51,7 @@ export function oxlintToolRun(
     args: [
       join(packageRoot('oxlint'), 'bin', 'oxlint'),
       '--format',
-      'agent',
+      'json',
       '--deny-warnings',
       '--config',
       configPath,
@@ -65,26 +59,6 @@ export function oxlintToolRun(
       '.',
     ],
   };
-}
-
-export function fallowCliArgs(
-  executable: string,
-  configPath: string,
-  projectRoot: string,
-  extraPrefix: readonly string[],
-): string[] {
-  return [
-    executable,
-    ...extraPrefix,
-    '--config',
-    configPath,
-    '--root',
-    projectRoot,
-    '--format',
-    'compact',
-    '--quiet',
-    '--fail-on-issues',
-  ];
 }
 
 export async function writeFallowConfigWithEntries(
@@ -120,35 +94,80 @@ export async function writeFallowConfigWithEntries(
   return configPath;
 }
 
-export function removeFallowInformation(output: string): string {
-  return output
-    .split('\n')
-    .filter((line) => !FALLOW_INFORMATIONAL_PREFIXES.some((prefix) => line.startsWith(prefix)))
-    .join('\n');
-}
-
-export function applyIgnoredOxlintRules(
+/**
+ * Parse oxlint JSON stdout into structured diagnostics and drop ignored rule ids.
+ * Invalid JSON or config/launch failures stay as execution failures — never as a clean pass.
+ * Ignore filtering cannot suppress an accompanying tool/execution failure.
+ */
+export function checkResultFromOxlintToolRun(
   oxlintRaw: ToolRunResult,
   ignoreRuleIds: ReadonlySet<string>,
-): ToolRunResult {
-  if (ignoreRuleIds.size === 0) {
-    return oxlintRaw;
+): CheckResult {
+  const parsed = parseOxlintJsonOutput(oxlintRaw.stdout);
+  if (!parsed.ok) {
+    return oxlintParseFailureResult(oxlintRaw, parsed.reason);
   }
-  const filteredStdout = filterOxlintAgentOutput(oxlintRaw.stdout, ignoreRuleIds);
-  const filteredStderr = filterOxlintAgentOutput(oxlintRaw.stderr, ignoreRuleIds);
-  const hasRemainingIssues = filteredStdout.hasRemainingIssues || filteredStderr.hasRemainingIssues;
-  const rawHadIssues =
-    /:\s*(error|warning)\s+/u.test(oxlintRaw.stdout) ||
-    /:\s*(error|warning)\s+/u.test(oxlintRaw.stderr);
-  let exitCode = 0;
-  if (hasRemainingIssues) {
-    exitCode = Math.max(oxlintRaw.exitCode, 1);
-  } else if (oxlintRaw.exitCode !== 0 && !rawHadIssues) {
-    exitCode = oxlintRaw.exitCode;
+
+  const allDiagnostics = diagnosticsFromOxlintJson(parsed.output);
+  const executionFailure = oxlintExecutionFailureBeforeIgnore(oxlintRaw, allDiagnostics.length);
+  const filtered = filterIgnoredOxlintDiagnostics(allDiagnostics, ignoreRuleIds);
+  if (filtered.hasRemainingIssues) {
+    return checkResultFromDiagnostics(filtered.diagnostics, {
+      exitCode: Math.max(oxlintRaw.exitCode, executionFailure?.exitCode ?? 0, 1),
+      ...(executionFailure === undefined
+        ? {}
+        : {
+            failures: executionFailure.failures,
+            ...(executionFailure.opaqueText === undefined
+              ? {}
+              : { opaqueText: executionFailure.opaqueText }),
+          }),
+    });
   }
-  return {
-    exitCode,
-    stdout: filteredStdout.text,
-    stderr: filteredStderr.text,
-  };
+  if (executionFailure !== undefined) {
+    return executionFailure;
+  }
+  return checkResultFromDiagnostics([]);
+}
+
+/** Only a normal lint exit with findings can be cleared by ignore filtering. */
+function oxlintExecutionFailureBeforeIgnore(
+  oxlintRaw: ToolRunResult,
+  findingCount: number,
+): CheckResult | undefined {
+  if (
+    (oxlintRaw.exitCode === 0 || (oxlintRaw.exitCode === 1 && findingCount > 0)) &&
+    oxlintRaw.stderr.trim().length === 0
+  ) {
+    return undefined;
+  }
+  const detail = firstNonEmptyTrimmed(
+    oxlintRaw.stderr,
+    `oxlint returned an unexpected process result (exit ${String(oxlintRaw.exitCode)}, ${String(findingCount)} findings)`,
+  );
+  return failedCheckResult(Math.max(1, oxlintRaw.exitCode), detail, {
+    stdout: oxlintRaw.stdout,
+    stderr: oxlintRaw.stderr,
+  });
+}
+
+function oxlintParseFailureResult(oxlintRaw: ToolRunResult, parseReason: string): CheckResult {
+  return failedCheckResult(
+    oxlintRaw.exitCode === 0 ? 1 : oxlintRaw.exitCode,
+    firstNonEmptyTrimmed(oxlintRaw.stderr, oxlintRaw.stdout, parseReason),
+    {
+      stdout: oxlintRaw.stdout,
+      stderr: oxlintRaw.stderr,
+    },
+  );
+}
+
+function firstNonEmptyTrimmed(...parts: readonly string[]): string {
+  for (const part of parts) {
+    const trimmed = part.trim();
+    if (trimmed.length > 0) {
+      return part.trimEnd();
+    }
+  }
+  return '';
 }

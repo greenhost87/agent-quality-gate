@@ -1,0 +1,5 @@
+{
+  "name": "fallow-duplicate-exports-fixture",
+  "private": true,
+  "type": "module"
+}

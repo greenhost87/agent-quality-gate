@@ -1,4 +1,7 @@
-import type { ToolRunResult } from '../../gate/execute-verify/execute-verify.ts';
+import {
+  checkResultFromDiagnostics,
+  type CheckResult,
+} from '../../gate/execute-verify/check-result.ts';
 import {
   formatDatabaseConcurrencyViolations,
   verifyDatabaseConcurrencyScripts,
@@ -6,14 +9,22 @@ import {
 
 export async function databaseConcurrencyPreflight(
   projectRoot: string,
-): Promise<ToolRunResult | undefined> {
+): Promise<CheckResult | undefined> {
   const violations = await verifyDatabaseConcurrencyScripts(projectRoot);
   if (violations.length === 0) {
     return undefined;
   }
-  return {
-    exitCode: 1,
-    stdout: '',
-    stderr: `verify: database concurrent test scripts are not allowed\n${formatDatabaseConcurrencyViolations(violations)}\n`,
-  };
+  return checkResultFromDiagnostics(
+    [
+      {
+        source: 'database',
+        ruleId: 'database-concurrent-script',
+        severity: 'error',
+        message: `database concurrent test scripts are not allowed\n${formatDatabaseConcurrencyViolations(violations)}`,
+      },
+    ],
+    {
+      hints: [{ kind: 'builtin', id: 'database-boundary' }],
+    },
+  );
 }

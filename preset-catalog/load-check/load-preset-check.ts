@@ -3,7 +3,7 @@ import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import * as v from 'valibot';
 
-import type { ToolRunResult } from '../../gate/execute-verify/execute-verify.js';
+import { opaqueCheckResult, type CheckResult } from '../../gate/execute-verify/check-result.js';
 import type { ActivatedPreset } from '../contract/preset-contract.types.js';
 import type { PresetCheckModule, PresetVerifyContext } from '../contract/preset-check.types.js';
 import { PRESET_CHECK_MODULE_BASENAMES } from '../contract/preset-check.types.js';
@@ -45,9 +45,9 @@ async function importPresetCheckModule(modulePath: string): Promise<PresetCheckM
   return loaded;
 }
 
-function failedCheckModuleResult(error: Error | string): ToolRunResult {
+function failedCheckModuleResult(error: Error | string): CheckResult {
   const message = error instanceof Error ? error.message : error;
-  return { exitCode: 1, stdout: '', stderr: `${message}\n` };
+  return opaqueCheckResult(1, `${message}\n`);
 }
 
 async function loadPresetCheckModule(
@@ -64,7 +64,7 @@ export async function runActivePresetPreflights(
   projectRoot: string,
   activated: readonly ActivatedPreset[],
   presetConfig: Readonly<Record<string, object>> = {},
-): Promise<ToolRunResult | undefined> {
+): Promise<CheckResult | undefined> {
   for (const preset of activated) {
     let checkModule: PresetCheckModule | undefined;
     try {
@@ -84,7 +84,7 @@ async function runPresetToolChecks(
   preset: ActivatedPreset,
   context: PresetVerifyContext,
   presetConfig?: object,
-): Promise<ToolRunResult[]> {
+): Promise<CheckResult[]> {
   let checkModule: PresetCheckModule | undefined;
   try {
     checkModule = await loadPresetCheckModule(preset);
@@ -101,7 +101,7 @@ export async function runActivePresetToolChecks(
   context: PresetVerifyContext,
   activated: readonly ActivatedPreset[],
   presetConfig: Readonly<Record<string, object>> = {},
-): Promise<ToolRunResult[]> {
+): Promise<CheckResult[]> {
   const perPreset = await Promise.all(
     activated.map(async (preset) =>
       runPresetToolChecks(preset, context, presetConfig[preset.name]),

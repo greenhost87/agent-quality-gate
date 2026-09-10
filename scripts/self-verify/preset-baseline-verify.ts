@@ -1,14 +1,14 @@
 import { join } from 'node:path';
 
 import { executeVerify } from '../../gate/execute-verify/execute-verify.js';
-import type {
-  ToolRunner,
-  VerifyRequest,
-  VerifyResult,
-} from '../../gate/execute-verify/execute-verify.js';
+import type { ToolRunner, VerifyRequest } from '../../gate/execute-verify/execute-verify.js';
 import { oxlintRuleIdsFromManifest } from '../../preset-catalog/oxlint-config/oxlint-rule-ids-from-manifest.js';
 import { parsePresetManifest } from '../../preset-catalog/manifest/parse-preset-manifest.js';
 import { runLocalPresetSteps } from '../../gate/public-verify/preset-verify-result.js';
+import {
+  streamResultFromVerifyResult,
+  type StreamResult,
+} from '../../gate/public-verify/verify-streams.js';
 import { listPresetPackageNames, resolveProjectRoot } from './repo-walk.js';
 
 const PRESETS_DIRECTORY = 'presets';
@@ -85,12 +85,14 @@ export async function localPresetPackageVerifyRequest(
 export async function verifyLocalPresetPackages(
   projectRoot: string,
   run?: ToolRunner,
-): Promise<VerifyResult> {
+): Promise<StreamResult> {
   const root = resolveProjectRoot(projectRoot);
   return runLocalPresetSteps(
     listLocalPresetPackageNames(root),
     async (presetName) =>
-      executeVerify(await localPresetPackageVerifyRequest(root, presetName), run),
+      streamResultFromVerifyResult(
+        await executeVerify(await localPresetPackageVerifyRequest(root, presetName), run),
+      ),
     (presetName) => `verify: local preset "${presetName}" failed package verify\n`,
   );
 }

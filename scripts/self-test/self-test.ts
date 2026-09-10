@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 
 import { createCli, parseCli, reportCommandError } from '../../process/command/command.js';
-import type { VerifyResult } from '../../gate/execute-verify/execute-verify.js';
+import type { StreamResult } from '../../gate/public-verify/verify-streams.js';
 import { formatTestOk } from '../../gate/execute-verify/verify-ok-message.js';
 import {
   exitCodeAfterWritingResults,
@@ -59,7 +59,7 @@ export function printSelfTestUsage(): void {
   process.stdout.write(SELF_TEST_USAGE);
 }
 
-async function runRootTests(projectRoot: string): Promise<VerifyResult> {
+async function runRootTests(projectRoot: string): Promise<StreamResult> {
   const startedAt = performance.now();
   const result = await runCapturedProcess({
     command: 'bun',

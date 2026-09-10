@@ -1,5 +1,5 @@
 import { runCapturedProcessSync } from '../../process/run-command/run-command.js';
-import type { VerifyResult } from '../../gate/execute-verify/execute-verify.js';
+import type { StreamResult } from '../../gate/public-verify/verify-streams.js';
 
 export const CONTAINER_RUNTIME_UNAVAILABLE_MESSAGE =
   'pack integration requires a running container runtime: start Docker Desktop or Colima, confirm with `docker ps`, then rerun';
@@ -17,7 +17,7 @@ export function isContainerRuntimeAvailable(): boolean {
   return result.exitCode === 0;
 }
 
-export function containerRuntimeUnavailableResult(): VerifyResult {
+export function containerRuntimeUnavailableResult(): StreamResult {
   return {
     exitCode: 1,
     stdout: '',

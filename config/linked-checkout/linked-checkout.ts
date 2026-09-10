@@ -85,6 +85,16 @@ export function resolveLinkedCheckoutRoot(cwd: string, configuredRoot: string): 
   return cwdCheckout.toplevel;
 }
 
+export function isConfiguredWorkspaceRoot(
+  candidate: string,
+  projects: readonly GlobalProject[],
+): boolean {
+  const canonicalCandidate = canonicalizePath(candidate);
+  return projects.some(
+    (project) => resolveLinkedCheckoutRoot(canonicalCandidate, project.root) === canonicalCandidate,
+  );
+}
+
 export function findLinkedCheckoutProject(
   cwd: string,
   projects: readonly GlobalProject[],

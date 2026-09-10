@@ -9,6 +9,7 @@ import {
   formatManagedFileMismatches,
   verifyManagedPresetFiles,
 } from '../../preset-catalog/reconcile/reconcile-preset-files.js';
+import { opaqueCheckResult } from './check-result.js';
 import type { OxlintGroupOrderOptions } from './execute-verify.js';
 import {
   formatDependencyViolations,
@@ -57,11 +58,7 @@ async function verifyPresetProjectPreconditions(
     ]
       .filter((section) => section.length > 0)
       .join('\n');
-    return {
-      exitCode: 1,
-      stdout: '',
-      stderr: `verify: preset dependency check failed\n${details}\n`,
-    };
+    return opaqueCheckResult(1, `verify: preset dependency check failed\n${details}\n`);
   }
 
   let presetPreflight;
@@ -129,7 +126,7 @@ export async function runPresetPreflight(
     ? { ok: true as const, mismatches: [] }
     : await verifyManagedPresetFiles(projectRoot, contract.files);
   if (!managed.ok) {
-    return { exitCode: 1, stdout: '', stderr: `verify: ${managed.error}\n` };
+    return opaqueCheckResult(1, `verify: ${managed.error}\n`);
   }
 
   const rules: Record<string, OxlintRuleSetting> = { ...contract.rules };
@@ -164,11 +161,10 @@ export async function runPresetPreflight(
     const databaseHint = managed.mismatches.some((mismatch) => mismatch.presetName === 'database')
       ? `${DATABASE_MANAGED_FILES_HINT}\n`
       : '';
-    return {
-      exitCode: 1,
-      stdout: '',
-      stderr: `verify: managed preset files do not match\n${formatManagedFileMismatches(managed.mismatches)}\n${databaseHint}`,
-    };
+    return opaqueCheckResult(
+      1,
+      `verify: managed preset files do not match\n${formatManagedFileMismatches(managed.mismatches)}\n${databaseHint}`,
+    );
   }
 
   return {

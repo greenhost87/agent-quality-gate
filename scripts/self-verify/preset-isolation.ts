@@ -112,13 +112,29 @@ export function rejectCrossPresetImports(projectRoot: string): {
   stderr: string;
 } {
   const violations = findCrossPresetImports(projectRoot);
-  return formatPrefixedViolations(
+  const check = formatPrefixedViolations(
     'preset-isolation',
     violations.map(
       (violation) =>
         `${violation.importer}: imports ${violation.imported} via ${JSON.stringify(violation.specifier)}`,
     ),
   );
+  if (check.exitCode === 0) {
+    return { exitCode: 0, stdout: '', stderr: '' };
+  }
+  return {
+    exitCode: check.exitCode,
+    stdout: '',
+    stderr: `${check.diagnostics
+      .map((diagnostic) => {
+        const path = diagnostic.location?.path;
+        const ruleId = diagnostic.ruleId ?? 'unknown';
+        return path === undefined
+          ? `${ruleId}:${diagnostic.message}`
+          : `${ruleId}:${path}: ${diagnostic.message}`;
+      })
+      .join('\n')}\n`,
+  };
 }
 
 export type CrossPresetImportViolation = {

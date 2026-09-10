@@ -1,6 +1,9 @@
 import { join } from 'node:path';
 
-import type { ToolRunResult } from '../../gate/execute-verify/execute-verify.ts';
+import {
+  checkResultFromDiagnostics,
+  type CheckResult,
+} from '../../gate/execute-verify/check-result.ts';
 import type { PresetCheckModule } from '../../preset-catalog/contract/preset-check.types.ts';
 import { readProjectPackageJson } from '../../preset-catalog/dependencies/read-project-package-json.ts';
 import { pathExists } from '../../process/files/files.ts';
@@ -49,15 +52,23 @@ async function hasPlaywrightConfig(projectRoot: string): Promise<boolean> {
   return false;
 }
 
-async function playwrightPreflight(projectRoot: string): Promise<ToolRunResult | undefined> {
+async function playwrightPreflight(projectRoot: string): Promise<CheckResult | undefined> {
   if (!(await projectUsesPlaywright(projectRoot)) || (await hasPlaywrightConfig(projectRoot))) {
     return undefined;
   }
-  return {
-    exitCode: 1,
-    stdout: '',
-    stderr: 'playwright-config: add playwright.config.ts with use.baseURL and webServer\n',
-  };
+  return checkResultFromDiagnostics(
+    [
+      {
+        source: 'playwright',
+        ruleId: 'playwright/config',
+        severity: 'error',
+        message: 'add playwright.config.ts with use.baseURL and webServer',
+      },
+    ],
+    {
+      hints: [{ kind: 'builtin', id: 'playwright-e2e' }],
+    },
+  );
 }
 
 const checkModule: PresetCheckModule = {

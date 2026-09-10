@@ -10,6 +10,7 @@ import { YAML } from 'bun';
 import { useIsolatedAgentQualityGateHome } from '../../../tests/support/isolated-home.js';
 import { readFixture } from '../../../tests/support/fixture-files.js';
 import { executeQualityGateForCwd } from '../../quality-gate-run/quality-gate-run.js';
+import { streamResultFromVerifyResult } from '../../public-verify/verify-streams.js';
 
 useIsolatedAgentQualityGateHome();
 
@@ -168,7 +169,13 @@ describe('quality gate linked checkout', () => {
     });
 
     const run = await executeQualityGateForCwd(worktree, { configPath });
-    const output = run.kind === 'ran' ? run.result.stdout + run.result.stderr : '';
+    const output =
+      run.kind === 'ran'
+        ? (() => {
+            const streams = streamResultFromVerifyResult(run.result);
+            return streams.stdout + streams.stderr;
+          })()
+        : '';
 
     expect(run.kind).toBe('ran');
     if (run.kind !== 'ran') {
@@ -176,7 +183,7 @@ describe('quality gate linked checkout', () => {
     }
     expect(run.projectRoot).toBe(realpathSync(worktree));
     expect(run.result.exitCode).toBe(1);
-    expect(output).toContain('eslint(no-debugger)');
+    expect(output).toContain('no-debugger');
   });
 
   it('runs against an external git worktree of a configured project', async () => {
