@@ -254,13 +254,17 @@ function visitFunctionParams(
   }
 }
 
-/** Typed visitors for runtime function-like nodes that own a `params` list. */
+/** Typed visitors for runtime-reachable nodes that own a `params` list. */
 export function functionParamVisitors(
   visit: (params: readonly ESTree.Node[], owner: ESTree.Node) => void,
 ): {
   FunctionDeclaration: (node: ESTree.Node) => void;
   FunctionExpression: (node: ESTree.Node) => void;
   ArrowFunctionExpression: (node: ESTree.Node) => void;
+  TSDeclareFunction: (node: ESTree.Node) => void;
+  TSCallSignatureDeclaration: (node: ESTree.Node) => void;
+  TSConstructSignatureDeclaration: (node: ESTree.Node) => void;
+  TSMethodSignature: (node: ESTree.Node) => void;
 } {
   const onFunction = (node: ESTree.Node): void => {
     visitFunctionParams(node, visit);
@@ -269,6 +273,10 @@ export function functionParamVisitors(
     FunctionDeclaration: onFunction,
     FunctionExpression: onFunction,
     ArrowFunctionExpression: onFunction,
+    TSDeclareFunction: onFunction,
+    TSCallSignatureDeclaration: onFunction,
+    TSConstructSignatureDeclaration: onFunction,
+    TSMethodSignature: onFunction,
   };
 }
 

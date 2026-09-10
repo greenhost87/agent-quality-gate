@@ -15,6 +15,10 @@ describe('no-wide-parameter-unions visitors', () => {
     expect(typeof visitors.FunctionDeclaration).toBe('function');
     expect(typeof visitors.FunctionExpression).toBe('function');
     expect(typeof visitors.ArrowFunctionExpression).toBe('function');
+    expect(typeof visitors.TSDeclareFunction).toBe('function');
+    expect(typeof visitors.TSCallSignatureDeclaration).toBe('function');
+    expect(typeof visitors.TSConstructSignatureDeclaration).toBe('function');
+    expect(typeof visitors.TSMethodSignature).toBe('function');
     expect(visitors.before).toBeUndefined();
     expect(visitors.Program).toBeUndefined();
   });
@@ -60,7 +64,7 @@ describe('no-wide-parameter-unions reports', () => {
       ],
     });
     const reports = result.cases[0]?.reports ?? [];
-    expect(reports.length).toBe(2);
+    expect(reports.length).toBe(6);
     expect(reports.every((report) => report.messageId === 'wideUnion')).toBe(true);
   });
 });

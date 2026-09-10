@@ -2,7 +2,12 @@ import { bench, run } from 'mitata';
 import type { Diagnostic, ESTree, Options, Ranged, VisitorWithHooks } from '@oxlint/plugins';
 import type { Program } from 'oxc-parser';
 
-import { astIndex, astIndexBuildStats, resetAstIndexBuildCount } from '../oxlint-walk/ast-index.ts';
+import {
+  astIndex,
+  astIndexBuildStats,
+  clearAstIndex,
+  resetAstIndexBuildCount,
+} from '../oxlint-walk/ast-index.ts';
 import { isAstNode, walkAst } from '../oxlint-walk/oxlint-walk.ts';
 import { bindCaseToContext, createBenchRuleContext } from './create-bench-context.js';
 import { parseFixture, walkProgram } from './parse-and-walk.js';
@@ -210,6 +215,8 @@ export function measureAggregateSameAst(program: Program): AggregateSameAstResul
   }
   const repeatedWalkMs = performance.now() - walkStarted;
 
+  // Cold construction: drop any prior cache so sharedIndexMs / indexBuilds are order-independent.
+  clearAstIndex(program);
   resetAstIndexBuildCount();
   const indexStarted = performance.now();
   const index = astIndex(program);
