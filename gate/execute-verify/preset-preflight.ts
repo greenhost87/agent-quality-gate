@@ -21,7 +21,7 @@ import {
   writeOxlintConfigForProject,
 } from '../../preset-catalog/oxlint-config/write-oxlint-config.js';
 import type { OxlintRuleSetting } from '../../preset-catalog/oxlint-config/write-oxlint-config.js';
-import { QualityGateInternalError } from '../quality-gate-run/quality-gate-internal-error.js';
+import { throwInternalVerifyFailure } from '../quality-gate-run/quality-gate-internal-error.js';
 import type { VerifyResult } from './execute-verify.js';
 import type { OxlintOutputGroup } from './execute-verify.js';
 import { oxlintVirtualGroupsFromRules } from './oxlint-virtual-groups.js';
@@ -33,13 +33,6 @@ const DATABASE_MANAGED_FILES_HINT_EXAMPLES =
 const DATABASE_MANAGED_FILES_HINT_SYNC =
   'hint:database-sync — bun .aqg/database/scripts/sync-database-managed.ts';
 const DATABASE_MANAGED_FILES_HINT = `${DATABASE_MANAGED_FILES_HINT_EXAMPLES}\n${DATABASE_MANAGED_FILES_HINT_SYNC}`;
-
-function throwInternalVerifyFailure(error: Error | string): never {
-  const message = error instanceof Error ? error.message : error;
-  throw new QualityGateInternalError(message, {
-    cause: error instanceof Error ? error : undefined,
-  });
-}
 
 async function verifyPresetProjectPreconditions(
   projectRoot: string,
@@ -93,13 +86,14 @@ export async function runPresetPreflight(
   presetNames: readonly string[],
   presetConfig: Readonly<Record<string, object>>,
   skipPresetProjectChecks: boolean,
-  ephemeral: EphemeralProjectConfigPaths,
+  _ephemeral: EphemeralProjectConfigPaths,
   groupOrderOptions: OxlintGroupOrderOptions = {},
 ): Promise<
   | {
       oxlintConfigPath: string;
       typeAware: boolean;
       activated: ActivatedPreset[];
+      managedFilePaths: ReadonlySet<string>;
       lintGroups: OxlintOutputGroup[];
     }
   | VerifyResult
@@ -140,7 +134,6 @@ export async function runPresetPreflight(
     contract.nativePlugins,
     contract.overrides,
   );
-  ephemeral.oxlintConfigPath = oxlintConfigPath;
   const packagedOxlint = readOxlintConfig(PACKAGED_OXLINT_ASSETS_DIRECTORY);
   const typeAware = oxlintTypeAwareEnabled(packagedOxlint);
   const packagedLintRuleIds = [
@@ -171,6 +164,11 @@ export async function runPresetPreflight(
     oxlintConfigPath,
     typeAware,
     activated: contract.activated,
+    managedFilePaths: new Set(
+      contract.files
+        .filter((file) => file.exampleOnly !== true)
+        .map((file) => file.destination.replaceAll('\\', '/')),
+    ),
     lintGroups,
   };
 }

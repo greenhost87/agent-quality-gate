@@ -4,6 +4,8 @@ import {
   mergeCheckResults,
   type CheckResult,
 } from './check-result.js';
+import { runLintGroupChecks } from './run-lint-group-checks.js';
+import { lintGroupOrder } from './oxlint-virtual-groups.js';
 import {
   removeEphemeralProjectConfigs,
   verifyFallowConfigPathForProject,
@@ -24,8 +26,6 @@ import {
 } from './fallow-json-diagnostics.js';
 import { packagedFallowConfigPath } from '../../config/packaged-assets/packaged-assets.js';
 import { runActivePresetToolChecks } from '../../preset-catalog/load-check/load-preset-check.js';
-import type { ActivatedPreset } from '../../preset-catalog/contract/preset-contract.types.js';
-import { QualityGateInternalError } from '../quality-gate-run/quality-gate-internal-error.js';
 import { mergeIgnorePatterns } from '../../process/run-command/stream-utils.js';
 import { timedCheck, withVerifyTiming } from './verify-timing.js';
 import {
@@ -34,7 +34,9 @@ import {
   writeFallowConfigWithEntries,
 } from './verify-tool-run.js';
 import { selectFirstNonEmptyOxlintDiagnosticGroup } from './oxlint-diagnostics.js';
-import { checkFallowStructuralFindings } from './fallow-structural-findings.js';
+import { throwInternalVerifyFailure } from '../quality-gate-run/quality-gate-internal-error.js';
+import { settleStage } from './settle-stage.js';
+import { selectSettledParallelVerifyOutcome } from './select-settled-parallel-verify.js';
 
 import {
   TYPE_AWARE_OXLINT_TIMEOUT_HINT,
@@ -44,47 +46,14 @@ import { DEFAULT_OXLINT_RULE_PHASE } from '../../preset-catalog/oxlint-config/ox
 import { groupOrderOptions, runPresetPreflight } from './preset-preflight.js';
 import type {
   ExecuteVerifyOutcome,
-  OxlintOutputGroup,
   OxlintPhaseContext,
   PhaseTimings,
   ToolRunner,
-  ToolRunResult,
   VerifyRequest,
   VerifyResult,
 } from './execute-verify.js';
 
 const PACKAGED_FALLOW_CONFIG_PATH = packagedFallowConfigPath();
-
-type FallowCheckRunner = (
-  analysisArgs: readonly string[],
-  toCheckResult: (raw: ToolRunResult) => CheckResult,
-) => Promise<{ result: CheckResult; ms: number }>;
-
-type BoundaryParallelPhaseOptions = {
-  run: ToolRunner;
-  projectRoot: string;
-  request: VerifyRequest;
-  typeAware: boolean;
-  activated: readonly ActivatedPreset[];
-  lintGroups: readonly OxlintOutputGroup[];
-  oxlintArgs: readonly string[];
-  oxlintEnvironment: Record<string, string>;
-  ignorePatterns: readonly string[];
-  fallowConfigPath: string;
-  runFallowCheck: FallowCheckRunner;
-  cyclesTimings: PhaseTimings;
-  phasesStartedAt: number;
-};
-
-function caughtErrorMessage(error: Error | string): string {
-  return error instanceof Error ? error.message : error;
-}
-
-function throwInternalVerifyFailure(error: Error | string): never {
-  throw new QualityGateInternalError(caughtErrorMessage(error), {
-    cause: error instanceof Error ? error : undefined,
-  });
-}
 
 export async function runExecuteVerify(
   request: VerifyRequest,
@@ -162,113 +131,6 @@ async function runOxlintVirtualPhases(
   };
 }
 
-function oxlintFailurePrecedingFallow(
-  result: VerifyResult | undefined,
-  selectedGroupId: string | undefined,
-): VerifyResult | undefined {
-  return selectedGroupId === DEFAULT_OXLINT_RULE_PHASE ? undefined : result;
-}
-
-function firstFailedResult(
-  ...results: readonly (VerifyResult | undefined)[]
-): VerifyResult | undefined {
-  return results.find((result) => result !== undefined && result.exitCode !== 0);
-}
-
-async function runBoundaryParallelPhase(
-  options: BoundaryParallelPhaseOptions,
-): Promise<
-  ExecuteVerifyOutcome | { continue: true; lintTimings: PhaseTimings; structural: CheckResult }
-> {
-  const presetBoundaryContext = {
-    projectRoot: options.projectRoot,
-    entries: options.request.entries,
-    ignorePatterns: options.ignorePatterns,
-    fallowConfigPath: options.fallowConfigPath,
-  };
-  const [oxlintRun, boundariesRun, presetBoundariesTimed, structuralTimed] = await Promise.all([
-    runOxlintVirtualPhases(options.run, options.projectRoot, {
-      args: options.oxlintArgs,
-      environment: options.oxlintEnvironment,
-      typeAware: options.typeAware,
-      ignoreRuleIds: new Set(options.request.ignoreOxlintRuleIds ?? []),
-      lintGroups: options.lintGroups,
-    }),
-    options.runFallowCheck(
-      ['dead-code', '--boundary-violations'],
-      checkResultFromFallowBoundariesToolRun,
-    ),
-    timedCheck(async () => {
-      try {
-        const checks = await runActivePresetToolChecks(
-          presetBoundaryContext,
-          options.activated,
-          options.request.presetConfig ?? {},
-        );
-        return mergeCheckResults(...checks);
-      } catch (error) {
-        return throwInternalVerifyFailure(error instanceof Error ? error : String(error));
-      }
-    }),
-    timedCheck(async () =>
-      checkFallowStructuralFindings(options.run, options.projectRoot, options.fallowConfigPath),
-    ),
-  ]);
-  const lintTimings: PhaseTimings = {
-    ...options.cyclesTimings,
-    lintMs: oxlintRun.ms,
-    boundariesMs: boundariesRun.ms,
-    presetsMs: presetBoundariesTimed.ms + structuralTimed.ms,
-  };
-  const failure = firstFailedResult(
-    oxlintFailurePrecedingFallow(oxlintRun.result, oxlintRun.selectedGroupId),
-    presetBoundariesTimed.result.exitCode !== 0 ? presetBoundariesTimed.result : undefined,
-    boundariesRun.result.exitCode !== 0 ? boundariesRun.result : undefined,
-    structuralTimed.result.exitCode !== 0 ? structuralTimed.result : undefined,
-    oxlintRun.result,
-  );
-  if (failure !== undefined) {
-    return {
-      result: withVerifyTiming(failure, lintTimings, options.phasesStartedAt),
-      timings: lintTimings,
-    };
-  }
-  return { continue: true, lintTimings, structural: structuralTimed.result };
-}
-
-async function runHygieneComplexityPhase(
-  runFallowCheck: FallowCheckRunner,
-  lintTimings: PhaseTimings,
-  structural: CheckResult,
-  phasesStartedAt: number,
-): Promise<ExecuteVerifyOutcome> {
-  const postBoundaryTimings: PhaseTimings = { ...lintTimings };
-  const [hygieneRun, complexityRun] = await Promise.all([
-    runFallowCheck(['--skip', 'health'], checkResultFromFallowHygieneToolRun),
-    runFallowCheck(['health', '--complexity'], checkResultFromFallowComplexityToolRun),
-  ]);
-  postBoundaryTimings.hygieneMs = hygieneRun.ms;
-  postBoundaryTimings.complexityMs = complexityRun.ms;
-  const failure = firstFailedResult(
-    hygieneRun.result.exitCode !== 0 ? hygieneRun.result : undefined,
-    complexityRun.result.exitCode !== 0 ? complexityRun.result : undefined,
-  );
-  if (failure !== undefined) {
-    return {
-      result: withVerifyTiming(failure, postBoundaryTimings, phasesStartedAt),
-      timings: postBoundaryTimings,
-    };
-  }
-  return {
-    result: withVerifyTiming(
-      mergeCheckResults({ exitCode: 0, diagnostics: [] }, structural),
-      postBoundaryTimings,
-      phasesStartedAt,
-    ),
-    timings: postBoundaryTimings,
-  };
-}
-
 async function runExecuteVerifyBody(
   request: VerifyRequest,
   run: ToolRunner,
@@ -310,20 +172,23 @@ async function runExecuteVerifyBody(
     undefined,
     verifyFallowConfigPathForProject(projectRoot),
   );
-  ephemeral.fallowConfigPaths.push(fallowConfigPath);
   const phasesStartedAt = performance.now();
-  const runFallowCheck = async (
-    analysisArgs: readonly string[],
-    toCheckResult: (raw: ToolRunResult) => CheckResult,
+  const runFallowJson = async (
+    configPath: string,
+    extraPrefix: readonly string[],
+    adapt: (tool: Awaited<ReturnType<ToolRunner>>) => CheckResult,
   ) => {
     return await timedCheck(async () => {
-      const raw = await run(fallowToolRun(projectRoot, fallowConfigPath, analysisArgs, 'json'));
-      return toCheckResult(raw);
+      const tool = await run(
+        fallowToolRun(projectRoot, configPath, [...extraPrefix, '--fail-on-issues'], 'json'),
+      );
+      return adapt(tool);
     });
   };
 
   // Phase 1 - cycles (fail-fast): re-export cycles, circular deps, unresolved imports only.
-  const cyclesRun = await runFallowCheck(
+  const cyclesRun = await runFallowJson(
+    fallowConfigPath,
     ['dead-code', '--re-export-cycles', '--circular-deps', '--unresolved-imports'],
     checkResultFromFallowCyclesToolRun,
   );
@@ -335,31 +200,90 @@ async function runExecuteVerifyBody(
     };
   }
 
-  // Phases 2+3 - oxlint, preset boundary checks, Fallow boundaries, and structural in parallel.
-  const boundaryPhase = await runBoundaryParallelPhase({
-    run,
+  // O1: overlap hygiene/complexity with oxlint group. Settle wrappers keep every
+  // launched stage finished before return/cleanup; rejections never become unhandled.
+  const presetBoundaryContext = {
     projectRoot,
-    request,
-    typeAware: preflight.typeAware,
-    activated: preflight.activated,
-    lintGroups: preflight.lintGroups,
-    oxlintArgs: oxlintInvocation.args,
-    oxlintEnvironment: oxlintInvocation.environment,
+    entries: request.entries,
     ignorePatterns,
     fallowConfigPath,
-    runFallowCheck,
-    cyclesTimings,
-    phasesStartedAt,
+    managedFilePaths: preflight.managedFilePaths,
+  };
+  const presetChecks = timedCheck(async () => {
+    try {
+      return await runActivePresetToolChecks(
+        presetBoundaryContext,
+        preflight.activated,
+        request.presetConfig ?? {},
+      );
+    } catch (error) {
+      return throwInternalVerifyFailure(error instanceof Error ? error : String(error));
+    }
   });
-  if (!('continue' in boundaryPhase)) {
-    return boundaryPhase;
-  }
+  const [oxlintSettled, boundariesSettled, presetsSettled, hygieneSettled, complexitySettled] =
+    await Promise.all([
+      settleStage(
+        runLintGroupChecks(
+          runOxlintVirtualPhases(run, projectRoot, {
+            args: oxlintInvocation.args,
+            environment: oxlintInvocation.environment,
+            typeAware: preflight.typeAware,
+            ignoreRuleIds: new Set(request.ignoreOxlintRuleIds ?? []),
+            lintGroups: preflight.lintGroups,
+          }),
+          run,
+          projectRoot,
+          fallowConfigPath,
+          lintGroupOrder(request.lintGroups),
+          presetChecks,
+        ),
+      ),
+      settleStage(
+        runFallowJson(
+          fallowConfigPath,
+          ['dead-code', '--boundary-violations'],
+          checkResultFromFallowBoundariesToolRun,
+        ),
+      ),
+      settleStage(
+        presetChecks.then(({ result, ms }) => ({
+          result: mergeCheckResults(...result.filter((check) => check.lintGroup === undefined)),
+          ms,
+        })),
+      ),
+      settleStage(
+        runFallowJson(
+          fallowConfigPath,
+          ['--skip', 'health'],
+          checkResultFromFallowHygieneToolRun,
+        ),
+      ),
+      settleStage(
+        runFallowJson(
+          fallowConfigPath,
+          ['health', '--complexity'],
+          checkResultFromFallowComplexityToolRun,
+        ),
+      ),
+    ]);
 
-  // Phases 4+5 - hygiene and complexity.
-  return await runHygieneComplexityPhase(
-    runFallowCheck,
-    boundaryPhase.lintTimings,
-    boundaryPhase.structural,
+  const lintTimings: PhaseTimings = {
+    ...cyclesTimings,
+    lintMs: oxlintSettled.ms,
+    boundariesMs: boundariesSettled.ms,
+    presetsMs: presetsSettled.ms,
+    hygieneMs: hygieneSettled.ms,
+    complexityMs: complexitySettled.ms,
+  };
+
+  return selectSettledParallelVerifyOutcome({
+    oxlintSettled,
+    boundariesSettled,
+    presetsSettled,
+    hygieneSettled,
+    complexitySettled,
+    lintTimings,
     phasesStartedAt,
-  );
+    defaultOxlintPhase: DEFAULT_OXLINT_RULE_PHASE,
+  });
 }
