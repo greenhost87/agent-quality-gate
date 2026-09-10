@@ -53,11 +53,11 @@ describe('preset verification', () => {
       'error',
     );
     await expectRejectedMessage(resolvePresetContract(['unknown']), 'unknown preset');
-    await expectRejectedMessage(resolvePresetContract(['packages']), 'unknown preset');
-    await expectRejectedMessage(resolvePresetContract(['project-quality']), 'unknown preset');
-    await expectRejectedMessage(resolvePresetContract(['react-presentation']), 'unknown preset');
-    await expectRejectedMessage(resolvePresetContract(['react-duplication']), 'unknown preset');
-    await expectRejectedMessage(resolvePresetContract(['live-ui-surface']), 'unknown preset');
+    expect((await resolvePresetContract(['packages'])).names).toEqual(['baseline', 'layout']);
+    expect((await resolvePresetContract(['module-placement', 'test-colocation'])).names).toEqual([
+      'baseline',
+      'layout',
+    ]);
     await expectRejectedMessage(
       resolvePresetContract(['database', 'database-sqlite']),
       'mutually exclusive database drivers',

@@ -142,14 +142,31 @@ describe('packagePresetRoot', () => {
 describe('installPresetFromSource', () => {
   it('installs under AGENT_QUALITY_GATE_HOME/presets/<name>', async () => {
     const installModules = await ensureGateInstallNodeModules();
-    const source = await writeOxlintOnlyPreset('packages');
+    const source = await writeOxlintOnlyPreset('demo-oxlint');
     const destination = await installPresetFromSource(source);
-    expect(destination).toBe(homeInstalledPresetRoot('packages'));
+    expect(destination).toBe(homeInstalledPresetRoot('demo-oxlint'));
     expect(existsSync(join(destination, 'manifest.json'))).toBe(true);
     expect(lstatSync(join(destination, 'node_modules')).isSymbolicLink()).toBe(true);
     expect(realpathSync(join(destination, 'node_modules'))).toBe(realpathSync(installModules));
+    const contract = await resolvePresetContract(['demo-oxlint']);
+    expect(contract.names).toEqual(['baseline', 'demo-oxlint']);
+    expect(contract.plugins.some((plugin) => plugin.name === 'demo-oxlint')).toBe(true);
+  });
+
+  it('installs react-presentation as an oxlint-only preset', async () => {
+    await ensureGateInstallNodeModules();
+    const destination = await installPresetFromSource(
+      join(REPO_ROOT, 'presets/react-presentation'),
+    );
+    expect(existsSync(join(destination, 'check.js'))).toBe(false);
+    expect(existsSync(join(destination, 'check.ts'))).toBe(false);
+    const contract = await resolvePresetContract(['react-presentation']);
+    expect(contract.plugins.some((plugin) => plugin.name === 'react-presentation')).toBe(true);
+  });
+
+  it('resolves legacy packages alias to shipped layout', async () => {
     const contract = await resolvePresetContract(['packages']);
-    expect(contract.names).toEqual(['baseline', 'packages']);
+    expect(contract.names).toEqual(['baseline', 'layout']);
     expect(contract.plugins.some((plugin) => plugin.name === 'packages')).toBe(true);
   });
 });

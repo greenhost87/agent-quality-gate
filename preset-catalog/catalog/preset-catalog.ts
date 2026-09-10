@@ -23,10 +23,14 @@ export const SHIPPED_PRESET_NAMES = [
   'config',
   'database',
   'database-sqlite',
-  'module-placement',
+  'layout',
   'playwright',
-  'test-colocation',
 ] as const;
+
+/** Legacy preset names that resolve to the unified `layout` preset. */
+export const LAYOUT_PRESET_ALIASES = ['module-placement', 'test-colocation', 'packages'] as const;
+
+const LAYOUT_PRESET_NAME = 'layout';
 
 function presetsRoot(): string {
   const releaseRoot = join(PACKAGE_ROOT, 'dist', 'presets');
@@ -36,8 +40,16 @@ function presetsRoot(): string {
   return join(PACKAGE_ROOT, 'presets');
 }
 
+export function canonicalPresetName(name: string): string {
+  if (LAYOUT_PRESET_ALIASES.some((alias) => alias === name)) {
+    return LAYOUT_PRESET_NAME;
+  }
+  return name;
+}
+
 export function isKnownPresetName(name: string): boolean {
-  return SHIPPED_PRESET_NAMES.some((shipped) => shipped === name);
+  const canonical = canonicalPresetName(name);
+  return SHIPPED_PRESET_NAMES.some((shipped) => shipped === canonical);
 }
 
 function isHomeInstalledPresetName(name: string): boolean {
@@ -68,9 +80,10 @@ async function loadManifestAtRoot(root: string, expectedName?: string): Promise<
 }
 
 async function resolvePresetReference(reference: string): Promise<ActivatedPreset> {
+  const canonical = canonicalPresetName(reference);
   if (isKnownPresetName(reference)) {
-    const root = shippedPresetRoot(reference);
-    const manifest = await loadManifestAtRoot(root, reference);
+    const root = shippedPresetRoot(canonical);
+    const manifest = await loadManifestAtRoot(root, canonical);
     return { name: manifest.name, root };
   }
   if (isHomeInstalledPresetName(reference)) {
