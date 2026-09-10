@@ -118,10 +118,10 @@ async function activatePresets(requested: readonly ActivatedPreset[]): Promise<A
     }
     const manifest = await loadManifestAtRoot(preset.root);
     for (const required of manifest.requires) {
-      if (!isKnownPresetName(required)) {
+      if (!isResolvablePresetName(required)) {
         throw new Error(`unknown required preset "${required}"`);
       }
-      await visit({ name: required, root: shippedPresetRoot(required) });
+      await visit(await resolvePresetReference(required));
     }
     activatedRoots.add(preset.root);
     activated.push({ name: manifest.name, root: preset.root });
