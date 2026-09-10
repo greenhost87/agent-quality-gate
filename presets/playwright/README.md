@@ -13,6 +13,19 @@ This preset does not install Playwright and does not manage `playwright.config.t
 
 Managed file `scripts/playwright-web-server.ts` is a comment stub that documents the intended Postgres + Testcontainers webServer flow; it is not a runnable starter. Verify checks its `contentHash` and refreshes the example under `.aqg/playwright/…`. Point `webServer.command` at a project-owned script (not this managed stub, and not under `tests/` or e2e).
 
+## External network substitutions
+
+`playwright/external-network-only` rejects interception of the application backend. By default no network substitution is allowed. Declare external provider origins in the trusted AQG configuration, not in the application repository:
+
+```yaml
+presetConfig:
+  playwright:
+    externalMockOrigins:
+      - https://payments.example.com
+```
+
+Use direct `page.route('https://payments.example.com/**', handler)` calls. Relative URLs, wildcard hosts, regular expressions, predicates, computed matchers, and detached interception methods are rejected. HAR routing requires an explicit external `url` option. WebSocket routing follows the same policy with explicit `ws://` or `wss://` origins. Shared helpers importing `@playwright/test` are checked too. Never list an application origin as an external provider.
+
 ## Enable
 
 A project that already depends on `@playwright/test`, or that has `tests/e2e/`, must also have a root Playwright config file. Missing config fails verify as `playwright-config:`.
