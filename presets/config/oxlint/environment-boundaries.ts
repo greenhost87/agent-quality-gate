@@ -1,9 +1,9 @@
 import { defineRule, type Context, type ESTree } from '@oxlint/plugins';
 
-import { walkAstSkippingTypeAndJsxMarkup } from '../../../scripts/oxlint-walk/oxlint-walk.ts';
-
 const environmentModulePattern =
   /(?:^|\/)(?:system\/config\/environment|gate\/read-env\/read-env)\.[cm]?[jt]s$/u;
+const instrumentationFilePattern = /(?:^|\/)instrumentation\.[cm]?[jt]s$/u;
+const allowedInstrumentationEnvKey = 'NEXT_RUNTIME';
 
 function propertyName(node: ESTree.MemberExpression): string | null {
   if (!node.computed && node.property.type === 'Identifier') return node.property.name;
@@ -23,6 +23,14 @@ function isProcessIdentifier(node: ESTree.Node): boolean {
 
 function isProcessEnvMember(node: ESTree.MemberExpression): boolean {
   return isProcessIdentifier(node.object) && propertyName(node) === 'env';
+}
+
+function isAllowedInstrumentationNextRuntime(node: ESTree.MemberExpression): boolean {
+  const parent = node.parent;
+  if (parent.type !== 'MemberExpression' || parent.object !== node) {
+    return false;
+  }
+  return propertyName(parent) === allowedInstrumentationEnvKey;
 }
 
 function processEnvProperty(pattern: ESTree.Node): ESTree.Node | null {
@@ -66,36 +74,31 @@ export const environmentBoundaries = defineRule({
     },
   },
   createOnce(context) {
-    function inspect(node: ESTree.Node): void {
-      switch (node.type) {
-        case 'AssignmentExpression':
-          reportProcessEnvFromObjectPattern(context, node.left, node.right);
-          break;
-        case 'MemberExpression':
-          if (isProcessEnvMember(node)) {
-            context.report({ node, messageId: 'environment' });
-          }
-          break;
-        case 'VariableDeclarator':
-          reportProcessEnvFromObjectPattern(context, node.id, node.init ?? null);
-          break;
-        default:
-          break;
-      }
-    }
-
+    let allowInstrumentationNextRuntime = false;
     return {
       before() {
         const filename = context.filename.replaceAll('\\', '/');
         if (environmentModulePattern.test(filename)) {
           return false;
         }
-        walkAstSkippingTypeAndJsxMarkup(context.sourceCode.ast, (node) => {
-          inspect(node);
-        });
-        return false;
+        allowInstrumentationNextRuntime = instrumentationFilePattern.test(filename);
+        return undefined;
       },
-      Program() {},
+      AssignmentExpression(node) {
+        reportProcessEnvFromObjectPattern(context, node.left, node.right);
+      },
+      MemberExpression(node) {
+        if (!isProcessEnvMember(node)) {
+          return;
+        }
+        if (allowInstrumentationNextRuntime && isAllowedInstrumentationNextRuntime(node)) {
+          return;
+        }
+        context.report({ node, messageId: 'environment' });
+      },
+      VariableDeclarator(node) {
+        reportProcessEnvFromObjectPattern(context, node.id, node.init ?? null);
+      },
     };
   },
 });

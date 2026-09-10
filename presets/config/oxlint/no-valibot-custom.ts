@@ -6,7 +6,6 @@ import {
   isValibotCustomImport,
 } from './valibot-bindings.ts';
 import type { ValibotBindings } from './valibot-bindings.ts';
-import { walkAstSkippingTypeAndJsxMarkup } from '../../../scripts/oxlint-walk/oxlint-walk.ts';
 
 function reportCustomCall(
   context: Context,
@@ -44,24 +43,18 @@ export const noValibotCustom = defineRule({
     },
   },
   createOnce(context) {
+    let bindings: ValibotBindings = { namespaces: new Set(), named: new Map() };
     return {
       before() {
-        const bindings = collectValibotBindings(context.sourceCode.ast);
-        walkAstSkippingTypeAndJsxMarkup(context.sourceCode.ast, (node) => {
-          switch (node.type) {
-            case 'CallExpression':
-              reportCustomCall(context, node, bindings);
-              break;
-            case 'ImportDeclaration':
-              reportCustomImport(context, node);
-              break;
-            default:
-              break;
-          }
-        });
-        return false;
+        bindings = collectValibotBindings(context.sourceCode.ast);
+        return undefined;
       },
-      Program() {},
+      CallExpression(node) {
+        reportCustomCall(context, node, bindings);
+      },
+      ImportDeclaration(node) {
+        reportCustomImport(context, node);
+      },
     };
   },
 });
