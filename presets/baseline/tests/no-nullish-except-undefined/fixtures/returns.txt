@@ -1,0 +1,18 @@
+export function run(): void {}
+export const arrow = (): void => {};
+export const expression = function (): void {};
+export type Callback = () => void;
+export interface Service {
+  run(): void;
+  callback: () => void;
+  (): void;
+}
+export class Worker {
+  run(): void {}
+  set value(value: string) {}
+}
+export declare function declared(): void;
+export type Parenthesized = () => (void);
+export async function asyncRun(): Promise<void> {}
+export type AsyncCallback = () => Promise<void>;
+export function optionalValue(value: string | undefined): void {}

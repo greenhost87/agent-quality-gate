@@ -7,15 +7,26 @@ const oxlintPath = resolve('node_modules/.bin/oxlint');
 const pluginPath = resolve(import.meta.dir, '../../oxlint/index.ts');
 const fixturesRoot = resolve(import.meta.dir, '../../.quality-fixtures');
 
-async function writeRuleConfig(rule: string, setting: OxlintRuleSetting) {
+async function writeRuleConfig(
+  rules: Record<string, OxlintRuleSetting>,
+  options: { usePlugin: boolean; plugins: string[]; jsPlugins: OxlintJsPlugin[] },
+) {
   const workspace = realpathSync(mkdtempSync(join(tmpdir(), 'baseline-oxlint-')));
   const configPath = join(workspace, 'oxlint.json');
   await write(
     configPath,
     JSON.stringify({
       categories: { correctness: 'off' },
-      jsPlugins: [{ name: 'aqg', specifier: pluginPath }],
-      rules: { [rule]: setting },
+      ...(options.plugins.length > 0 ? { plugins: options.plugins } : {}),
+      ...(options.usePlugin || options.jsPlugins.length > 0
+        ? {
+            jsPlugins: [
+              ...(options.usePlugin ? [{ name: 'aqg', specifier: pluginPath }] : []),
+              ...options.jsPlugins,
+            ],
+          }
+        : {}),
+      rules,
     }),
   );
   return { workspace, configPath };
@@ -26,8 +37,25 @@ export async function runOxlintFixture(
   entry: string,
   rule: string,
   setting: OxlintRuleSetting = 'error',
+  options: { usePlugin?: boolean; plugins?: string[]; jsPlugins?: OxlintJsPlugin[] } = {},
 ) {
-  const { workspace, configPath } = await writeRuleConfig(rule, setting);
+  return runOxlintFixtureRules(fixture, entry, { [rule]: setting }, options);
+}
+
+export async function runOxlintFixtureRules(
+  fixture: string,
+  entry: string,
+  rules: Record<string, OxlintRuleSetting>,
+  options: { usePlugin?: boolean; plugins?: string[]; jsPlugins?: OxlintJsPlugin[] } = {},
+) {
+  const usePlugin = options.usePlugin ?? true;
+  const plugins = options.plugins ?? [];
+  const jsPlugins = options.jsPlugins ?? [];
+  const { workspace, configPath } = await writeRuleConfig(rules, {
+    usePlugin,
+    plugins,
+    jsPlugins,
+  });
   const caseRoot = join(fixturesRoot, fixture);
   const sourcePath = join(caseRoot, entry);
   const child = spawn({
@@ -47,5 +75,7 @@ export async function runOxlintFixture(
     status,
   };
 }
+
+type OxlintJsPlugin = { name: string; specifier: string };
 
 export type OxlintRuleSetting = string | [string, ...unknown[]];

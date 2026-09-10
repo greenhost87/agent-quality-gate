@@ -2,7 +2,7 @@ import { defineRule, type ESTree, type Options } from '@oxlint/plugins';
 import { resolve } from 'node:path';
 import * as v from 'valibot';
 
-import { walkAst } from 'agent-quality-gate/oxlint-walk';
+import { createOptionsRefCache } from '../../../../scripts/oxlint-options-ref-cache/options-ref-cache.ts';
 
 const OptionsSchema = v.object({
   allowedFiles: v.optional(v.array(v.pipe(v.string(), v.minLength(1))), []),
@@ -47,21 +47,21 @@ export default defineRule({
     },
   },
   createOnce(context) {
+    const allowedFilesCache = createOptionsRefCache(readAllowedFiles);
+    let allowed = false;
     return {
       before() {
-        const allowed = isAllowedFile(
+        allowed = isAllowedFile(
           context.filename,
           context.cwd,
-          readAllowedFiles(context.options),
+          allowedFilesCache.get(context.options),
         );
-        walkAst(context.sourceCode.ast, (node) => {
-          if (node.type === 'ImportExpression' && (!allowed || !isRelativeStringLiteral(node))) {
-            context.report({ node, messageId: 'forbidden' });
-          }
-        });
-        return false;
       },
-      Program() {},
+      ImportExpression(node) {
+        if (!allowed || !isRelativeStringLiteral(node)) {
+          context.report({ node, messageId: 'forbidden' });
+        }
+      },
     };
   },
 });

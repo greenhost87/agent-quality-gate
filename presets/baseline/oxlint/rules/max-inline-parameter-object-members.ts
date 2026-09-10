@@ -1,28 +1,14 @@
-import { defineRule, type ESTree, type Options } from '@oxlint/plugins';
-import * as v from 'valibot';
+import { defineRule, type ESTree } from '@oxlint/plugins';
 
-import { forEachParamList, paramTypeAnnotation } from 'agent-quality-gate/oxlint-walk';
+import { createMaxOptionReader } from '../max-option.ts';
+
+import { functionParamVisitors, paramTypeAnnotation } from 'agent-quality-gate/oxlint-walk';
+
+import { createOptionsRefCache } from '../../../../scripts/oxlint-options-ref-cache/options-ref-cache.ts';
 
 const DEFAULT_MAX = -1;
 
-const OptionsSchema = v.object({
-  max: v.optional(
-    v.pipe(
-      v.number(),
-      v.integer(),
-      v.check((value) => value === -1 || value >= 0),
-    ),
-    DEFAULT_MAX,
-  ),
-});
-
-function readMax(options: Readonly<Options>): number {
-  const parsed = v.safeParse(OptionsSchema, options[0] ?? {});
-  if (!parsed.success) {
-    return DEFAULT_MAX;
-  }
-  return parsed.output.max;
-}
+const readMax = createMaxOptionReader(DEFAULT_MAX, -1);
 
 function nextAnnotatedParam(param: ESTree.Node): ESTree.Node | null {
   if (param.type === 'AssignmentPattern') {
@@ -75,27 +61,28 @@ export default defineRule({
     },
   },
   createOnce(context) {
+    const maxCache = createOptionsRefCache(readMax);
+    let max = DEFAULT_MAX;
     return {
       before() {
-        const max = readMax(context.options);
+        max = maxCache.get(context.options);
         if (max < 0) {
           return false;
         }
-        forEachParamList(context.sourceCode.ast, (params) => {
-          for (const param of params) {
-            const typeNode = inlineParameterObjectType(param);
-            if (typeNode != null && typeNode.members.length > max) {
-              context.report({
-                node: typeNode,
-                messageId: 'tooManyMembers',
-                data: { max: String(max) },
-              });
-            }
-          }
-        });
-        return false;
+        return undefined;
       },
-      Program() {},
+      ...functionParamVisitors((params) => {
+        for (const param of params) {
+          const typeNode = inlineParameterObjectType(param);
+          if (typeNode != null && typeNode.members.length > max) {
+            context.report({
+              node: typeNode,
+              messageId: 'tooManyMembers',
+              data: { max: String(max) },
+            });
+          }
+        }
+      }),
     };
   },
 });

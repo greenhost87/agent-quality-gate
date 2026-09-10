@@ -50,11 +50,23 @@ function parseNoClassSuffixes(raw: unknown): string[] | undefined {
   return parsed.success && parsed.output.length > 0 ? parsed.output : undefined;
 }
 
+function parseNoNullishExceptUndefined(raw: unknown): true | undefined {
+  const parsed = v.safeParse(v.boolean(), raw);
+  return parsed.success && parsed.output ? true : undefined;
+}
+
+function parseNoMixedNullishTypes(raw: unknown): boolean | undefined {
+  const parsed = v.safeParse(v.boolean(), raw);
+  return parsed.success ? parsed.output : undefined;
+}
+
 const BaselineSchema = v.pipe(
   v.looseObject({
     literalDynamicImportFiles: v.optional(v.unknown()),
     maxInlineParameterObjectMembers: v.optional(v.unknown()),
     noClassSuffixes: v.optional(v.unknown()),
+    noMixedNullishTypes: v.optional(v.unknown()),
+    noNullishExceptUndefined: v.optional(v.unknown()),
   }),
   v.transform((raw): BaselineGateConfig | undefined => {
     const literalDynamicImportFiles = parseLiteralDynamicImportFiles(raw.literalDynamicImportFiles);
@@ -62,10 +74,14 @@ const BaselineSchema = v.pipe(
       raw.maxInlineParameterObjectMembers,
     );
     const noClassSuffixes = parseNoClassSuffixes(raw.noClassSuffixes);
+    const noNullishExceptUndefined = parseNoNullishExceptUndefined(raw.noNullishExceptUndefined);
+    const noMixedNullishTypes = parseNoMixedNullishTypes(raw.noMixedNullishTypes);
     if (
       literalDynamicImportFiles === undefined &&
       maxInlineParameterObjectMembers === undefined &&
-      noClassSuffixes === undefined
+      noClassSuffixes === undefined &&
+      noMixedNullishTypes === undefined &&
+      noNullishExceptUndefined === undefined
     ) {
       return undefined;
     }
@@ -73,6 +89,8 @@ const BaselineSchema = v.pipe(
       maxInlineParameterObjectMembers: maxInlineParameterObjectMembers ?? -1,
       ...(literalDynamicImportFiles === undefined ? {} : { literalDynamicImportFiles }),
       ...(noClassSuffixes === undefined ? {} : { noClassSuffixes }),
+      ...(noMixedNullishTypes === undefined ? {} : { noMixedNullishTypes }),
+      ...(noNullishExceptUndefined === undefined ? {} : { noNullishExceptUndefined }),
     };
   }),
 );
@@ -96,6 +114,16 @@ export function applyConfiguredRules(
   applyConfiguredRule(rules, 'aqg/max-inline-parameter-object-members', {
     max: baseline.maxInlineParameterObjectMembers,
   });
+  if (baseline.noMixedNullishTypes !== undefined) {
+    setRuleSeverity(
+      rules,
+      'aqg/no-mixed-nullish-types',
+      baseline.noMixedNullishTypes ? 'error' : 'off',
+    );
+  }
+  if (baseline.noNullishExceptUndefined !== undefined) {
+    setRuleSeverity(rules, 'aqg/no-nullish-except-undefined', 'error');
+  }
   if (baseline.literalDynamicImportFiles !== undefined) {
     applyConfiguredRule(rules, 'aqg/no-dynamic-import', {
       allowedFiles: [...baseline.literalDynamicImportFiles],
@@ -112,4 +140,26 @@ export type BaselineGateConfig = {
   literalDynamicImportFiles?: string[];
   maxInlineParameterObjectMembers: number;
   noClassSuffixes?: string[];
+  noMixedNullishTypes?: boolean;
+  noNullishExceptUndefined?: true;
 };
+
+function setRuleSeverity(
+  rules: Record<string, OxlintRuleSetting>,
+  ruleId: string,
+  severity: 'error' | 'off',
+): void {
+  if (!Object.hasOwn(rules, ruleId)) {
+    return;
+  }
+  const setting = rules[ruleId];
+  if (typeof setting === 'string') {
+    rules[ruleId] = severity;
+    return;
+  }
+  if ('severity' in setting) {
+    rules[ruleId] = { ...setting, severity };
+    return;
+  }
+  rules[ruleId] = severity;
+}

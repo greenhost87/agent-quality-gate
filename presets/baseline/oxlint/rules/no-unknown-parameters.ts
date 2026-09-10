@@ -1,10 +1,9 @@
 import { defineRule, type ESTree } from '@oxlint/plugins';
 
 import {
-  nodeParams,
+  functionParamVisitors,
   paramTypeAnnotation,
   walkAst,
-  walkAstSkippingTypeSubtrees,
 } from 'agent-quality-gate/oxlint-walk';
 
 function hasTypePredicateReturn(node: ESTree.Node): boolean {
@@ -38,26 +37,16 @@ export default defineRule({
     },
   },
   createOnce(context) {
-    return {
-      before() {
-        walkAstSkippingTypeSubtrees(context.sourceCode.ast, (node) => {
-          if (hasTypePredicateReturn(node)) {
-            return;
-          }
-          const params = nodeParams(node);
-          if (params == null) {
-            return;
-          }
-          for (const param of params) {
-            const typeNode = paramTypeAnnotation(param);
-            if (typeNode != null) {
-              reportUnknownInType(context, typeNode);
-            }
-          }
-        });
-        return false;
-      },
-      Program() {},
-    };
+    return functionParamVisitors((params, owner) => {
+      if (hasTypePredicateReturn(owner)) {
+        return;
+      }
+      for (const param of params) {
+        const typeNode = paramTypeAnnotation(param);
+        if (typeNode != null) {
+          reportUnknownInType(context, typeNode);
+        }
+      }
+    });
   },
 });

@@ -1,6 +1,6 @@
 import { defineRule, type ESTree } from '@oxlint/plugins';
 
-import { walkAst } from 'agent-quality-gate/oxlint-walk';
+import { isAstNode } from 'agent-quality-gate/oxlint-walk';
 
 const DIAGNOSTIC =
   'Do not embed multi-line test data. Store it in a fixture file and load it in the test.';
@@ -197,37 +197,33 @@ export default defineRule({
     },
   },
   createOnce(context) {
+    function parentOf(node: ESTree.Node): ESTree.Node | null {
+      const ancestors = context.sourceCode.getAncestors(node);
+      const parent: unknown = ancestors[ancestors.length - 1];
+      return isAstNode(parent) ? parent : null;
+    }
+
     return {
       before() {
         if (!isRecognizedTestFile(context.filename)) {
           return false;
         }
-        const parents = new WeakMap<ESTree.Node, ESTree.Node | null>();
-        const parentOf = (node: ESTree.Node): ESTree.Node | null | undefined => parents.get(node);
-        walkAst(context.sourceCode.ast, (node, parent) => {
-          parents.set(node, parent);
-          switch (node.type) {
-            case 'BinaryExpression':
-              reportEmbeddedData(context, node, parentOf, staticStringExpressionValue(node), true);
-              break;
-            case 'Literal':
-              reportEmbeddedData(context, node, parentOf, stringLiteralValue(node), true);
-              break;
-            case 'TemplateLiteral':
-              reportEmbeddedData(context, node, parentOf, templateLiteralShapeValue(node), true);
-              break;
-            case 'CallExpression':
-              if (newlineJoinedArrayIsMultiline(node) === true) {
-                context.report({ node, messageId: 'inlineData' });
-              }
-              break;
-            default:
-              break;
-          }
-        });
-        return false;
+        return undefined;
       },
-      Program() {},
+      BinaryExpression(node) {
+        reportEmbeddedData(context, node, parentOf, staticStringExpressionValue(node), true);
+      },
+      Literal(node) {
+        reportEmbeddedData(context, node, parentOf, stringLiteralValue(node), true);
+      },
+      TemplateLiteral(node) {
+        reportEmbeddedData(context, node, parentOf, templateLiteralShapeValue(node), true);
+      },
+      CallExpression(node) {
+        if (newlineJoinedArrayIsMultiline(node) === true) {
+          context.report({ node, messageId: 'inlineData' });
+        }
+      },
     };
   },
 });

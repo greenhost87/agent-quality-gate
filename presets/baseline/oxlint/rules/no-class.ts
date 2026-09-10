@@ -1,7 +1,7 @@
 import { defineRule, type ESTree, type Options } from '@oxlint/plugins';
 import * as v from 'valibot';
 
-import { walkAst } from 'agent-quality-gate/oxlint-walk';
+import { createOptionsRefCache } from '../../../../scripts/oxlint-options-ref-cache/options-ref-cache.ts';
 
 const SuffixesOptionsSchema = v.object({
   suffixes: v.array(v.unknown()),
@@ -62,23 +62,27 @@ export default defineRule({
     },
   },
   createOnce(context) {
+    const suffixesCache = createOptionsRefCache(readSuffixes);
+    let suffixes: readonly string[] | null = null;
+    function checkClass(node: ESTree.Class): void {
+      if (suffixes !== null && !isAllowedClass(node, suffixes)) {
+        context.report({ node, messageId: 'forbidden' });
+      }
+    }
     return {
       before() {
-        const suffixes = readSuffixes(context.options);
+        suffixes = suffixesCache.get(context.options);
         if (suffixes === null) {
           return false;
         }
-        walkAst(context.sourceCode.ast, (node) => {
-          if (
-            (node.type === 'ClassDeclaration' || node.type === 'ClassExpression') &&
-            !isAllowedClass(node, suffixes)
-          ) {
-            context.report({ node, messageId: 'forbidden' });
-          }
-        });
-        return false;
+        return undefined;
       },
-      Program() {},
+      ClassDeclaration(node) {
+        checkClass(node);
+      },
+      ClassExpression(node) {
+        checkClass(node);
+      },
     };
   },
 });

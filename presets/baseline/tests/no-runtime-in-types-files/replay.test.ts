@@ -4,16 +4,13 @@ import { replayCreateOnceRule } from 'agent-quality-gate/oxlint-rule-bench';
 import { createBenchRuleContext } from 'agent-quality-gate/oxlint-rule-bench/create-bench-context';
 import { requireCreateOnceRule } from 'agent-quality-gate/oxlint-rule-bench/require-create-once-rule';
 import { HOT } from '../support/hot-code.ts';
+import { itRegistersTypedVisitors } from '../support/expect-typed-visitors.ts';
 
 import { noRuntimeInTypesFilesBench } from './bench.ts';
-describe('no-runtime-in-types-files before skip', () => {
-  it('runs the scan in before and skips the visitor walk', () => {
-    const createOnce = requireCreateOnceRule(noRuntimeInTypesFilesBench.rule);
-    const context = createBenchRuleContext(noRuntimeInTypesFilesBench.ruleId);
-    context.state.filename = '/bench/file.types.ts';
-    const visitors = createOnce(context);
-    expect(visitors.before?.()).toBe(false);
-  });
+describe('no-runtime-in-types-files visitors', () => {
+  itRegistersTypedVisitors(noRuntimeInTypesFilesBench.rule, noRuntimeInTypesFilesBench.ruleId, [
+    'Program',
+  ]);
 
   it('skips non-type files without scanning', () => {
     const createOnce = requireCreateOnceRule(noRuntimeInTypesFilesBench.rule);

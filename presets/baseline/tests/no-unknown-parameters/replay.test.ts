@@ -1,18 +1,16 @@
 import { describe, expect, it } from 'bun:test';
 
 import { replayCreateOnceRule } from 'agent-quality-gate/oxlint-rule-bench';
-import { createBenchRuleContext } from 'agent-quality-gate/oxlint-rule-bench/create-bench-context';
-import { requireCreateOnceRule } from 'agent-quality-gate/oxlint-rule-bench/require-create-once-rule';
 import { HOT } from '../support/hot-code.ts';
+import { itRegistersTypedVisitors } from '../support/expect-typed-visitors.ts';
 
 import { noUnknownParametersBench } from './bench.ts';
-describe('no-unknown-parameters before skip', () => {
-  it('runs the scan in before and skips the visitor walk', () => {
-    const createOnce = requireCreateOnceRule(noUnknownParametersBench.rule);
-    const context = createBenchRuleContext(noUnknownParametersBench.ruleId);
-    const visitors = createOnce(context);
-    expect(visitors.before?.()).toBe(false);
-  });
+describe('no-unknown-parameters visitors', () => {
+  itRegistersTypedVisitors(noUnknownParametersBench.rule, noUnknownParametersBench.ruleId, [
+    'FunctionDeclaration',
+    'FunctionExpression',
+    'ArrowFunctionExpression',
+  ]);
 });
 
 describe('no-unknown-parameters reports', () => {

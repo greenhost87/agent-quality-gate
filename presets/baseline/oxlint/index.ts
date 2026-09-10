@@ -1,17 +1,19 @@
 import { definePlugin, eslintCompatPlugin } from '@oxlint/plugins';
 
 import consoleFormatPlaceholders from './rules/console-format-placeholders.ts';
+import maxCodeLines from './rules/max-code-lines.ts';
 import maxInlineParameterObjectMembers from './rules/max-inline-parameter-object-members.ts';
 import noClass from './rules/no-class.ts';
 import noDoubleWrappedExpectEqual from './rules/no-double-wrapped-expect-equal.ts';
 import noDynamicImport from './rules/no-dynamic-import.ts';
-import noEmptyExtendedInterfaces from './rules/no-empty-extended-interfaces.ts';
+import noEmptyInterfaces from './rules/no-empty-interfaces.ts';
 import noIdentityAliases from './rules/no-identity-aliases.ts';
 import noIndexedAccessTypes from './rules/no-indexed-access-types.ts';
 import noInlineMultilineTestData from './rules/no-inline-multiline-test-data.ts';
 import noJsonParseJsonStringify from './rules/no-json-parse-json-stringify.ts';
 import noManualExportedStringLiteralUnions from './rules/no-manual-exported-string-literal-unions.ts';
-import noNullUndefinedParameterUnion from './rules/no-null-undefined-parameter-union.ts';
+import noMixedNullishTypes from './rules/no-mixed-nullish-types.ts';
+import noNullishExceptUndefined from './rules/no-nullish-except-undefined.ts';
 import noOxlintDisableDirectives from './rules/no-oxlint-disable-directives.ts';
 import noProductionTestSubstitution from './rules/no-production-test-substitution.ts';
 import noRuntimeInTypesFiles from './rules/no-runtime-in-types-files.ts';
@@ -24,17 +26,19 @@ import requireExportStringLiteralCatalogsAsConst from './rules/require-export-st
 
 const rules = {
   'console-format-placeholders': consoleFormatPlaceholders,
+  'max-code-lines': maxCodeLines,
   'max-inline-parameter-object-members': maxInlineParameterObjectMembers,
   'no-class': noClass,
   'no-double-wrapped-expect-equal': noDoubleWrappedExpectEqual,
   'no-dynamic-import': noDynamicImport,
-  'no-empty-extended-interfaces': noEmptyExtendedInterfaces,
+  'no-empty-interfaces': noEmptyInterfaces,
   'no-identity-aliases': noIdentityAliases,
   'no-indexed-access-types': noIndexedAccessTypes,
   'no-inline-multiline-test-data': noInlineMultilineTestData,
   'no-json-parse-json-stringify': noJsonParseJsonStringify,
   'no-manual-exported-string-literal-unions': noManualExportedStringLiteralUnions,
-  'no-null-undefined-parameter-union': noNullUndefinedParameterUnion,
+  'no-mixed-nullish-types': noMixedNullishTypes,
+  'no-nullish-except-undefined': noNullishExceptUndefined,
   'no-oxlint-disable-directives': noOxlintDisableDirectives,
   'no-production-test-substitution': noProductionTestSubstitution,
   'no-runtime-in-types-files': noRuntimeInTypesFiles,

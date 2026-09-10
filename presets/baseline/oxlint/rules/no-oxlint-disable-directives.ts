@@ -16,7 +16,7 @@ export default defineRule({
   },
   createOnce(context) {
     return {
-      before() {
+      Program() {
         const { directives } = context.sourceCode.getDisableDirectives();
         const end = context.sourceCode.ast.loc.end;
         for (const directive of directives) {
@@ -38,9 +38,7 @@ export default defineRule({
             },
           });
         }
-        return false;
       },
-      Program() {},
     };
   },
 });
