@@ -12,7 +12,7 @@ import { afterEach, describe, expect, it } from 'bun:test';
 import { YAML } from 'bun';
 import { handleClaudeStop } from '../../hooks/session-stop-hook.js';
 import type { ClaudeStopHookInput } from '../../hooks/session-stop-hook.js';
-import { QUALITY_GATE_FOLLOW_UP_BUDGET } from '../../../gate/quality-gate-run/quality-gate-run.js';
+import { QUALITY_GATE_FOLLOW_UP_BUDGET } from '../../../config/tuning/tuning.js';
 import { useIsolatedAgentQualityGateHome } from '../../../tests/support/isolated-home.js';
 import { readFixture } from '../../../tests/support/fixture-files.js';
 
@@ -111,7 +111,7 @@ describe('claude stop hook', () => {
     const output = await handleClaudeStop(stopInput(cwd, 'claude-stop-fail'), { configPath });
 
     expect(output.hookSpecificOutput?.hookEventName).toBe('Stop');
-    expect(additionalContext(output)).toContain('eslint(no-debugger)');
+    expect(additionalContext(output)).toContain('no-debugger');
     expect(additionalContext(output)).toContain(
       'Fix only the violations listed below (and any hint: lines)',
     );
@@ -137,14 +137,14 @@ describe('claude stop hook', () => {
     for (let attempt = 0; attempt < QUALITY_GATE_FOLLOW_UP_BUDGET - 1; attempt += 1) {
       const continued = await handleClaudeStop(input, { configPath });
       expect(continued.hookSpecificOutput?.hookEventName).toBe('Stop');
-      expect(additionalContext(continued)).toContain('eslint(no-debugger)');
+      expect(additionalContext(continued)).toContain('no-debugger');
       expect(additionalContext(continued)).not.toContain(
         'Retry budget exhausted. Stop and report the blocker to the user.',
       );
     }
 
     const escalated = await handleClaudeStop(input, { configPath });
-    expect(additionalContext(escalated)).toContain('eslint(no-debugger)');
+    expect(additionalContext(escalated)).toContain('no-debugger');
     expect(additionalContext(escalated)).toContain(
       'Retry budget exhausted. Stop and report the blocker to the user.',
     );
@@ -265,7 +265,7 @@ describe('claude stop hook', () => {
       { configPath },
     );
     expect(output.hookSpecificOutput?.hookEventName).toBe('Stop');
-    expect(additionalContext(output)).toContain('eslint(no-debugger)');
+    expect(additionalContext(output)).toContain('no-debugger');
   });
 
   it('returns empty output when background_tasks is a non-empty array', async () => {

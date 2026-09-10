@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
 
 import { readGlobalQualityGateConfig } from '../../config/global-config/global-config.js';
+import { isConfiguredWorkspaceRoot } from '../../config/linked-checkout/linked-checkout.js';
 import {
   decideFollowUp,
   executeQualityGateForCwd,
@@ -19,11 +20,15 @@ const CursorStopHookInputSchema = v.object({
   status: v.picklist(CURSOR_STOP_HOOK_STATUSES),
   workspace_roots: v.array(v.string()),
   loop_count: v.optional(v.number()),
-  transcript_path: v.optional(v.nullable(v.string())),
+  transcript_path: v.pipe(
+    v.optional(v.nullable(v.string())),
+    v.transform((value) => value ?? undefined),
+  ),
 });
 
-function isStopHookInput(value: unknown): value is CursorStopHookInput {
-  return v.is(CursorStopHookInputSchema, value);
+export function parseCursorStopInput(value: object): CursorStopHookInput | undefined {
+  const result = v.safeParse(CursorStopHookInputSchema, value);
+  return result.success ? result.output : undefined;
 }
 
 export async function selectWorkspaceCwd(
@@ -36,9 +41,7 @@ export async function selectWorkspaceCwd(
   }
   const workspaceRoot = canonicalizePath(workspaceRootInput);
   const config = await readGlobalQualityGateConfig(options.configPath);
-  return config.projects.some((project) => project.root === workspaceRoot)
-    ? workspaceRoot
-    : undefined;
+  return isConfiguredWorkspaceRoot(workspaceRoot, config.projects) ? workspaceRoot : undefined;
 }
 
 export async function handleCursorStop(
@@ -67,7 +70,7 @@ export async function handleCursorStop(
 }
 
 if (import.meta.main) {
-  await runStdinJsonHook((value) => (isStopHookInput(value) ? value : undefined), handleCursorStop);
+  await runStdinJsonHook(parseCursorStopInput, handleCursorStop);
 }
 
 export type CursorStopHookStatus = (typeof CURSOR_STOP_HOOK_STATUSES)[number];
@@ -76,7 +79,7 @@ export type CursorStopHookInput = {
   status: CursorStopHookStatus;
   workspace_roots: string[];
   loop_count?: number;
-  transcript_path?: string | null;
+  transcript_path?: string;
 };
 
 export type CursorStopHookOutput = {

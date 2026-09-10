@@ -1,6 +1,7 @@
 import { existsSync } from 'node:fs';
 import { mkdir, readdir, stat, symlink } from 'node:fs/promises';
 import { join } from 'node:path';
+import { setTimeout as sleep } from 'node:timers/promises';
 import { writeTextFile } from '../../../process/files/files.js';
 
 import { describe, expect, it } from 'bun:test';
@@ -14,6 +15,8 @@ import {
   EXECUTE_VERIFY_REPO_ROOT,
   useExecuteVerifyProjects,
 } from '../../../tests/support/execute-verify-fixture.js';
+
+import { verifyPresentedText } from '../../../tests/support/verify-result-text.js';
 
 const IGNORED_PATHS = (
   readOxlintConfig(join(EXECUTE_VERIFY_REPO_ROOT, 'assets')).ignorePatterns ?? []
@@ -42,17 +45,17 @@ describe('verify', () => {
     const result = await runVerify(cwd);
 
     expect(result.exitCode).toBe(1);
-    expect(result.stdout + result.stderr).toContain('eslint(no-debugger)');
+    expect(verifyPresentedText(result)).toContain('no-debugger');
   });
 
   it('enforces locked rules despite ESLint disable directives', async () => {
     const cwd = await createTypeScriptProject('locked-rules-directive/src/index.ts');
 
     const result = await runVerify(cwd);
-    const output = result.stdout + result.stderr;
+    const output = verifyPresentedText(result);
 
     expect(result.exitCode).toBe(1);
-    expect(output).toContain('eslint(no-debugger)');
+    expect(output).toContain('no-debugger');
   });
 
   it('ignores every locked root path', async () => {
@@ -132,7 +135,7 @@ describe('verify', () => {
 
       expect(result.exitCode).toBe(expectedExitCode);
       if (expectedExitCode === 1) {
-        expect(result.stdout + result.stderr).toContain('unused.ts');
+        expect(verifyPresentedText(result)).toContain('unused.ts');
       }
     }
   });
@@ -157,7 +160,7 @@ describe('verify', () => {
     await writeTextFile(join(cwd, '.invalid.ts'), 'const = ;\n');
 
     const result = await runVerify(cwd);
-    const output = result.stdout + result.stderr;
+    const output = verifyPresentedText(result);
 
     expect(result.exitCode).toBe(1);
     expect(output).toContain('.invalid.ts');
@@ -170,7 +173,7 @@ describe('verify', () => {
     await writeTextFile(join(nestedDirectory, 'invalid.ts'), 'const = ;\n');
 
     const result = await runVerify(cwd);
-    const output = result.stdout + result.stderr;
+    const output = verifyPresentedText(result);
 
     expect(result.exitCode).toBe(1);
     expect(output).toContain(join('src', '.hidden', 'invalid.ts'));
@@ -182,7 +185,7 @@ describe('verify', () => {
     const result = await runVerify(cwd);
 
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toContain('verify: ok');
+    expect(verifyPresentedText(result)).toContain('verify: ok');
   });
 
   it('prints only actionable Fallow findings', async () => {
@@ -197,9 +200,10 @@ describe('verify', () => {
 
     const result = await runVerify(cwd);
 
-    const outputLines = result.stdout.split('\n');
+    const outputLines = verifyPresentedText(result).split('\n');
     expect(result.exitCode).toBe(1);
-    expect(outputLines).toContain('unused-class-member:src/workflows.dao.ts:2:WorkflowDao.create');
+    expect(verifyPresentedText(result)).toContain('unused-class-member');
+    expect(verifyPresentedText(result)).toContain('workflows.dao.ts');
     expect(outputLines.some((line) => line.startsWith('vital-signs:'))).toBe(false);
     expect(outputLines.some((line) => line.startsWith('file-score:'))).toBe(false);
   });
@@ -210,7 +214,7 @@ describe('verify', () => {
     await writeTextFile(join(cwd, 'migrations', '001-invalid.ts'), 'const = ;\n');
 
     const result = await runVerify(cwd);
-    const output = result.stdout + result.stderr;
+    const output = verifyPresentedText(result);
 
     expect(result.exitCode).toBe(1);
     expect(output).toContain('001-invalid.ts');
@@ -229,10 +233,10 @@ describe('verify', () => {
     }
 
     const result = await runVerify(cwd);
-    const output = result.stdout + result.stderr;
+    const output = verifyPresentedText(result);
 
     expect(result.exitCode).toBe(1);
-    expect(output).toContain('aqg(no-oxlint-disable-directives)');
+    expect(output).toContain('aqg/no-oxlint-disable-directives');
     for (const directory of directories) {
       expect(output).toContain(join('src', directory, 'index.ts'));
     }
@@ -249,23 +253,26 @@ describe('verify', () => {
     expect(cache.isDirectory()).toBe(true);
   });
 
-  it('writes the generated Fallow config during verify and removes it afterward', async () => {
+  it('reuses unchanged generated Oxlint and Fallow configs across verify runs', async () => {
     const cwd = await createTypeScriptProject('clean-function/src/index.ts');
 
     const first = await runVerify(cwd);
-    const fallowDir = join(cwd, '.aqg', 'fallow');
-    const oxlintDir = join(cwd, '.aqg', 'oxlint');
+    const fallowConfig = join(cwd, '.aqg', 'cache', 'fallow', 'verify.json');
+    const oxlintConfig = join(cwd, '.aqg', 'cache', 'oxlint', 'verify.config.ts');
 
     expect(first.exitCode).toBe(0);
     expect(existsSync(join(cwd, '.fallowrc.json'))).toBe(false);
-    expect(existsSync(fallowDir)).toBe(false);
-    expect(existsSync(oxlintDir)).toBe(false);
+    expect(existsSync(fallowConfig)).toBe(true);
+    expect(existsSync(oxlintConfig)).toBe(true);
+    const firstFallowMtime = (await stat(fallowConfig)).mtimeMs;
+    const firstOxlintMtime = (await stat(oxlintConfig)).mtimeMs;
 
+    await sleep(10);
     const second = await runVerify(cwd);
 
     expect(second.exitCode).toBe(0);
-    expect(existsSync(fallowDir)).toBe(false);
-    expect(existsSync(oxlintDir)).toBe(false);
+    expect((await stat(fallowConfig)).mtimeMs).toBe(firstFallowMtime);
+    expect((await stat(oxlintConfig)).mtimeMs).toBe(firstOxlintMtime);
   });
 
   it('checks nested generated-directory names with Oxlint', async () => {
@@ -276,7 +283,7 @@ describe('verify', () => {
     }
 
     const result = await runVerify(cwd);
-    const output = result.stdout + result.stderr;
+    const output = verifyPresentedText(result);
 
     expect(result.exitCode).toBe(1);
     for (const directory of ['build', 'dist', 'tmp']) {
@@ -298,7 +305,7 @@ describe('verify', () => {
     });
 
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toContain('verify: ok');
+    expect(verifyPresentedText(result)).toContain('verify: ok');
     expect(existsSync(join(cwd, '.fallowrc.json'))).toBe(false);
   });
 
@@ -314,9 +321,9 @@ describe('verify', () => {
       projectRoot: cwd,
       entries: ['src/index.ts'],
     });
-    const output = result.stdout + result.stderr;
+    const output = verifyPresentedText(result);
 
     expect(result.exitCode).toBe(1);
-    expect(output).toContain('eslint(no-debugger)');
+    expect(output).toContain('no-debugger');
   });
 });

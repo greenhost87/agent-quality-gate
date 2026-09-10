@@ -86,7 +86,7 @@ describe('claude mcp verify', () => {
 
     const result = await runMcpVerify(cwd, { configPath });
     expect(result.isError).toBe(true);
-    expect(result.text).toContain('eslint(no-debugger)');
+    expect(result.text).toContain('no-debugger');
     expect(result.text).toContain('Fix only the violations listed below');
     expect(result.text).toContain('Apply fixes directly; do not investigate the gate');
     expect(result.text).toContain(

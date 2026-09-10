@@ -1,0 +1,13 @@
+{
+  "kind": "dead-code",
+  "total_issues": 0,
+  "prop_drilling_chains": [
+    { "prop": "title", "hops": [{ "file": "app/title.tsx", "line": 3, "component": "Title" }] }
+  ],
+  "thin_wrappers": [
+    { "file": "app/wrapper.tsx", "line": 7, "component": "Wrapper", "child_component": "Button" }
+  ],
+  "duplicate_prop_shapes": [
+    { "file": "app/select.tsx", "line": 11, "component": "Select", "shape": ["label", "value"] }
+  ]
+}
