@@ -23,10 +23,8 @@ import {
   unitTestsDirectoryPattern,
 } from './dao-boundaries-shared.ts';
 
-import {
-  attachAstParent,
-  walkAstSkippingTypeAndJsxMarkup,
-} from '../../../scripts/oxlint-walk/oxlint-walk.ts';
+import { astIndex } from '../../../scripts/oxlint-walk/ast-index.ts';
+import type { AstParentOf } from '../../../scripts/oxlint-walk/oxlint-walk.ts';
 
 export interface TestDatabaseScanFlags {
   isTestOrE2eFile: boolean;
@@ -271,13 +269,18 @@ function isBeforeAllCallee(
   return matchesNamespaceMember(callee, bindings.bunTestNamespaces, (name) => name === 'beforeAll');
 }
 
-function reportBeforeAllDaoUses(context: Context, scanState: TestDatabaseScanState): void {
+function reportBeforeAllDaoUses(
+  context: Context,
+  scanState: TestDatabaseScanState,
+  parentOf: AstParentOf,
+): void {
   const { bindings, deferred } = scanState;
   for (const node of deferred.identifierReferences) {
     if (node.type !== 'Identifier') continue;
     if (!bindings.productionDaoBindings.has(node.name)) continue;
-    if (!isIdentifierReference(node)) continue;
-    if (!isInsideCallbackOf(node, (callee) => isBeforeAllCallee(callee, bindings))) continue;
+    if (!isIdentifierReference(node, parentOf)) continue;
+    if (!isInsideCallbackOf(node, (callee) => isBeforeAllCallee(callee, bindings), parentOf))
+      continue;
     context.report({ node, messageId: 'beforeAllDao' });
   }
 }
@@ -291,63 +294,21 @@ function reportConcurrentUses(context: Context, scanState: TestDatabaseScanState
   }
 }
 
-function inspectTestDatabaseNode(
-  context: Context,
-  node: ESTree.Node,
-  scanState: TestDatabaseScanState,
-  relativePath: string,
-): void {
-  const { flags, bindings, state, deferred } = scanState;
-  switch (node.type) {
-    case 'ExportAllDeclaration':
-    case 'ExportDefaultDeclaration':
-      reportSetupExports(context, node, relativePath === managedTestDatabasePath);
-      break;
-    case 'ExportNamedDeclaration':
-      if (flags.isTestDatabaseSetup) {
-        reportNamedSetupExports(context, node, relativePath);
-      }
-      break;
-    case 'FunctionDeclaration':
-      if (flags.isTestOrE2eFile) {
-        reportGenericName(context, node, node.id?.name ?? null);
-      }
-      break;
-    case 'Identifier':
-      deferred.identifierReferences.push(node);
-      break;
-    case 'ImportDeclaration':
-      handleTestDatabaseImportDeclaration(context, node, {
-        isTestOrE2eFile: flags.isTestOrE2eFile,
-        isTestDatabaseSetup: flags.isTestDatabaseSetup,
-        isUnitTest: flags.isUnitTest,
-        bunTestBindings: bindings.bunTestBindings,
-        bunTestNamespaces: bindings.bunTestNamespaces,
-        beforeAllBindings: bindings.beforeAllBindings,
-        productionDaoBindings: bindings.productionDaoBindings,
-        state,
-      });
-      break;
-    case 'MemberExpression':
-      if (
-        !node.computed &&
-        node.property.type === 'Identifier' &&
-        node.property.name === 'concurrent'
-      ) {
-        deferred.concurrentReferences.push(node);
-      }
-      break;
-    case 'NewExpression':
-      reportForbiddenContainer(context, node, flags.isTestOrE2eFile, flags.isTestDatabaseSetup);
-      break;
-    case 'VariableDeclarator':
-      if (flags.isTestOrE2eFile && node.id.type === 'Identifier') {
-        reportGenericName(context, node, node.id.name);
-      }
-      break;
-    default:
-      break;
-  }
+function emptyScanState(flags: TestDatabaseScanFlags): TestDatabaseScanState {
+  return {
+    flags,
+    bindings: {
+      productionDaoBindings: new Set(),
+      bunTestBindings: new Set(),
+      bunTestNamespaces: new Set(),
+      beforeAllBindings: new Set(),
+    },
+    state: { usesManagedHook: false },
+    deferred: {
+      identifierReferences: [],
+      concurrentReferences: [],
+    },
+  };
 }
 
 export const testDatabaseBoundaries = defineRule({
@@ -369,9 +330,16 @@ export const testDatabaseBoundaries = defineRule({
     },
   },
   createOnce(context) {
+    let relativePath = '';
+    let scanState = emptyScanState({
+      isTestOrE2eFile: false,
+      isTestDatabaseSetup: false,
+      isUnitTest: false,
+    });
+
     return {
       before() {
-        const relativePath = projectPath(context);
+        relativePath = projectPath(context);
         const isTestOrE2eFile =
           testsDirectoryPattern.test(relativePath) || e2eDirectoryPattern.test(relativePath);
         const isTestDatabaseSetup =
@@ -380,36 +348,76 @@ export const testDatabaseBoundaries = defineRule({
         if (!isTestOrE2eFile && !isTestDatabaseSetup) {
           return false;
         }
-        const scanState: TestDatabaseScanState = {
-          flags: {
-            isTestOrE2eFile,
-            isTestDatabaseSetup,
-            isUnitTest: unitTestsDirectoryPattern.test(relativePath),
-          },
-          bindings: {
-            productionDaoBindings: new Set(),
-            bunTestBindings: new Set(),
-            bunTestNamespaces: new Set(),
-            beforeAllBindings: new Set(),
-          },
-          state: { usesManagedHook: false },
-          deferred: {
-            identifierReferences: [],
-            concurrentReferences: [],
-          },
-        };
-
-        walkAstSkippingTypeAndJsxMarkup(context.sourceCode.ast, (node, parent) => {
-          attachAstParent(node, parent);
-          inspectTestDatabaseNode(context, node, scanState, relativePath);
+        scanState = emptyScanState({
+          isTestOrE2eFile,
+          isTestDatabaseSetup,
+          isUnitTest: unitTestsDirectoryPattern.test(relativePath),
         });
-        if (scanState.state.usesManagedHook) {
-          reportBeforeAllDaoUses(context, scanState);
-          reportConcurrentUses(context, scanState);
-        }
-        return false;
+        return undefined;
       },
-      Program() {},
+      ExportAllDeclaration(node) {
+        reportSetupExports(context, node, relativePath === managedTestDatabasePath);
+      },
+      ExportDefaultDeclaration(node) {
+        reportSetupExports(context, node, relativePath === managedTestDatabasePath);
+      },
+      ExportNamedDeclaration(node) {
+        if (scanState.flags.isTestDatabaseSetup) {
+          reportNamedSetupExports(context, node, relativePath);
+        }
+      },
+      FunctionDeclaration(node) {
+        if (scanState.flags.isTestOrE2eFile) {
+          reportGenericName(context, node, node.id?.name ?? null);
+        }
+      },
+      Identifier(node) {
+        scanState.deferred.identifierReferences.push(node);
+      },
+      ImportDeclaration(node) {
+        const { flags, bindings, state } = scanState;
+        handleTestDatabaseImportDeclaration(context, node, {
+          isTestOrE2eFile: flags.isTestOrE2eFile,
+          isTestDatabaseSetup: flags.isTestDatabaseSetup,
+          isUnitTest: flags.isUnitTest,
+          bunTestBindings: bindings.bunTestBindings,
+          bunTestNamespaces: bindings.bunTestNamespaces,
+          beforeAllBindings: bindings.beforeAllBindings,
+          productionDaoBindings: bindings.productionDaoBindings,
+          state,
+        });
+      },
+      MemberExpression(node) {
+        if (
+          !node.computed &&
+          node.property.type === 'Identifier' &&
+          node.property.name === 'concurrent'
+        ) {
+          scanState.deferred.concurrentReferences.push(node);
+        }
+      },
+      NewExpression(node) {
+        reportForbiddenContainer(
+          context,
+          node,
+          scanState.flags.isTestOrE2eFile,
+          scanState.flags.isTestDatabaseSetup,
+        );
+      },
+      VariableDeclarator(node) {
+        if (scanState.flags.isTestOrE2eFile && node.id.type === 'Identifier') {
+          reportGenericName(context, node, node.id.name);
+        }
+      },
+      after() {
+        if (!scanState.state.usesManagedHook) {
+          return;
+        }
+        const index = astIndex(context.sourceCode.ast);
+        const parentOf: AstParentOf = (node) => index.parentOf(node);
+        reportBeforeAllDaoUses(context, scanState, parentOf);
+        reportConcurrentUses(context, scanState);
+      },
     };
   },
 });

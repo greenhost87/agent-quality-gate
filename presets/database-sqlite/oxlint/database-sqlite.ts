@@ -6,9 +6,14 @@ import {
   type ESTree,
 } from '@oxlint/plugins';
 
-import { walkAstSkippingTypeAndJsxMarkup } from '../../../scripts/oxlint-walk/oxlint-walk.ts';
+import type {
+  SqliteFileFlags,
+  SqliteTestBindings,
+  SqliteTestFileFlags,
+  SqliteTestState,
+} from './sqlite-flags.ts';
+import { buildSqliteFileFlags, reportSqliteDdl } from './sqlite-boundaries-helpers.ts';
 
-const daoFilePattern = /\.dao(?:\.[^/]+)*\.[cm]?[jt]s$/u;
 const daoImportPattern = /\.dao(?:\.[^/]+)*(?:\.[cm]?[jt]s)?$/u;
 const validDaoPlacementPattern = /^system\/database\/[^/]+\/[^/]+\.dao(?:\.[^/]+)*\.[cm]?[jt]s$/u;
 const connectionImportPattern = /(?:^|\/)system\/database\/connection(?:\.[cm]?[jt]s)?$/u;
@@ -258,40 +263,35 @@ const boundaries = defineRule({
     },
   },
   createOnce(context) {
+    let relativePath = '';
+    let flags: SqliteFileFlags = {
+      isDatabaseInfrastructure: false,
+      isDaoFile: false,
+      isMigrationRunner: false,
+      isSystemFile: false,
+      isTestDatabaseSetup: false,
+    };
+
     return {
       before() {
-        const relativePath = projectPath(context);
-        const flags: SqliteFileFlags = {
-          isDatabaseInfrastructure:
-            relativePath === 'system/database/connection.ts' ||
-            relativePath === 'system/database/migrate.ts',
-          isDaoFile: daoFilePattern.test(relativePath),
-          isMigrationRunner: relativePath === 'system/database/migrate.ts',
-          isSystemFile: relativePath.startsWith('system/'),
-          isTestDatabaseSetup: relativePath === testDatabaseSetupPath,
-        };
-
-        if (flags.isDaoFile && !validDaoPlacementPattern.test(relativePath)) {
-          context.report({ node: context.sourceCode.ast, messageId: 'placement' });
-        }
-
-        walkAstSkippingTypeAndJsxMarkup(context.sourceCode.ast, (node) => {
-          if (node.type === 'ImportDeclaration') {
-            inspectImport(context, node, flags);
-            return;
-          }
-          if (
-            (node.type === 'Literal' || node.type === 'TemplateElement') &&
-            isDdlLiteral(node) &&
-            !flags.isMigrationRunner &&
-            !flags.isTestDatabaseSetup
-          ) {
-            context.report({ node, messageId: 'ddl' });
-          }
-        });
-        return false;
+        relativePath = projectPath(context);
+        flags = buildSqliteFileFlags(relativePath);
+        return undefined;
       },
-      Program() {},
+      Program(node) {
+        if (flags.isDaoFile && !validDaoPlacementPattern.test(relativePath)) {
+          context.report({ node, messageId: 'placement' });
+        }
+      },
+      ImportDeclaration(node) {
+        inspectImport(context, node, flags);
+      },
+      Literal(node) {
+        reportSqliteDdl(context, node, flags, isDdlLiteral);
+      },
+      TemplateElement(node) {
+        reportSqliteDdl(context, node, flags, isDdlLiteral);
+      },
     };
   },
 });
@@ -310,10 +310,19 @@ const testBoundaries = defineRule({
     },
   },
   createOnce(context) {
+    let flags: SqliteTestFileFlags = {
+      isManagedSetup: false,
+      isTestFile: false,
+      isUnitTest: false,
+    };
+    let state: SqliteTestState = { usesManagedHook: false };
+    let bindings: SqliteTestBindings = { apis: new Set(), namespaces: new Set() };
+    const concurrentCandidates: ESTree.MemberExpression[] = [];
+
     return {
       before() {
         const relativePath = projectPath(context);
-        const flags: SqliteTestFileFlags = {
+        flags = {
           isManagedSetup: relativePath === testDatabaseSetupPath,
           isTestFile: testFilePattern.test(relativePath),
           isUnitTest: unitTestFilePattern.test(relativePath),
@@ -321,40 +330,51 @@ const testBoundaries = defineRule({
         if (!flags.isManagedSetup && !flags.isTestFile) {
           return false;
         }
-
-        const state: SqliteTestState = { usesManagedHook: false };
-        const bindings: SqliteTestBindings = { apis: new Set(), namespaces: new Set() };
-        const concurrentReferences: ESTree.Node[] = [];
-        walkAstSkippingTypeAndJsxMarkup(context.sourceCode.ast, (node) => {
-          if (node.type === 'ImportDeclaration') {
-            inspectTestImport(context, node, flags, state, bindings);
-            return;
-          }
-          if (flags.isManagedSetup) {
-            if (node.type === 'ExportAllDeclaration' || node.type === 'ExportDefaultDeclaration') {
-              context.report({ node, messageId: 'testExport' });
-            } else if (
-              node.type === 'ExportNamedDeclaration' &&
-              exportedNames(node).some((name) => name !== publicTestDatabaseExportName)
-            ) {
-              context.report({ node, messageId: 'testExport' });
-            }
-          }
-          if (node.type === 'MemberExpression') {
-            concurrentReferences.push(node);
-          }
-        });
-
-        if (state.usesManagedHook) {
-          for (const node of concurrentReferences) {
-            if (isConcurrentTestReference(node, bindings)) {
-              context.report({ node, messageId: 'concurrent' });
-            }
+        state = { usesManagedHook: false };
+        bindings = { apis: new Set(), namespaces: new Set() };
+        concurrentCandidates.length = 0;
+        return undefined;
+      },
+      ImportDeclaration(node) {
+        inspectTestImport(context, node, flags, state, bindings);
+      },
+      ExportAllDeclaration(node) {
+        if (flags.isManagedSetup) {
+          context.report({ node, messageId: 'testExport' });
+        }
+      },
+      ExportDefaultDeclaration(node) {
+        if (flags.isManagedSetup) {
+          context.report({ node, messageId: 'testExport' });
+        }
+      },
+      ExportNamedDeclaration(node) {
+        if (
+          flags.isManagedSetup &&
+          exportedNames(node).some((name) => name !== publicTestDatabaseExportName)
+        ) {
+          context.report({ node, messageId: 'testExport' });
+        }
+      },
+      MemberExpression(node) {
+        if (
+          !node.computed &&
+          node.property.type === 'Identifier' &&
+          node.property.name === 'concurrent'
+        ) {
+          concurrentCandidates.push(node);
+        }
+      },
+      after() {
+        if (!state.usesManagedHook) {
+          return;
+        }
+        for (const node of concurrentCandidates) {
+          if (isConcurrentTestReference(node, bindings)) {
+            context.report({ node, messageId: 'concurrent' });
           }
         }
-        return false;
       },
-      Program() {},
     };
   },
 });
@@ -370,26 +390,3 @@ export default eslintCompatPlugin(
     },
   }),
 );
-
-type SqliteFileFlags = {
-  isDatabaseInfrastructure: boolean;
-  isDaoFile: boolean;
-  isMigrationRunner: boolean;
-  isSystemFile: boolean;
-  isTestDatabaseSetup: boolean;
-};
-
-type SqliteTestFileFlags = {
-  isManagedSetup: boolean;
-  isTestFile: boolean;
-  isUnitTest: boolean;
-};
-
-type SqliteTestState = {
-  usesManagedHook: boolean;
-};
-
-type SqliteTestBindings = {
-  apis: Set<string>;
-  namespaces: Set<string>;
-};

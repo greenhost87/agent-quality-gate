@@ -1,31 +1,23 @@
-import { spawnSync, write } from 'bun';
+import { write } from 'bun';
 import { mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
+
+import { runCapturedProcess } from '../../process/run-command/run-command.ts';
 
 const MIGRATIONS_PATHSPEC = 'migrations';
 export const RESTORED_MIGRATION_DIFF_RELATIVE_PATH = '.aqg/restored-migration.diff';
 
-function runGit(projectRoot: string, args: readonly string[]): GitRun {
-  try {
-    const result = spawnSync({
-      cmd: ['git', '-C', projectRoot, ...args],
-      stdout: 'pipe',
-      stderr: 'pipe',
-    });
-    return {
-      started: true,
-      status: result.exitCode,
-      stdout: result.stdout.toString(),
-      stderr: result.stderr.toString(),
-    };
-  } catch (error) {
-    return {
-      started: false,
-      status: 1,
-      stdout: '',
-      stderr: error instanceof Error ? error.message : String(error),
-    };
-  }
+async function runGit(projectRoot: string, args: readonly string[]): Promise<GitRun> {
+  const result = await runCapturedProcess({
+    command: 'git',
+    args: ['-C', projectRoot, ...args],
+  });
+  return {
+    started: result.error === undefined,
+    status: result.exitCode,
+    stdout: result.stdout,
+    stderr: result.stderr,
+  };
 }
 
 function gitFailure(run: GitRun): CommittedMigrationCheck {
@@ -40,12 +32,12 @@ function gitFailure(run: GitRun): CommittedMigrationCheck {
   };
 }
 
-function isGitWorkTree(projectRoot: string): GitRun {
-  return runGit(projectRoot, ['rev-parse', '--is-inside-work-tree']);
+async function isGitWorkTree(projectRoot: string): Promise<GitRun> {
+  return await runGit(projectRoot, ['rev-parse', '--is-inside-work-tree']);
 }
 
-function hasHead(projectRoot: string): GitRun {
-  return runGit(projectRoot, ['rev-parse', '--verify', '--quiet', 'HEAD']);
+async function hasHead(projectRoot: string): Promise<GitRun> {
+  return await runGit(projectRoot, ['rev-parse', '--verify', '--quiet', 'HEAD']);
 }
 
 function parseNulPaths(stdout: string): string[] {
@@ -59,24 +51,10 @@ function parseNulPaths(stdout: string): string[] {
   return paths;
 }
 
-export function verifyCommittedMigrations(projectRoot: string): CommittedMigrationCheck {
-  const workTree = isGitWorkTree(projectRoot);
-  if (!workTree.started) {
-    return gitFailure(workTree);
-  }
-  if (workTree.status !== 0 || workTree.stdout.trim() !== 'true') {
-    return { ok: true, violations: [] };
-  }
-
-  const head = hasHead(projectRoot);
-  if (!head.started) {
-    return gitFailure(head);
-  }
-  if (head.status !== 0) {
-    return { ok: true, violations: [] };
-  }
-
-  const diff = runGit(projectRoot, [
+export async function verifyCommittedMigrations(
+  projectRoot: string,
+): Promise<CommittedMigrationCheck> {
+  const diff = await runGit(projectRoot, [
     '-c',
     'diff.renames=false',
     'diff',
@@ -88,14 +66,32 @@ export function verifyCommittedMigrations(projectRoot: string): CommittedMigrati
     '--',
     MIGRATIONS_PATHSPEC,
   ]);
-  if (!diff.started || diff.status !== 0) {
+  if (diff.started && diff.status === 0) {
+    const violations: CommittedMigrationViolation[] = parseNulPaths(diff.stdout).map((path) => ({
+      path,
+    }));
+    return { ok: true, violations };
+  }
+  if (!diff.started) {
     return gitFailure(diff);
   }
 
-  const violations: CommittedMigrationViolation[] = parseNulPaths(diff.stdout).map((path) => ({
-    path,
-  }));
-  return { ok: true, violations };
+  const workTree = await isGitWorkTree(projectRoot);
+  if (!workTree.started) {
+    return gitFailure(workTree);
+  }
+  if (workTree.status !== 0 || workTree.stdout.trim() !== 'true') {
+    return { ok: true, violations: [] };
+  }
+
+  const head = await hasHead(projectRoot);
+  if (!head.started) {
+    return gitFailure(head);
+  }
+  if (head.status !== 0) {
+    return { ok: true, violations: [] };
+  }
+  return gitFailure(diff);
 }
 
 function isMigrationPath(path: string): boolean {
@@ -112,15 +108,15 @@ function migrationPathsFrom(paths: readonly string[]): string[] {
   return selected;
 }
 
-export function captureCommittedMigrationDiff(
+export async function captureCommittedMigrationDiff(
   projectRoot: string,
   paths: readonly string[],
-): string {
+): Promise<string> {
   const migrationPaths = migrationPathsFrom(paths);
   if (migrationPaths.length === 0) {
     return '';
   }
-  const diff = runGit(projectRoot, [
+  const diff = await runGit(projectRoot, [
     '-c',
     'diff.renames=false',
     'diff',
@@ -150,15 +146,15 @@ export async function writeCommittedMigrationDiff(
   return RESTORED_MIGRATION_DIFF_RELATIVE_PATH;
 }
 
-export function restoreCommittedMigrations(
+export async function restoreCommittedMigrations(
   projectRoot: string,
   paths: readonly string[],
-): CommittedMigrationRestore {
+): Promise<CommittedMigrationRestore> {
   const migrationPaths = migrationPathsFrom(paths);
   if (migrationPaths.length === 0) {
     return { ok: true };
   }
-  const restore = runGit(projectRoot, [
+  const restore = await runGit(projectRoot, [
     'restore',
     '--source=HEAD',
     '--staged',

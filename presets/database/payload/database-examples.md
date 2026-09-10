@@ -7,6 +7,7 @@ After verify in a target project, read this file at `.aqg/database/database-exam
 ## Rules of thumb
 
 - `sql` from `@/system/database/connection` is already a lazy Proxy — call it directly in `*.dao.ts`.
+- Construct SQL queries and fragments inside DAO functions; do not use `sql` at module scope.
 - Build dynamic filtering and sorting with tagged SQL fragments. Bun SQL `.unsafe()` is reserved for managed database infrastructure.
 - Define empty-list semantics in the DAO before calling `sql(values)` / `tx(values)`; return an empty result or no-op for match-none semantics, or omit the clause when empty means no filter.
 - Cache/lifecycle side effects belong in helpers such as `system/database/caches.ts`, keyed by `getDatabaseGeneration()`.
@@ -66,6 +67,7 @@ Copy to `system/database/<domain>/<name>.dao.ts`.
 
 - Exactly one domain segment under `system/database/`.
 - Import lazy `sql` from `@/system/database/connection` and call it directly.
+- Construct SQL queries and fragments inside DAO functions — never at module scope.
 - Build dynamic filtering and sorting with tagged SQL fragments; never use `.unsafe()` outside managed database infrastructure.
 - Before passing a dynamic value list to `sql(values)` / `tx(values)`, handle empty input explicitly: return an empty result or no-op for match-none semantics, or omit the clause when empty means no filter.
 - Export only named function declarations and types — no classes, default exports, or object bags.
