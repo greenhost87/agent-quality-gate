@@ -1,0 +1,1 @@
+{ "allowedRootModules": ["inventory.ts"], "declaredDependencies": { "media": ["orders"] } }

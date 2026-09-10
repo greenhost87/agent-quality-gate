@@ -1,0 +1,22 @@
+{
+  "name": "layout",
+  "requires": [],
+  "files": [],
+  "dependencies": [],
+  "oxlint": {
+    "plugins": [
+      {
+        "name": "module-placement",
+        "specifier": "oxlint/module-placement.ts"
+      },
+      {
+        "name": "packages",
+        "specifier": "oxlint/package-boundaries.ts"
+      }
+    ],
+    "rules": {
+      "module-placement/module-placement": { "severity": "error", "phase": "boundaries" },
+      "packages/package-boundaries": { "severity": "off", "phase": "boundaries" }
+    }
+  }
+}

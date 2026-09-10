@@ -5,12 +5,12 @@ import { join } from 'node:path';
 import { afterEach, describe, expect, it } from 'bun:test';
 
 import { listFallowDiscoveredFiles } from '../../../gate/preflight/fallow-analysis.js';
-import { formatVerifyResultDiagnostics } from '../../../gate/quality-gate-run/format-diagnostics.js';
 import {
   rejectMisplacedTestsFromRelativePaths,
   type TestColocationPolicy,
-} from '../../../presets/test-colocation/scan-test-colocation.js';
+} from '../../../presets/layout/scan-test-colocation.js';
 import { fixturePath } from '../../../tests/support/fixture-files.js';
+import { checkPresentedText } from '../../../tests/support/verify-result-text.js';
 
 const FIXTURES_ROOT = join(import.meta.dir, '../..', '.quality-fixtures', 'local-test-colocation');
 const tempDirectories: string[] = [];
@@ -44,22 +44,23 @@ describe('local test colocation', () => {
     const root = await materialize('invalid-top-level');
     const result = await rejectMisplacedTests(root);
     expect(result.exitCode).toBe(1);
-    expect(formatVerifyResultDiagnostics(result)).toContain('test-colocation');
-    expect(formatVerifyResultDiagnostics(result)).toContain('tests/example.test.ts');
+    const text = checkPresentedText(result);
+    expect(text).toContain('layout/test-colocation');
+    expect(text).toContain('tests/example.test.ts');
   });
 
   it('rejects test files outside owner tests directories', async () => {
     const root = await materialize('invalid-loose');
     const result = await rejectMisplacedTests(root);
     expect(result.exitCode).toBe(1);
-    expect(formatVerifyResultDiagnostics(result)).toContain('gate/example.test.ts');
+    expect(checkPresentedText(result)).toContain('gate/example.test.ts');
   });
 
   it('rejects bench files outside owner tests directories', async () => {
     const root = await materialize('invalid-bench-loose');
     const result = await rejectMisplacedTests(root);
     expect(result.exitCode).toBe(1);
-    expect(formatVerifyResultDiagnostics(result)).toContain('gate/example.bench.ts');
+    expect(checkPresentedText(result)).toContain('gate/example.bench.ts');
   });
 
   it('allows colocated owner tests, preset example tests, and shared support helpers', async () => {
@@ -72,12 +73,9 @@ describe('local test colocation', () => {
     const root = await materialize('invalid-application-colocated');
     const result = await rejectMisplacedTests(root, 'application');
     expect(result.exitCode).toBe(1);
-    expect(formatVerifyResultDiagnostics(result)).toContain(
-      'system/workflows/draft/example.test.ts',
-    );
-    expect(formatVerifyResultDiagnostics(result)).toContain(
-      'test and bench files must live under tests/',
-    );
+    const text = checkPresentedText(result);
+    expect(text).toContain('system/workflows/draft/example.test.ts');
+    expect(text).toContain('test and bench files must live under tests/');
   });
 
   it('allows application tests and setup helpers under tests/', async () => {
@@ -90,19 +88,17 @@ describe('local test colocation', () => {
     const root = await materialize('invalid-setup');
     const result = await rejectMisplacedTests(root);
     expect(result.exitCode).toBe(1);
-    expect(formatVerifyResultDiagnostics(result)).toContain('tests/setup/helper.ts');
-    expect(formatVerifyResultDiagnostics(result)).toContain(
-      'top-level tests/ may only hold shared helpers under tests/support/',
-    );
+    const text = checkPresentedText(result);
+    expect(text).toContain('tests/setup/helper.ts');
+    expect(text).toContain('top-level tests/ may only hold shared helpers under tests/support/');
   });
 
   it('rejects non-support helpers directly under tests/', async () => {
     const root = await materialize('invalid-example');
     const result = await rejectMisplacedTests(root);
     expect(result.exitCode).toBe(1);
-    expect(formatVerifyResultDiagnostics(result)).toContain('tests/database.integration.ts');
-    expect(formatVerifyResultDiagnostics(result)).toContain(
-      'top-level tests/ may only hold shared helpers under tests/support/',
-    );
+    const text = checkPresentedText(result);
+    expect(text).toContain('tests/database.integration.ts');
+    expect(text).toContain('top-level tests/ may only hold shared helpers under tests/support/');
   });
 });
