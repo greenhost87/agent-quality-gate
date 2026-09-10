@@ -1,0 +1,5 @@
+const a = `hello ${name}`;
+const b = `line one
+line two`;
+const c = sql`select 1`;
+const d = 'plain';
