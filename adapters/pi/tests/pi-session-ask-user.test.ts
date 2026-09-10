@@ -89,7 +89,7 @@ describe('pi ask_user settle skip', () => {
     await host.emitSessionStart(cwd);
     await host.emitAgentSettled(cwd);
 
-    expect(host.followUps.join('\n')).toContain('eslint(no-debugger)');
+    expect(host.followUps.join('\n')).toContain('no-debugger');
   });
 });
 

@@ -10,11 +10,29 @@ async function appendTextFile(path: string, contents: string): Promise<void> {
 
 import { afterEach, describe, expect, it } from 'bun:test';
 import { YAML } from 'bun';
-import { handleCursorStop, selectWorkspaceCwd } from '../stop-hook.js';
+import {
+  handleCursorStop,
+  parseCursorStopInput,
+  selectWorkspaceCwd,
+  type CursorStopHookInput,
+} from '../stop-hook.js';
 import { useIsolatedAgentQualityGateHome } from '../../../tests/support/isolated-home.js';
 import { readFixture } from '../../../tests/support/fixture-files.js';
 
 useIsolatedAgentQualityGateHome();
+
+it('normalizes absent and null transcript paths at the input boundary', () => {
+  const base: CursorStopHookInput = { status: 'completed', workspace_roots: [] };
+  expect(parseCursorStopInput(base)?.transcript_path).toBeUndefined();
+  expect(parseCursorStopInput({ ...base, transcript_path: null })).toEqual({
+    ...base,
+    transcript_path: undefined,
+  });
+  expect(
+    parseCursorStopInput({ ...base, transcript_path: '/tmp/transcript' })?.transcript_path,
+  ).toBe('/tmp/transcript');
+  expect(parseCursorStopInput({ ...base, transcript_path: 12 })).toBeUndefined();
+});
 
 const tempDirectories: string[] = [];
 const FIXTURES_ROOT = join(import.meta.dir, '..', '.quality-fixtures', 'stop-hook');
@@ -95,7 +113,7 @@ describe('cursor stop hook', () => {
     );
 
     expect(output.followup_message).toBeDefined();
-    expect(output.followup_message).toContain('eslint(no-debugger)');
+    expect(output.followup_message).toContain('no-debugger');
     expect(output.followup_message).toContain(
       'Fix only the violations listed below (and any hint: lines)',
     );
@@ -119,7 +137,7 @@ describe('cursor stop hook', () => {
       { status: 'completed', workspace_roots: [cwd], loop_count: 2 },
       { configPath },
     );
-    expect(escalated.followup_message).toContain('eslint(no-debugger)');
+    expect(escalated.followup_message).toContain('no-debugger');
     expect(escalated.followup_message).toContain(
       'Retry budget exhausted. Stop and report the blocker to the user.',
     );
@@ -264,7 +282,7 @@ describe('cursor stop hook', () => {
       { configPath },
     );
     expect(output.followup_message).toBeDefined();
-    expect(output.followup_message).toContain('eslint(no-debugger)');
+    expect(output.followup_message).toContain('no-debugger');
   });
 
   it('skips a configured workspace root when the workspace has multiple roots', async () => {

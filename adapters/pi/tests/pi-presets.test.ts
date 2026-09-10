@@ -11,8 +11,7 @@ import {
   readGlobalQualityGateConfig,
 } from '../../../config/global-config/global-config.js';
 import { executeVerify } from '../../../gate/execute-verify/execute-verify.js';
-import { installPresetFromSource } from '../../../scripts/install-preset/install-preset.js';
-import { ensureGateInstallNodeModules } from '../../../tests/support/gate-install.js';
+import { streamResultFromVerifyResult } from '../../../gate/public-verify/verify-streams.js';
 import { useIsolatedAgentQualityGateHome } from '../../../tests/support/isolated-home.js';
 
 useIsolatedAgentQualityGateHome();
@@ -114,9 +113,6 @@ describe('pi extension presets', () => {
   it('stores packages options under presetConfig.packages', async () => {
     const configDirectory = await makeTempDirectory('quality-gate-pi-boundaries-');
     const project = await makeTempDirectory('quality-gate-pi-boundaries-project-');
-    const packagesSource = await writeNamedPresetRoot('packages');
-    await ensureGateInstallNodeModules();
-    await installPresetFromSource(packagesSource);
     const withBoundaries = await writeGlobalConfig(configDirectory, {
       projects: [
         {
@@ -229,8 +225,12 @@ describe('pi extension presets', () => {
       presets: project.presets,
     });
     expect(first.exitCode).toBe(1);
-    expect(first.stderr).toContain('managed preset files do not match');
-    expect(first.stderr).toContain('example .aqg/config/system/config/environment.ts');
+    expect(streamResultFromVerifyResult(first).stderr).toContain(
+      'managed preset files do not match',
+    );
+    expect(streamResultFromVerifyResult(first).stderr).toContain(
+      'example .aqg/config/system/config/environment.ts',
+    );
 
     const examplePath = join(cwd, '.aqg', 'config', 'system', 'config', 'environment.ts');
     const managedPath = join(cwd, 'system', 'config', 'environment.ts');
@@ -243,6 +243,7 @@ describe('pi extension presets', () => {
       presets: project.presets,
     });
     expect(second.exitCode).not.toBe(0);
-    expect(second.stdout + second.stderr).toContain('environment-boundaries');
+    const secondStreams = streamResultFromVerifyResult(second);
+    expect(`${secondStreams.stdout}${secondStreams.stderr}`).toContain('environment-boundaries');
   });
 });

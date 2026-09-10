@@ -12,7 +12,7 @@ import { afterEach, describe, expect, it } from 'bun:test';
 import { YAML } from 'bun';
 import { handleCodexStop } from '../../hooks/session-stop-hook.js';
 import type { CodexStopHookInput } from '../../hooks/session-stop-hook.js';
-import { QUALITY_GATE_FOLLOW_UP_BUDGET } from '../../../gate/quality-gate-run/quality-gate-run.js';
+import { QUALITY_GATE_FOLLOW_UP_BUDGET } from '../../../config/tuning/tuning.js';
 import { useIsolatedAgentQualityGateHome } from '../../../tests/support/isolated-home.js';
 import { readFixture } from '../../../tests/support/fixture-files.js';
 
@@ -111,7 +111,7 @@ describe('codex stop hook', () => {
     const output = await handleCodexStop(stopInput(cwd, 'codex-stop-fail'), { configPath });
 
     expect(output.decision).toBe('block');
-    expect(continuationReason(output)).toContain('eslint(no-debugger)');
+    expect(continuationReason(output)).toContain('no-debugger');
     expect(continuationReason(output)).toContain(
       'Fix only the violations listed below (and any hint: lines)',
     );
@@ -137,14 +137,14 @@ describe('codex stop hook', () => {
     for (let attempt = 0; attempt < QUALITY_GATE_FOLLOW_UP_BUDGET - 1; attempt += 1) {
       const continued = await handleCodexStop(input, { configPath });
       expect(continued.decision).toBe('block');
-      expect(continuationReason(continued)).toContain('eslint(no-debugger)');
+      expect(continuationReason(continued)).toContain('no-debugger');
       expect(continuationReason(continued)).not.toContain(
         'Retry budget exhausted. Stop and report the blocker to the user.',
       );
     }
 
     const escalated = await handleCodexStop(input, { configPath });
-    expect(continuationReason(escalated)).toContain('eslint(no-debugger)');
+    expect(continuationReason(escalated)).toContain('no-debugger');
     expect(continuationReason(escalated)).toContain(
       'Retry budget exhausted. Stop and report the blocker to the user.',
     );
@@ -300,6 +300,6 @@ describe('codex stop hook', () => {
       { configPath },
     );
     expect(output.decision).toBe('block');
-    expect(continuationReason(output)).toContain('eslint(no-debugger)');
+    expect(continuationReason(output)).toContain('no-debugger');
   });
 });

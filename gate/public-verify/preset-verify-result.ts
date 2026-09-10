@@ -1,4 +1,4 @@
-import type { VerifyResult } from '../execute-verify/execute-verify.js';
+import type { StreamResult } from './verify-streams.js';
 
 export function appendVerifyStdout(stdoutParts: string[], stdout: string): void {
   if (stdout.length > 0) {
@@ -11,7 +11,7 @@ export function failedLocalPresetVerify(
   stdoutParts: readonly string[],
   label: string,
   stderr: string,
-): VerifyResult {
+): StreamResult {
   return {
     exitCode,
     stdout: stdoutParts.join(''),
@@ -19,7 +19,7 @@ export function failedLocalPresetVerify(
   };
 }
 
-export function passedLocalPresetVerify(stdoutParts: readonly string[]): VerifyResult {
+export function passedLocalPresetVerify(stdoutParts: readonly string[]): StreamResult {
   return {
     exitCode: 0,
     stdout: stdoutParts.join(''),
@@ -27,7 +27,7 @@ export function passedLocalPresetVerify(stdoutParts: readonly string[]): VerifyR
   };
 }
 
-export function firstNonZeroResult(...results: readonly VerifyResult[]): VerifyResult | undefined {
+export function firstNonZeroResult(...results: readonly StreamResult[]): StreamResult | undefined {
   return results.find((result) => result.exitCode !== 0);
 }
 
@@ -52,7 +52,7 @@ export async function runLocalPresetSteps(
   presetNames: readonly string[],
   runStep: (presetName: string) => Promise<{ exitCode: number; stdout: string; stderr: string }>,
   failureLabel: (presetName: string) => string,
-): Promise<VerifyResult> {
+): Promise<StreamResult> {
   const settled = await Promise.all(
     presetNames.map(async (presetName) => ({
       presetName,

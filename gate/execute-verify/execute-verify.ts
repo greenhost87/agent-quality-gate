@@ -1,11 +1,14 @@
 import { resolve } from 'node:path';
 
 import { runNodeProcess } from '../../process/run-node-tool/run-node-tool.js';
+import { joinStreams } from '../../process/run-command/stream-utils.js';
 import {
   scheduleVerifyRunStats,
   optionalWorkspaceRootSourceField,
 } from '../run-stats/verify-run-stats.js';
 import type { WorkspaceRootSource } from '../run-stats/workspace-root-source.js';
+import type { CheckHint } from './check-hints.js';
+import type { Diagnostic, ExecutionFailure } from './check-result.js';
 import { formatVerifyOk } from './verify-ok-message.js';
 import { runExecuteVerify } from './run-execute-verify-body.js';
 
@@ -47,7 +50,10 @@ export async function executeVerify(
     if (outcome.result.exitCode === 0) {
       return {
         ...outcome.result,
-        stdout: formatVerifyOk(request.okLabel, durationMs),
+        statusStdout: joinStreams([
+          outcome.result.statusStdout ?? '',
+          formatVerifyOk(request.okLabel, durationMs),
+        ]),
       };
     }
     return outcome.result;
@@ -63,6 +69,7 @@ export async function executeVerify(
   }
 }
 
+/** Captured process streams from a tool invocation (not subject findings). */
 export type ToolRunResult = {
   exitCode: number;
   stdout: string;
@@ -71,6 +78,8 @@ export type ToolRunResult = {
 
 export type NodeProcessRunOptions = {
   name: string;
+  /** Execute a native program directly instead of loading its entry point with Bun. */
+  runtime?: 'native';
   args: readonly string[];
   cwd?: string;
   environment?: Record<string, string>;
@@ -100,7 +109,7 @@ export type VerifyRequest = {
   presetConfig?: Readonly<Record<string, object>>;
   /** Skip dependency, managed-file, and preset check-module work; only merge oxlint policy and run tools. */
   skipPresetProjectChecks?: boolean;
-  /** Drop these oxlint rule ids from agent-format diagnostics before deciding pass/fail. */
+  /** Drop these oxlint rule ids from structured diagnostics before deciding pass/fail. */
   ignoreOxlintRuleIds?: readonly string[];
   /** Ordered oxlint output group ids; first non-empty group gates the run (`lint` is appended if missing). */
   lintGroups?: readonly string[];
@@ -111,10 +120,18 @@ export type VerifyRequest = {
   workspaceRootSource?: WorkspaceRootSource;
 };
 
+/** Aggregated verify outcome: structured diagnostics until the presentation boundary. */
 export type VerifyResult = {
   exitCode: number;
-  stdout: string;
-  stderr: string;
+  diagnostics: readonly Diagnostic[];
+  hints?: readonly CheckHint[];
+  failures?: readonly ExecutionFailure[];
+  opaqueText?: string;
+  deferredCount?: number;
+  selectedGroupId?: string;
+  /** Non-diagnostic CLI/status text (ok line, project warnings). */
+  statusStdout?: string;
+  statusStderr?: string;
 };
 
 export type PhaseTimings = {
@@ -142,9 +159,9 @@ export type OxlintOutputGroup = {
   ruleIds: ReadonlySet<string>;
 };
 
-/** Result of selecting the first non-empty oxlint output group for the agent. */
+/** Result of selecting the first non-empty oxlint diagnostic group for the agent. */
 export type OxlintGroupSelection = {
-  text: string;
+  diagnostics: readonly Diagnostic[];
   deferredCount: number;
   hasIssues: boolean;
   groupIndex?: number;

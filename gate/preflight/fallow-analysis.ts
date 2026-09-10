@@ -5,7 +5,11 @@ import * as v from 'valibot';
 
 import { readJsonFile } from '../../process/files/files.js';
 import { runCapturedProcess } from '../../process/run-command/run-command.js';
-import type { ToolRunResult } from '../execute-verify/execute-verify.js';
+import {
+  failedCheckResult,
+  opaqueCheckResult,
+  type CheckResult,
+} from '../execute-verify/check-result.js';
 import { fallowExecutablePath } from '../execute-verify/verify-tool-run.js';
 
 const FallowDiscoveredFilesSchema = v.pipe(
@@ -58,10 +62,10 @@ export type ListFallowDiscoveredFilesOptions = {
 
 export type ListFallowDiscoveredFilesResult =
   | { ok: true; files: readonly string[] }
-  | { ok: false; result: ToolRunResult };
+  | { ok: false; result: CheckResult };
 
 function fallowListFailure(stderr: string): ListFallowDiscoveredFilesResult {
-  return { ok: false, result: { exitCode: 1, stdout: '', stderr } };
+  return { ok: false, result: failedCheckResult(1, stderr.trimEnd()) };
 }
 
 async function resolveFallowListConfigPath(
@@ -99,7 +103,7 @@ export async function listFallowDiscoveredFiles(
     resolved = await resolveFallowListConfigPath(options);
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    return fallowListFailure(`${failurePrefix}failed to prepare fallow list: ${message}\n`);
+    return fallowListFailure(`${failurePrefix}failed to prepare fallow list: ${message}`);
   }
   const { configPath, cleanup } = resolved;
   try {
@@ -124,17 +128,16 @@ export async function listFallowDiscoveredFiles(
     });
     if (captured.error !== undefined) {
       return fallowListFailure(
-        `${failurePrefix}failed to start fallow list: ${captured.error.message}\n`,
+        `${failurePrefix}failed to start fallow list: ${captured.error.message}`,
       );
     }
     if (captured.exitCode !== 0) {
       return {
         ok: false,
-        result: {
-          exitCode: captured.exitCode,
-          stdout: captured.stdout,
-          stderr: captured.stderr,
-        },
+        result: opaqueCheckResult(
+          captured.exitCode,
+          [captured.stdout, captured.stderr].filter((part) => part.length > 0).join('\n'),
+        ),
       };
     }
     try {
@@ -142,7 +145,7 @@ export async function listFallowDiscoveredFiles(
       return { ok: true, files: discovered.files };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      return fallowListFailure(`${message}\n`);
+      return fallowListFailure(message);
     }
   } finally {
     await cleanup();

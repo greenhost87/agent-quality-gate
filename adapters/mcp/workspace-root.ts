@@ -1,6 +1,7 @@
 import { fileURLToPath } from 'node:url';
 
 import { readGlobalQualityGateConfig } from '../../config/global-config/global-config.js';
+import { isConfiguredWorkspaceRoot } from '../../config/linked-checkout/linked-checkout.js';
 import type { WorkspaceRootSource } from '../../gate/run-stats/workspace-root-source.js';
 import { canonicalizePath } from '../../process/files/paths.js';
 
@@ -28,7 +29,7 @@ async function matchConfiguredProjectRoot(
     return { source };
   }
   const config = await readGlobalQualityGateConfig(configPath);
-  return config.projects.some((project) => project.root === candidate)
+  return isConfiguredWorkspaceRoot(candidate, config.projects)
     ? { root: candidate, source }
     : { source };
 }

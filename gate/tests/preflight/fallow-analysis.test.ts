@@ -27,6 +27,8 @@ describe('parseFallowDiscoveredFiles', () => {
       return;
     }
     expect(result.result.exitCode).toBe(1);
-    expect(result.result.stderr).toContain('verify: failed to prepare fallow list:');
+    expect(result.result.opaqueText ?? result.result.failures?.[0]?.message ?? '').toContain(
+      'verify: failed to prepare fallow list:',
+    );
   });
 });

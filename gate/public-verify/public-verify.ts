@@ -1,4 +1,3 @@
-export { baselinePresetRepositoryVerifyRequest } from '../execute-verify/baseline-preset-repository-verify.js';
 export { executeVerify } from '../execute-verify/execute-verify.js';
 export type { VerifyRequest, VerifyResult } from '../execute-verify/execute-verify.js';
 export { packagedAssetsDirectory } from '../../config/packaged-assets/packaged-assets.js';
@@ -8,4 +7,10 @@ export { parsePresetManifest } from '../../preset-catalog/manifest/parse-preset-
 export { oxlintRuleIdsFromManifest } from '../../preset-catalog/oxlint-config/oxlint-rule-ids-from-manifest.js';
 export { writeOxlintConfigForProject } from '../../preset-catalog/oxlint-config/write-oxlint-config.js';
 export { runLocalPresetSteps } from './preset-verify-result.js';
-export { exitCodeAfterWritingResults, writeVerifyStreams } from './verify-streams.js';
+export {
+  exitCodeAfterWritingResults,
+  streamResultFromCheckResult,
+  streamResultFromVerifyResult,
+  writeVerifyStreams,
+  type StreamResult,
+} from './verify-streams.js';

@@ -12,6 +12,7 @@ import { registerQualityGate } from '../register-quality-gate.js';
 import { activeToolNamesForCwd } from '../verify-tool-visibility.js';
 import { VERIFY_TOOL_NAME } from '../../hooks/verify-tool-name.js';
 import { executeVerify } from '../../../gate/execute-verify/execute-verify.js';
+import { streamResultFromVerifyResult } from '../../../gate/public-verify/verify-streams.js';
 import { useIsolatedAgentQualityGateHome } from '../../../tests/support/isolated-home.js';
 import {
   createPiExtensionHost,
@@ -94,7 +95,7 @@ describe('pi extension', () => {
     });
 
     expect(result.exitCode).toBe(0);
-    expect(result.stdout).toContain('verify: ok');
+    expect(streamResultFromVerifyResult(result).stdout).toContain('verify: ok');
   });
 
   it('does not expose the verify tool outside the allowlist', async () => {
@@ -154,10 +155,11 @@ describe('pi extension', () => {
       projectRoot: project.root,
       entries: project.entries,
     });
-    const diagnostics = result.stdout + result.stderr;
+    const streams = streamResultFromVerifyResult(result);
+    const diagnostics = `${streams.stdout}${streams.stderr}`;
 
     expect(result.exitCode).toBe(1);
-    expect(diagnostics).toContain('eslint(no-debugger)');
+    expect(diagnostics).toContain('no-debugger');
   });
 
   it('creates one global YAML configuration', async () => {
@@ -235,7 +237,7 @@ describe('pi extension', () => {
     expect(host.subscribed).toEqual(['session_start', 'agent_settled']);
 
     await host.emitAgentSettled(cwd);
-    expect(host.followUps.join('\n')).toContain('eslint(no-debugger)');
+    expect(host.followUps.join('\n')).toContain('no-debugger');
   });
 
   it('lets an allowlisted workspace settle when verify passes', async () => {
@@ -272,7 +274,7 @@ describe('pi extension', () => {
     await host.emitAgentSettled(cwd);
     await host.emitAgentSettled(cwd);
     expect(host.followUps).toHaveLength(3);
-    expect(host.followUps[0]).toContain('eslint(no-debugger)');
+    expect(host.followUps[0]).toContain('no-debugger');
     expect(host.followUps[0]).not.toContain('Retry budget exhausted');
     expect(host.followUps[2]).toContain(
       'Retry budget exhausted. Stop and report the blocker to the user.',
