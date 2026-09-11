@@ -10,7 +10,9 @@ import { hasBunLockfile } from './has-bun-lockfile.js';
 import {
   failedLocalPresetVerify,
   runLocalPresetSteps,
+  type PresetStepExecution,
 } from '../../gate/public-verify/preset-verify-result.js';
+import { isBunTestParallelEnabled } from '../self-test/bun-test-parallel.js';
 
 import { listPresetPackageNames, resolveProjectRoot } from './repo-walk.js';
 
@@ -132,6 +134,7 @@ async function runLocalPresetPackScript(
     },
     (presetName) =>
       `${options.step}: local preset "${presetName}" failed pack ${options.failureKind}\n`,
+    options.execution,
   );
 }
 
@@ -173,6 +176,7 @@ export async function testLocalPresetPacks(
     okWhat: (presetName) => `pack ${presetName}${options?.okSuffix ?? ''}`,
     failureKind: options?.failureKind ?? 'test',
     exclude,
+    execution: isBunTestParallelEnabled() ? 'parallel' : 'sequential',
   });
 }
 
@@ -198,6 +202,7 @@ export type RunLocalPresetPackScriptOptions = {
   okWhat: (presetName: string) => string;
   failureKind: string;
   exclude?: ReadonlySet<string>;
+  execution?: PresetStepExecution;
 };
 
 export type TestLocalPresetPacksOptions = {
