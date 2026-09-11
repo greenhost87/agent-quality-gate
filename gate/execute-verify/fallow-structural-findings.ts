@@ -7,6 +7,7 @@ import { FallowSourceLocationSchema } from './fallow-source-location.js';
 import type { ToolRunner } from './execute-verify.js';
 import {
   checkResultFromDiagnostics,
+  failedCheckResult,
   type CheckResult,
   type Diagnostic,
   type DiagnosticLocation,
@@ -16,9 +17,7 @@ const LocationSchema = v.object({
   ...FallowSourceLocationSchema.entries,
   component: v.string(),
 });
-const StructuralOutputSchema = v.object({
-  kind: v.literal('dead-code'),
-  total_issues: v.optional(v.number()),
+const StructuralFindingFieldsSchema = {
   prop_drilling_chains: v.optional(
     v.array(
       v.object({
@@ -46,17 +45,53 @@ const StructuralOutputSchema = v.object({
     ),
     [],
   ),
+} as const;
+
+const StructuralOutputSchema = v.looseObject({
+  kind: v.literal('dead-code'),
+  total_issues: v.optional(v.number()),
+  ...StructuralFindingFieldsSchema,
 });
+const NonEmptyUnknownArraySchema = v.pipe(v.array(v.unknown()), v.minLength(1));
+
 const OutputTextSchema = v.pipe(
   v.string(),
   v.parseJson(),
   StructuralOutputSchema,
-  v.check(
-    ({ kind: _kind, total_issues, ...findings }) =>
-      total_issues !== undefined || Object.values(findings).some((items) => items.length > 0),
-    'Fallow structural report requires an issue summary or findings',
-  ),
+  v.check((output) => {
+    if (output.total_issues !== undefined) {
+      return true;
+    }
+    if (
+      output.prop_drilling_chains.length > 0 ||
+      output.thin_wrappers.length > 0 ||
+      output.duplicate_prop_shapes.length > 0
+    ) {
+      return true;
+    }
+    return Object.entries(output).some(([key, value]) => {
+      if (key === 'kind' || key === 'total_issues') {
+        return false;
+      }
+      return v.is(NonEmptyUnknownArraySchema, value);
+    });
+  }, 'Fallow structural report requires an issue summary or findings'),
 );
+
+const STRUCTURAL_FINDING_KEYS = new Set([
+  'prop_drilling_chains',
+  'thin_wrappers',
+  'duplicate_prop_shapes',
+]);
+
+function hasNonStructuralFindings(output: v.InferOutput<typeof StructuralOutputSchema>): boolean {
+  return Object.entries(output).some(([key, value]) => {
+    if (key === 'kind' || key === 'total_issues' || STRUCTURAL_FINDING_KEYS.has(key)) {
+      return false;
+    }
+    return v.is(NonEmptyUnknownArraySchema, value);
+  });
+}
 const SeveritySchema = v.picklist(['off', 'warn', 'error']);
 const RulesObjectSchema = v.object({
   'prop-drilling': v.optional(SeveritySchema, 'off'),
@@ -173,9 +208,23 @@ export async function checkFallowStructuralFindings(
   if (crash !== undefined) return crash;
   const output = v.safeParse(OutputTextSchema, result.stdout);
   if (!output.success) {
-    throw new Error(
+    return failedCheckResult(
+      result.exitCode === 0 ? 1 : result.exitCode,
       `Fallow structural analysis returned invalid JSON output: ${v.summarize(output.issues)}`,
+      { stdout: result.stdout, stderr: result.stderr },
     );
   }
-  return toCheckDiagnostics(structuralDiagnostics(output.output), rules);
+  const findings = structuralDiagnostics(output.output);
+  if (
+    (output.output.total_issues ?? 0) > 0 &&
+    findings.length === 0 &&
+    !hasNonStructuralFindings(output.output)
+  ) {
+    return failedCheckResult(
+      result.exitCode === 0 ? 1 : result.exitCode,
+      'fallow reported total_issues without recognizable findings',
+      { stdout: result.stdout, stderr: result.stderr },
+    );
+  }
+  return toCheckDiagnostics(findings, rules);
 }

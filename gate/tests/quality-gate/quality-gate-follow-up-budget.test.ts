@@ -273,6 +273,42 @@ describe('followUpForSettledResult hints', () => {
     expect(remediationIndex).toBeLessThan(hintIndex);
     expect(hintIndex).toBeLessThan(diagnosticIndex);
   });
+
+  it('materializes builtin hints from structured VerifyResult.hints', async () => {
+    const projectRoot = await makeTempDirectory('aqg-follow-up-structured-hints-');
+    const message = await followUpForSettledResult({
+      kind: 'ran',
+      projectRoot,
+      result: {
+        exitCode: 1,
+        diagnostics: [
+          {
+            source: 'oxlint',
+            severity: 'error',
+            message: 'migration file is committed',
+            ruleId: 'error',
+            location: { path: 'migrations/001.sql', line: 1 },
+          },
+        ],
+        hints: [
+          { kind: 'builtin', id: 'database-committed-migration' },
+          { kind: 'builtin', id: 'database-boundary' },
+          { kind: 'builtin', id: 'playwright-e2e' },
+        ],
+      },
+    });
+    if (message === undefined) {
+      throw new Error('expected follow-up message');
+    }
+    expect(message).toContain('hint:database-committed-migration');
+    expect(message).toContain('hint:database-boundary');
+    expect(message).toContain('hint:playwright-e2e');
+    expect(existsSync(join(projectRoot, '.aqg', 'hints', 'database-committed-migration.md'))).toBe(
+      true,
+    );
+    expect(existsSync(join(projectRoot, '.aqg', 'hints', 'database-boundary.md'))).toBe(true);
+    expect(existsSync(join(projectRoot, '.aqg', 'hints', 'playwright-e2e.md'))).toBe(true);
+  });
 });
 
 describe('followUpForSettledResult diagnostic spill', () => {

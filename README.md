@@ -236,7 +236,7 @@ Codex MCP/Stop-hook entrypoints ship under `dist/codex/`. Wiring merges the `age
 
 Local `bun run verify` is this repository's development-only self-verify (`scripts/self-verify/self-verify.ts`); it is not included in the released package. It verifies this repo with the packaged Oxlint and Fallow policy (no unit tests). Use `bun run verify:cwd -- <cwd>` to run the same quality-gate path as the MCP/stop-hook tools against any project listed in `~/.agent-quality-gate/config.yaml` (or `AGENT_QUALITY_GATE_HOME/config.yaml`). Use `bun run test` (`scripts/self-test/self-test.ts`) for the repository and pack test suites (it builds the release package first). `bun run outdated` checks `bun outdated` in the project root and every preset pack with a lockfile; `bun run outdated -- --update` runs `bun update --latest`; `--cwd <path>` selects the project root.
 
-Optional preset repositories (for example `aqg-presets`) can import `baselinePresetRepositoryVerifyRequest`, `executeVerify`, `writeVerifyStreams`, `parsePresetManifest`, `oxlintRuleIdsFromManifest`, and `runLocalPresetSteps` from `agent-quality-gate/verify`, and shared AST helpers from `agent-quality-gate/oxlint-walk`, to run baseline Oxlint and Fallow against their TypeScript check modules without listing the repo in global config.
+Optional preset repositories (for example `aqg-presets`) can import `executeVerify`, `writeVerifyStreams`, `parsePresetManifest`, `oxlintRuleIdsFromManifest`, and `runLocalPresetSteps` from `agent-quality-gate/verify`, and shared AST helpers from `agent-quality-gate/oxlint-walk`, to run baseline Oxlint and Fallow against their TypeScript check modules without listing the repo in global config.
 
 ## License
 

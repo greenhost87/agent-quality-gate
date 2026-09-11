@@ -13,27 +13,41 @@ function isStreamResult(result: VerifyResult | StreamResult): result is StreamRe
   return 'stdout' in result && typeof result.stdout === 'string' && !('diagnostics' in result);
 }
 
+function ensureTrailingNewline(text: string): string {
+  if (text.length === 0 || text.endsWith('\n')) {
+    return text;
+  }
+  return `${text}\n`;
+}
+
+function joinStatusAndFailure(status: string, failure: string): string {
+  if (status.length === 0) {
+    return failure;
+  }
+  if (failure.length === 0 || status.endsWith('\n')) {
+    return `${status}${failure}`;
+  }
+  return `${status}\n${failure}`;
+}
+
 export function streamResultFromVerifyResult(result: VerifyResult): StreamResult {
   const diagnostics = formatVerifyResultDiagnostics({
     ...result,
     // Deferred is failure-path metadata; keep on stderr for failures only via full format.
     deferredCount: result.exitCode === 0 ? undefined : result.deferredCount,
   });
+  const body = ensureTrailingNewline(diagnostics);
   if (result.exitCode === 0) {
-    const body =
-      diagnostics.length > 0 ? (diagnostics.endsWith('\n') ? diagnostics : `${diagnostics}\n`) : '';
     return {
       exitCode: 0,
       stdout: `${body}${result.statusStdout ?? ''}`,
       stderr: result.statusStderr ?? '',
     };
   }
-  const failureBody =
-    diagnostics.length > 0 ? (diagnostics.endsWith('\n') ? diagnostics : `${diagnostics}\n`) : '';
   return {
     exitCode: result.exitCode,
     stdout: result.statusStdout ?? '',
-    stderr: `${result.statusStderr ?? ''}${failureBody}`,
+    stderr: joinStatusAndFailure(result.statusStderr ?? '', body),
   };
 }
 

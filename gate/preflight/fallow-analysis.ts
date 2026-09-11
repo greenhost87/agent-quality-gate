@@ -68,6 +68,23 @@ function fallowListFailure(stderr: string): ListFallowDiscoveredFilesResult {
   return { ok: false, result: failedCheckResult(1, stderr.trimEnd()) };
 }
 
+/** Nonzero `fallow list` exit: keep tool output when present, else a clear fallback failure. */
+export function checkResultForNonzeroFallowList(
+  exitCode: number,
+  stdout: string,
+  stderr: string,
+  failurePrefix: string,
+): CheckResult {
+  const output = [stdout, stderr].filter((part) => part.length > 0).join('\n');
+  if (output.length > 0) {
+    return opaqueCheckResult(exitCode, output);
+  }
+  return failedCheckResult(
+    exitCode,
+    `${failurePrefix}fallow list exited with code ${String(exitCode)} and no output`,
+  );
+}
+
 async function resolveFallowListConfigPath(
   options: ListFallowDiscoveredFilesOptions,
 ): Promise<{ configPath?: string; cleanup: () => Promise<void> }> {
@@ -134,9 +151,11 @@ export async function listFallowDiscoveredFiles(
     if (captured.exitCode !== 0) {
       return {
         ok: false,
-        result: opaqueCheckResult(
+        result: checkResultForNonzeroFallowList(
           captured.exitCode,
-          [captured.stdout, captured.stderr].filter((part) => part.length > 0).join('\n'),
+          captured.stdout,
+          captured.stderr,
+          failurePrefix,
         ),
       };
     }

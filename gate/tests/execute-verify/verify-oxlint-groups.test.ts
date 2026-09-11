@@ -262,4 +262,31 @@ describe('oxlint virtual groups', () => {
       'lint',
     ]);
   });
+
+  it('honors configured groupOrder and boundaryPluginPriority', () => {
+    const groups = oxlintVirtualGroupsFromRules(
+      {
+        'playwright/config': { severity: 'error', phase: 'boundaries' },
+        'database/dao-boundaries': { severity: 'error', phase: 'boundaries' },
+        'config/environment-boundaries': { severity: 'error', phase: 'boundaries' },
+        'bun-parse/no-handmade-json-types': { severity: 'error', phase: 'contracts' },
+        'sample-ui/render-only-components': { severity: 'error', phase: 'ui' },
+        'aqg/no-class': 'error',
+      },
+      [],
+      [],
+      {
+        groupOrder: ['ui', 'contracts', 'boundaries'],
+        boundaryPluginPriority: ['playwright', 'database', 'config'],
+      },
+    );
+    expect(groups.map((group) => group.id)).toEqual([
+      'ui',
+      'contracts',
+      'boundaries:playwright',
+      'boundaries:database',
+      'boundaries:config',
+      'lint',
+    ]);
+  });
 });

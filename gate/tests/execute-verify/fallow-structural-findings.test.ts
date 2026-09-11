@@ -139,10 +139,47 @@ test('empty structural arrays pass and malformed output fails closed', async () 
   );
   expect(clean).toEqual(emptyCheckResult());
   for (const invalid of ['{}', '{"kind":"dead-code"}']) {
-    expect(
-      checkFallowStructuralFindings(async () => Promise.resolve(output(invalid)), root, config),
-    ).rejects.toThrow('invalid JSON');
+    const result = await checkFallowStructuralFindings(
+      async () => Promise.resolve(output(invalid)),
+      root,
+      config,
+    );
+    expect(result.exitCode).toBe(1);
+    expect(result.failures?.[0]?.message ?? '').toContain('invalid JSON');
   }
+});
+
+test('positive total_issues without findings is a protocol failure', async () => {
+  const { root, config } = await project();
+  const result = await checkFallowStructuralFindings(
+    async () => Promise.resolve(output('{"kind":"dead-code","total_issues":1}')),
+    root,
+    config,
+  );
+  expect(result.exitCode).toBe(1);
+  expect(result.diagnostics).toEqual([]);
+  expect(result.failures?.[0]?.message ?? '').toContain(
+    'total_issues without recognizable findings',
+  );
+});
+
+test('positive total_issues with non-structural findings is ignored by structural check', async () => {
+  const { root, config } = await project();
+  const result = await checkFallowStructuralFindings(
+    async () =>
+      Promise.resolve(
+        output(
+          JSON.stringify({
+            kind: 'dead-code',
+            total_issues: 1,
+            unused_exports: [{ path: 'src/unused.ts', export_name: 'unused' }],
+          }),
+        ),
+      ),
+    root,
+    config,
+  );
+  expect(result).toEqual(emptyCheckResult());
 });
 
 test('all three structural arrays produce located diagnostics independently of total_issues', async () => {
