@@ -57,8 +57,7 @@ async function dropDatabase(client: SQL, databaseName: string): Promise<void> {
 
 export async function recreateApplicationDatabaseFromTemplate(): Promise<void> {
   await withAdminClient(async (client) => {
-    await terminateDatabaseConnections(client, APPLICATION_DATABASE_NAME);
-    await dropDatabase(client, APPLICATION_DATABASE_NAME);
+    await dropApplicationDatabase();
     await client.unsafe(
       `CREATE DATABASE ${quoteIdentifier(APPLICATION_DATABASE_NAME)} TEMPLATE ${quoteIdentifier(TEST_DATABASE.templateName)}`,
     );
