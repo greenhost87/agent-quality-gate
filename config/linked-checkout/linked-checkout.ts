@@ -82,7 +82,7 @@ export function resolveLinkedCheckoutRoot(cwd: string, configuredRoot: string): 
   if (rootCheckout === undefined || cwdCheckout.commonDir !== rootCheckout.commonDir) {
     return canonicalRoot;
   }
-  return cwdCheckout.toplevel;
+  return join(cwdCheckout.toplevel, relative(rootCheckout.toplevel, canonicalRoot));
 }
 
 export function isConfiguredWorkspaceRoot(

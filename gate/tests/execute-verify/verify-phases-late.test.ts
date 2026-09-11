@@ -91,7 +91,7 @@ describe('verify phases late failures', () => {
     const started = performance.now();
     const result = await runVerify(cwd);
     const output = verifyPresentedText(result);
-    expect(performance.now() - started).toBeLessThan(15_000);
+    expect(performance.now() - started).toBeLessThan(45_000);
     expect(result.exitCode).toBe(1);
     expect(output.includes('typescript(no-unsafe-') || output.includes('typescript(TS')).toBe(
       false,

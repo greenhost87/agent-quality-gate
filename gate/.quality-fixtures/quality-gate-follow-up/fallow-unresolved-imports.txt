@@ -1,0 +1,3 @@
+unresolved-import:app/a.ts:4:./missing-lib
+unresolved-import:app/b.ts:8:./missing-lib
+unresolved-import:app/c.ts:2:./other-lib

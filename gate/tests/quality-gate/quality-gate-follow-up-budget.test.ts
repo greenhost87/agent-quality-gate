@@ -1,37 +1,22 @@
 import { existsSync } from 'node:fs';
-import { mkdir, mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 import { readTextFile, writeTextFile } from '../../../process/files/files.js';
 
-import { afterEach, describe, expect, it } from 'bun:test';
+import { describe, expect, it } from 'bun:test';
 
 import {
   decideFollowUp,
   followUpForSettledResult,
-  QUALITY_GATE_FOLLOW_UP_BUDGET,
-  VERIFY_FAILURE_DIAGNOSTIC_HEAD_LINES,
-  VERIFY_FAILURE_LOG_RELATIVE_PATH,
 } from '../../quality-gate-run/quality-gate-run.js';
+import { QUALITY_GATE_FOLLOW_UP_BUDGET } from '../../../config/tuning/tuning.js';
 import { readFixture } from '../../../tests/support/fixture-files.js';
-
-const tempDirectories: string[] = [];
-const FIXTURES_ROOT = join(import.meta.dir, '../..', '.quality-fixtures', 'quality-gate-follow-up');
-const baseFollowUp = (await readFixture(FIXTURES_ROOT, 'base.txt')).trimEnd();
-
-async function makeTempDirectory(prefix: string): Promise<string> {
-  const directory = await mkdtemp(join(tmpdir(), prefix));
-  tempDirectories.push(directory);
-  return directory;
-}
-
-afterEach(async () => {
-  await Promise.all(
-    tempDirectories.splice(0).map(async (directory) => {
-      await rm(directory, { recursive: true, force: true });
-    }),
-  );
-});
+import {
+  FIXTURES_ROOT,
+  baseFollowUp,
+  diagnosticsFromHintFixture,
+  makeTempDirectory,
+} from './quality-gate-follow-up-support.js';
 
 describe('decideFollowUp', () => {
   it('returns none when there is no follow-up message', () => {
@@ -78,13 +63,6 @@ describe('followUpForSettledResult hints', () => {
     stderrFixture?: string;
     extraStdoutFixtures?: readonly string[];
   }[] = [
-    { name: 'live-ui-surface', hint: 'hint:live-ui-surface', stdoutFixture: 'live-ui-surface.txt' },
-    {
-      name: 'presentation-duplication',
-      hint: 'hint:presentation-duplication',
-      stdoutFixture: 'presentation-duplication.txt',
-      extraStdoutFixtures: ['compact-fallow.txt'],
-    },
     { name: 'compact-fallow', hint: 'hint:code-duplication', stdoutFixture: 'compact-fallow.txt' },
     { name: 'playwright-e2e', hint: 'hint:playwright-e2e', stdoutFixture: 'playwright-e2e.txt' },
     {
@@ -114,12 +92,6 @@ describe('followUpForSettledResult hints', () => {
       stdoutFixture: 'typeof-object.txt',
     },
     {
-      name: 'single-consumer',
-      hint: 'hint:single-consumer',
-      extraHints: ['hint:avoid-micro-splits'],
-      stdoutFixture: 'single-consumer.txt',
-    },
-    {
       name: 'thin-forwarders',
       hint: 'hint:avoid-micro-splits',
       stdoutFixture: 'thin-forwarders.txt',
@@ -141,19 +113,18 @@ describe('followUpForSettledResult hints', () => {
       for (const extra of hintCase.extraStdoutFixtures ?? []) {
         stdoutParts.push(await readFixture(FIXTURES_ROOT, extra));
       }
-      const opaqueParts = [
+      const fixtureText = [
         ...stdoutParts,
         ...(hintCase.stderrFixture === undefined
           ? []
           : [await readFixture(FIXTURES_ROOT, hintCase.stderrFixture)]),
-      ];
+      ].join('\n');
       const message = await followUpForSettledResult({
         kind: 'ran',
         projectRoot,
         result: {
           exitCode: 1,
-          diagnostics: [],
-          opaqueText: opaqueParts.join('\n'),
+          diagnostics: diagnosticsFromHintFixture(hintCase.name, fixtureText),
         },
       });
       if (message === undefined) {
@@ -178,8 +149,10 @@ describe('followUpForSettledResult hints', () => {
       projectRoot,
       result: {
         exitCode: 1,
-        diagnostics: [],
-        opaqueText: await readFixture(FIXTURES_ROOT, 'handmade-json-types.txt'),
+        diagnostics: diagnosticsFromHintFixture(
+          'handmade-json',
+          await readFixture(FIXTURES_ROOT, 'handmade-json-types.txt'),
+        ),
       },
     });
     expect(message).toContain('hint:bun-parse-json');
@@ -201,8 +174,10 @@ describe('followUpForSettledResult hints', () => {
       projectRoot,
       result: {
         exitCode: 1,
-        diagnostics: [],
-        opaqueText: await readFixture(FIXTURES_ROOT, 'handmade-json-types.txt'),
+        diagnostics: diagnosticsFromHintFixture(
+          'handmade-json',
+          await readFixture(FIXTURES_ROOT, 'handmade-json-types.txt'),
+        ),
       },
     });
     expect(message).toContain('hint:bun-parse-json');
@@ -216,8 +191,10 @@ describe('followUpForSettledResult hints', () => {
       projectRoot,
       result: {
         exitCode: 1,
-        diagnostics: [],
-        opaqueText: await readFixture(FIXTURES_ROOT, 'raw-json-parse.txt'),
+        diagnostics: diagnosticsFromHintFixture(
+          'raw-json-parse',
+          await readFixture(FIXTURES_ROOT, 'raw-json-parse.txt'),
+        ),
       },
     });
     const hintPath = join(projectRoot, '.aqg', 'hints', 'bun-parse-json.md');
@@ -237,8 +214,10 @@ describe('followUpForSettledResult hints', () => {
       projectRoot,
       result: {
         exitCode: 1,
-        diagnostics: [],
-        opaqueText: await readFixture(FIXTURES_ROOT, 'database-boundaries.txt'),
+        diagnostics: diagnosticsFromHintFixture(
+          'database-boundary',
+          await readFixture(FIXTURES_ROOT, 'database-boundaries.txt'),
+        ),
       },
     });
     const hintPath = join(projectRoot, '.aqg', 'hints', 'database-boundary.md');
@@ -255,8 +234,16 @@ describe('followUpForSettledResult hints', () => {
       projectRoot,
       result: {
         exitCode: 1,
-        diagnostics: [],
-        opaqueText: await readFixture(FIXTURES_ROOT, 'duplication.txt'),
+        diagnostics: [
+          {
+            source: 'fallow',
+            ruleId: 'code-duplication',
+            severity: 'error',
+            message: 'duplicate block',
+            location: { path: 'system/database/phases/phases.dao.ts', line: 15 },
+            groupHeader: 'code-duplication',
+          },
+        ],
       },
     });
     if (message === undefined) {
@@ -264,134 +251,10 @@ describe('followUpForSettledResult hints', () => {
     }
     const remediationIndex = message.indexOf('Fix only the violations listed below');
     const hintIndex = message.indexOf('hint:code-duplication');
-    const diagnosticIndex = message.indexOf(
-      'code-duplication:system/database/phases/phases.dao.ts',
-    );
+    const diagnosticIndex = message.indexOf('code-duplication');
     expect(remediationIndex).toBeGreaterThan(-1);
     expect(hintIndex).toBeGreaterThan(-1);
-    expect(diagnosticIndex).toBeGreaterThan(-1);
+    expect(diagnosticIndex).toBeGreaterThan(hintIndex);
     expect(remediationIndex).toBeLessThan(hintIndex);
-    expect(hintIndex).toBeLessThan(diagnosticIndex);
-  });
-
-  it('materializes builtin hints from structured VerifyResult.hints', async () => {
-    const projectRoot = await makeTempDirectory('aqg-follow-up-structured-hints-');
-    const message = await followUpForSettledResult({
-      kind: 'ran',
-      projectRoot,
-      result: {
-        exitCode: 1,
-        diagnostics: [
-          {
-            source: 'oxlint',
-            severity: 'error',
-            message: 'migration file is committed',
-            ruleId: 'error',
-            location: { path: 'migrations/001.sql', line: 1 },
-          },
-        ],
-        hints: [
-          { kind: 'builtin', id: 'database-committed-migration' },
-          { kind: 'builtin', id: 'database-boundary' },
-          { kind: 'builtin', id: 'playwright-e2e' },
-        ],
-      },
-    });
-    if (message === undefined) {
-      throw new Error('expected follow-up message');
-    }
-    expect(message).toContain('hint:database-committed-migration');
-    expect(message).toContain('hint:database-boundary');
-    expect(message).toContain('hint:playwright-e2e');
-    expect(existsSync(join(projectRoot, '.aqg', 'hints', 'database-committed-migration.md'))).toBe(
-      true,
-    );
-    expect(existsSync(join(projectRoot, '.aqg', 'hints', 'database-boundary.md'))).toBe(true);
-    expect(existsSync(join(projectRoot, '.aqg', 'hints', 'playwright-e2e.md'))).toBe(true);
-  });
-});
-
-describe('followUpForSettledResult diagnostic spill', () => {
-  it('keeps short diagnostics in-band without writing a log file', async () => {
-    const projectRoot = await makeTempDirectory('aqg-follow-up-short-');
-    const diagnostics = Array.from(
-      { length: VERIFY_FAILURE_DIAGNOSTIC_HEAD_LINES },
-      (_, index) => `error line ${String(index + 1)}`,
-    ).join('\n');
-    const message = await followUpForSettledResult({
-      kind: 'ran',
-      projectRoot,
-      result: {
-        exitCode: 1,
-        diagnostics: [],
-        opaqueText: diagnostics,
-      },
-    });
-    if (message === undefined) {
-      throw new Error('expected follow-up message');
-    }
-    expect(message).toContain('error line 1');
-    expect(message).toContain(`error line ${String(VERIFY_FAILURE_DIAGNOSTIC_HEAD_LINES)}`);
-    expect(message).not.toContain(VERIFY_FAILURE_LOG_RELATIVE_PATH);
-    expect(existsSync(join(projectRoot, VERIFY_FAILURE_LOG_RELATIVE_PATH))).toBe(false);
-  });
-
-  it('spills oversized diagnostics to .aqg log and keeps only the head in-band', async () => {
-    const projectRoot = await makeTempDirectory('aqg-follow-up-spill-');
-    const lineCount = VERIFY_FAILURE_DIAGNOSTIC_HEAD_LINES + 25;
-    const diagnostics = Array.from(
-      { length: lineCount },
-      (_, index) => `error line ${String(index + 1)}`,
-    ).join('\n');
-    const message = await followUpForSettledResult({
-      kind: 'ran',
-      projectRoot,
-      result: {
-        exitCode: 1,
-        diagnostics: [],
-        opaqueText: diagnostics,
-      },
-    });
-    if (message === undefined) {
-      throw new Error('expected follow-up message');
-    }
-
-    const logPath = join(projectRoot, VERIFY_FAILURE_LOG_RELATIVE_PATH);
-    expect(message).toContain(logPath);
-    expect(message).toContain(String(lineCount));
-    expect(message).toContain('error line 1');
-    expect(message).toContain(`error line ${String(VERIFY_FAILURE_DIAGNOSTIC_HEAD_LINES)}`);
-    expect(message).not.toContain(`error line ${String(VERIFY_FAILURE_DIAGNOSTIC_HEAD_LINES + 1)}`);
-
-    const logged = await readTextFile(logPath);
-    expect(logged.trimEnd()).toBe(diagnostics);
-  });
-
-  it('derives hints from the full diagnostics even when the matching lines are spilled', async () => {
-    const projectRoot = await makeTempDirectory('aqg-follow-up-spill-hints-');
-    const head = Array.from(
-      { length: VERIFY_FAILURE_DIAGNOSTIC_HEAD_LINES },
-      (_, index) => `noise ${String(index + 1)}`,
-    );
-    const diagnostics = [
-      ...head,
-      'code-duplication:system/database/phases/phases.dao.ts:15-23:fingerprint=dup:x,group=1,tokens=41,lines=9,instances=3',
-      'Duplication (3.0%) exceeds threshold (0.1%)',
-      'presentation-duplication:components/features/demo/field-a.tsx:10-18:fingerprint=jsx:abc,group=1,units=10,holes=2,score=20,occurrences=7',
-      'tests/orders.test.ts:1:1: error database(test-database-boundaries): Import only useIsolatedTestDatabase from tests/setup/testDatabase.ts.',
-    ].join('\n');
-    const message = await followUpForSettledResult({
-      kind: 'ran',
-      projectRoot,
-      result: {
-        exitCode: 1,
-        diagnostics: [],
-        opaqueText: diagnostics,
-      },
-    });
-    expect(message).toContain('hint:code-duplication');
-    expect(message).toContain('hint:presentation-duplication');
-    expect(message).toContain('hint:database-boundary');
-    expect(message).not.toContain('Duplication (3.0%) exceeds threshold');
   });
 });

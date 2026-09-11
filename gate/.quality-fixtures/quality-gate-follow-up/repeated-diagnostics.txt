@@ -1,0 +1,12 @@
+app/tests/media/upload-from-app.test.ts:13:70: error packages(package-boundaries): Production modules must not import test modules under tests/.
+app/tests/app/api/telegram/admin-login.test.ts:15:70: error packages(package-boundaries): Production modules must not import test modules under tests/.
+app/tests/fabrics/fabric-list-queries.test.ts:4:70: error packages(package-boundaries): Production modules must not import test modules under tests/.
+app/tests/fabrics/fabric-list-queries.test.ts:11:8: error packages(package-boundaries): Production modules must not import test modules under tests/.
+app/tests/fabrics/fabric-list-queries.test.ts:13:35: error packages(package-boundaries): Production modules must not import test modules under tests/.
+app/one.ts:1:2: warning packages(package-boundaries): Production modules must not import test modules under tests/.
+app/two.ts:1:2: error packages(other-rule): Production modules must not import test modules under tests/.
+app/three.ts:1:2: error packages(other-rule): Different message.
+hint: Keep this attached to app/three.ts.
+app/four.ts:1:2: error packages(other-rule): Different message.
+
+verify: deferred: 16
