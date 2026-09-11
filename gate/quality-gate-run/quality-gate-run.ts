@@ -1,35 +1,36 @@
 import { mkdirSync } from 'node:fs';
-import { unlink } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 
-import { agentQualityGateHome } from '../../config/agent-quality-gate-home/agent-quality-gate-home.js';
+import {
+  agentQualityGateHome,
+  projectArtifactRunId,
+} from '../../config/agent-quality-gate-home/agent-quality-gate-home.js';
+import { QUALITY_GATE_FOLLOW_UP_BUDGET } from '../../config/tuning/tuning.js';
 import { executeVerify } from '../execute-verify/execute-verify.js';
 import type { VerifyResult } from '../execute-verify/execute-verify.js';
-import { materializeDocumentHints } from '../execute-verify/check-hints.js';
-import { compactHintsFromStructured } from './compact-hints-from-structured.js';
+import type { Diagnostic } from '../execute-verify/check-result.js';
 import {
   findProjectForCwd,
   readGlobalQualityGateConfig,
 } from '../../config/global-config/global-config.js';
 import { resolveLinkedCheckoutRoot } from '../../config/linked-checkout/linked-checkout.js';
 import { writeTextFile } from '../../process/files/files.js';
+import { getOptionalEnv } from '../read-env/read-env.js';
 import {
   scheduleVerifyRunStats,
   optionalWorkspaceRootSourceField,
 } from '../run-stats/verify-run-stats.js';
 import type { WorkspaceRootSource } from '../run-stats/workspace-root-source.js';
 import {
-  materializeHintDocs,
-  parseHintDocId,
-  shortDevDepInProdHint,
-  shortHint,
-  type HintDocId,
-} from './hint-docs.js';
+  collectRuleIdHints,
+  dedupeShortHintLines,
+  formatStructuredHints,
+  materializeFollowUpArtifacts,
+} from './follow-up-hints.js';
 import { formatVerifyResultDiagnostics } from './format-diagnostics.js';
+import { presentStructuredDiagnostics } from './present-verify-failure.js';
 
-export const QUALITY_GATE_FOLLOW_UP_BUDGET = 3;
-
-export const VERIFY_FAILURE_DIAGNOSTIC_HEAD_LINES = 50;
+export const VERIFY_FAILURE_DIAGNOSTIC_HEAD_CHARS = 4_000;
 
 export const VERIFY_FAILURE_LOG_RELATIVE_PATH = '.aqg/aqg-verify-failure.log';
 
@@ -47,210 +48,52 @@ export const VERIFY_FAILURE_REMEDIATION = [
 
 const FOLLOW_UP_ESCALATION = 'Retry budget exhausted. Stop and report the blocker to the user.';
 
-const COMPACT_OUTPUT_HINTS = [
-  {
-    pattern: /(?:^|\n)\s*live-ui-surface:/u,
-    hints: [shortHint('live-ui-surface')],
-  },
-  {
-    pattern: /(?:^|\n)\s*database-committed-migration\b/u,
-    hints: [shortHint('database-committed-migration')],
-  },
-  {
-    pattern: /(?:^|\n)\s*single-consumer:/u,
-    hints: [shortHint('single-consumer'), shortHint('avoid-micro-splits')],
-  },
-] as const;
+/** TEMP: real agent dumps; gate `bun test` uses `agent-run-logs-test` (or `AQG_AGENT_RUN_LOG_DIR`). */
+const AGENT_RUN_LOG_DIR_NAME = 'agent-run-logs';
+const AGENT_RUN_LOG_DIR_NAME_TEST = 'agent-run-logs-test';
+const AGENT_RUN_LOG_DIR_ENV = 'AQG_AGENT_RUN_LOG_DIR';
 
-const AVOID_MICRO_SPLITS_MARKERS = [
-  'aqg/no-thin-forwarders',
-  'aqg(no-thin-forwarders)',
-  'aqg/no-trivial-const-wrappers',
-  'aqg(no-trivial-const-wrappers)',
-  'aqg/no-identity-aliases',
-  'aqg(no-identity-aliases)',
-  'aqg/no-useless-exported-type-aliases',
-  'aqg(no-useless-exported-type-aliases)',
-  'aqg/no-runtime-in-types-files',
-  'aqg(no-runtime-in-types-files)',
-] as const;
-
-function prefixOutputHints(output: string): string[] {
-  const hints: string[] = [];
-  for (const entry of COMPACT_OUTPUT_HINTS) {
-    if (entry.pattern.test(output)) {
-      hints.push(...entry.hints);
-    }
+function resolveAgentRunLogDirName(): string {
+  const override = getOptionalEnv(AGENT_RUN_LOG_DIR_ENV);
+  if (override !== undefined) {
+    return override;
   }
-  return hints;
+  const underTest =
+    process.argv.includes('test') || process.argv.some((entry) => entry.endsWith('.test.ts'));
+  return underTest ? AGENT_RUN_LOG_DIR_NAME_TEST : AGENT_RUN_LOG_DIR_NAME;
 }
 
-function lineContainsMarker(trimmed: string, markers: readonly string[]): boolean {
-  return markers.some((marker) => trimmed.includes(marker));
-}
-
-const DATABASE_BOUNDARY_MARKERS = [
-  'database/dao-boundaries',
-  'database(dao-boundaries)',
-  'database/test-database-boundaries',
-  'database(test-database-boundaries)',
-] as const;
-
-const PLAYWRIGHT_E2E_MARKERS = [
-  'playwright/e2e-runner',
-  'playwright(e2e-runner)',
-  'playwright/e2e-black-box',
-  'playwright(e2e-black-box)',
-  'playwright/config',
-  'playwright(config)',
-] as const;
-
-const HANDMADE_JSON_MARKERS = [
-  'bun-parse/no-handmade-json-types',
-  'bun-parse(no-handmade-json-types)',
-] as const;
-
-const BUN_PARSE_JSON_MARKERS = [
-  'bun-parse/no-raw-json-parse',
-  'bun-parse(no-raw-json-parse)',
-  'bun-parse/no-typeof-object',
-  'bun-parse(no-typeof-object)',
-  'bun-parse/scripts-boundaries',
-  'bun-parse(scripts-boundaries)',
-] as const;
-
-const LEGACY_PARSE_EXAMPLE_RELATIVE_PATH = '.aqg/parse_example.ts';
-
-function recordCompactHintFlags(trimmed: string, flags: CompactHintFlags): void {
-  if (trimmed.startsWith('presentation-duplication:')) {
-    flags.presentationDuplication = true;
-    return;
-  }
-  if (trimmed.startsWith('code-duplication:') || trimmed.startsWith('Duplication (')) {
-    flags.duplication = true;
-  }
-  if (
-    lineContainsMarker(trimmed, DATABASE_BOUNDARY_MARKERS) ||
-    trimmed.startsWith('database-concurrent-script:')
-  ) {
-    flags.databaseBoundary = true;
-  }
-  if (
-    trimmed.startsWith('playwright-config:') ||
-    lineContainsMarker(trimmed, PLAYWRIGHT_E2E_MARKERS)
-  ) {
-    flags.playwrightE2e = true;
-  }
-  if (lineContainsMarker(trimmed, HANDMADE_JSON_MARKERS)) {
-    flags.bunParseJson = true;
-  }
-  if (lineContainsMarker(trimmed, BUN_PARSE_JSON_MARKERS)) {
-    flags.bunParseJson = true;
-  }
-  if (lineContainsMarker(trimmed, AVOID_MICRO_SPLITS_MARKERS)) {
-    flags.avoidMicroSplits = true;
-  }
-}
-
-function collectCompactHints(output: string): string[] {
-  const hints: string[] = [];
-  const flags: CompactHintFlags = {
-    duplication: false,
-    presentationDuplication: false,
-    databaseBoundary: false,
-    playwrightE2e: false,
-    bunParseJson: false,
-    avoidMicroSplits: false,
-  };
-  for (const line of output.split('\n')) {
-    const trimmed = line.trim();
-    const devDepInProd = /^dev-dep-in-prod:(.+)$/u.exec(trimmed);
-    if (devDepInProd?.[1] !== undefined) {
-      hints.push(shortDevDepInProdHint(devDepInProd[1]));
-      continue;
-    }
-    recordCompactHintFlags(trimmed, flags);
-  }
-  if (flags.presentationDuplication) {
-    hints.push(shortHint('presentation-duplication'));
-  }
-  hints.push(...prefixOutputHints(output));
-  if (flags.duplication) {
-    hints.push(shortHint('code-duplication'));
-  }
-  if (flags.databaseBoundary) {
-    hints.push(shortHint('database-boundary'));
-  }
-  if (flags.playwrightE2e) {
-    hints.push(shortHint('playwright-e2e'));
-  }
-  if (flags.bunParseJson) {
-    hints.push(shortHint('bun-parse-json'));
-  }
-  if (flags.avoidMicroSplits) {
-    hints.push(shortHint('avoid-micro-splits'));
-  }
-  return hints;
-}
-
-function hintDocIdsFromLines(lines: readonly string[]): HintDocId[] {
-  const ids: HintDocId[] = [];
-  for (const line of lines) {
-    const id = parseHintDocId(line);
-    if (id !== undefined) {
-      ids.push(id);
-    }
-  }
-  return ids;
-}
-
-async function removeLegacyParseExample(projectRoot: string): Promise<void> {
-  try {
-    await unlink(join(projectRoot, LEGACY_PARSE_EXAMPLE_RELATIVE_PATH));
-  } catch {
-    // Legacy cleanup is best-effort; hint materialization must still succeed.
-  }
-}
-
-async function materializeFollowUpArtifacts(
-  projectRoot: string,
-  hints: readonly string[],
-  diagnostics: string,
+async function logAgentFacingVerifyText(
+  source: 'toolOutput' | 'followUp',
+  run: QualityGateRun,
+  text: string,
+  fullText?: string,
 ): Promise<void> {
-  if (
-    diagnostics.split('\n').some((line) => lineContainsMarker(line.trim(), HANDMADE_JSON_MARKERS))
-  ) {
-    await removeLegacyParseExample(projectRoot);
+  try {
+    const dir = join(agentQualityGateHome(), resolveAgentRunLogDirName());
+    mkdirSync(dir, { recursive: true });
+    const stamp = new Date().toISOString().replaceAll(':', '-');
+    const path = join(dir, `${stamp}-${projectArtifactRunId()}.txt`);
+    const meta = [
+      `source=${source}`,
+      `kind=${run.kind}`,
+      run.kind === 'ran' ? `projectRoot=${run.projectRoot}` : undefined,
+      run.kind === 'ran' ? `exitCode=${String(run.result.exitCode)}` : undefined,
+      run.kind === 'unavailable' ? `internalLogPath=${run.logPath}` : undefined,
+      `loggedAt=${new Date().toISOString()}`,
+      '---',
+      text,
+      fullText === undefined || fullText === text
+        ? undefined
+        : `--- full (${String(fullText.length)} characters, grouped) ---\n${fullText}`,
+      '',
+    ]
+      .filter((line): line is string => line !== undefined)
+      .join('\n');
+    await writeTextFile(path, meta);
+  } catch {
+    // Study logging must never fail verify.
   }
-  await materializeHintDocs(projectRoot, [
-    ...hintDocIdsFromLines(hints),
-    ...hintDocIdsFromLines(diagnostics.split('\n')),
-  ]);
-}
-
-function diagnosticLineCount(diagnostics: string): number {
-  if (diagnostics.length === 0) {
-    return 0;
-  }
-  return diagnostics.split('\n').length;
-}
-
-async function presentDiagnostics(projectRoot: string, diagnostics: string): Promise<string> {
-  const lineCount = diagnosticLineCount(diagnostics);
-  if (lineCount <= VERIFY_FAILURE_DIAGNOSTIC_HEAD_LINES) {
-    return diagnostics;
-  }
-
-  const logPath = join(projectRoot, VERIFY_FAILURE_LOG_RELATIVE_PATH);
-  mkdirSync(dirname(logPath), { recursive: true });
-  await writeTextFile(logPath, `${diagnostics}\n`);
-
-  const head = diagnostics.split('\n').slice(0, VERIFY_FAILURE_DIAGNOSTIC_HEAD_LINES).join('\n');
-  return [
-    `Full diagnostics (${String(lineCount)} lines) written to ${logPath}.`,
-    'Fix the violations shown below first; read that file for the remainder or make another native or MCP tool call (tool use) to verify.',
-    head,
-  ].join('\n\n');
 }
 
 function internalFailureMessage(error: Error | string): string {
@@ -337,25 +180,48 @@ export async function executeQualityGateForCwd(
   }
 }
 
+function hasHandmadeJson(diagnostics: readonly Diagnostic[] | undefined): boolean {
+  return (diagnostics ?? []).some(
+    (diagnostic) =>
+      diagnostic.ruleId === 'bun-parse/no-handmade-json-types' ||
+      diagnostic.ruleId === 'no-handmade-json-types',
+  );
+}
+
 export async function followUpForSettledResult(run: QualityGateRun): Promise<string | undefined> {
   if (run.kind !== 'ran' || run.result.exitCode === 0) {
     return undefined;
   }
-  const diagnostics = formatVerifyResultDiagnostics(run.result);
-  const structured = compactHintsFromStructured(run.result.hints);
-  const hints = [...new Set([...collectCompactHints(diagnostics), ...structured.lines])];
-  await materializeFollowUpArtifacts(run.projectRoot, hints, diagnostics);
-  if (structured.documents.length > 0) {
-    await materializeDocumentHints(run.projectRoot, structured.documents);
-  }
-  return [
-    `verify failed with exit code ${String(run.result.exitCode)}.`,
-    VERIFY_FAILURE_REMEDIATION,
-    hints.length > 0 ? hints.join('\n') : '',
-    await presentDiagnostics(run.projectRoot, diagnostics),
-  ]
+  const diagnostics = run.result.diagnostics;
+  const ruleHints = collectRuleIdHints(diagnostics);
+  const structured =
+    run.result.hints === undefined || run.result.hints.length === 0
+      ? undefined
+      : formatStructuredHints(run.result.hints);
+  const hints = dedupeShortHintLines([...(structured?.shortLines ?? []), ...ruleHints]);
+  await materializeFollowUpArtifacts(
+    run.projectRoot,
+    hints,
+    structured,
+    hasHandmadeJson(diagnostics),
+  );
+  const presented = await presentStructuredDiagnostics(run.projectRoot, {
+    ...run.result,
+    diagnostics,
+  });
+  const deferred =
+    run.result.deferredCount !== undefined && run.result.deferredCount > 0
+      ? `verify: deferred: ${String(run.result.deferredCount)}`
+      : '';
+  // Avoid duplicating deferred if already in presented opaque/status path.
+  const body = presented.text.includes('verify: deferred:')
+    ? presented.text
+    : [presented.text, deferred].filter((part) => part.length > 0).join('\n');
+  const message = [VERIFY_FAILURE_REMEDIATION, hints.length > 0 ? hints.join('\n') : '', body]
     .filter((value) => value.length > 0)
-    .join('\n\n');
+    .join('\n');
+  await logAgentFacingVerifyText('followUp', run, message, presented.full);
+  return message;
 }
 
 export function decideFollowUp(
@@ -369,28 +235,30 @@ export function decideFollowUp(
   if (attempt === budget - 1) {
     return {
       action: 'escalate',
-      message: `${message}\n\n${FOLLOW_UP_ESCALATION}`,
+      message: `${message}\n${FOLLOW_UP_ESCALATION}`,
     };
   }
   return { action: 'continue', message };
 }
 
 export async function toolOutput(run: QualityGateRun): Promise<string> {
+  let text: string;
   if (run.kind === 'skipped') {
-    return run.message;
-  }
-  if (run.kind === 'unavailable') {
-    return VERIFY_UNAVAILABLE_AGENT_MESSAGE;
-  }
-  if (run.result.exitCode === 0) {
+    text = run.message;
+  } else if (run.kind === 'unavailable') {
+    text = VERIFY_UNAVAILABLE_AGENT_MESSAGE;
+  } else if (run.result.exitCode === 0) {
     const warnings = formatVerifyResultDiagnostics({
       ...run.result,
       deferredCount: undefined,
     });
     const ok = (run.result.statusStdout ?? '').trimEnd() || 'verify: ok';
-    return [warnings, ok].filter((part) => part.length > 0).join('\n');
+    text = [warnings, ok].filter((part) => part.length > 0).join('\n');
+  } else {
+    return (await followUpForSettledResult(run)) ?? formatVerifyResultDiagnostics(run.result);
   }
-  return (await followUpForSettledResult(run)) ?? formatVerifyResultDiagnostics(run.result);
+  await logAgentFacingVerifyText('toolOutput', run, text);
+  return text;
 }
 
 export type QualityGateRun =
@@ -405,13 +273,4 @@ export type FollowUpDecision =
 export type RegisterQualityGateOptions = {
   configPath?: string;
   workspaceRootSource?: WorkspaceRootSource;
-};
-
-export type CompactHintFlags = {
-  duplication: boolean;
-  presentationDuplication: boolean;
-  databaseBoundary: boolean;
-  playwrightE2e: boolean;
-  bunParseJson: boolean;
-  avoidMicroSplits: boolean;
 };

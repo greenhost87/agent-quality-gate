@@ -1,0 +1,2 @@
+unresolved-import:./missing-lib
+  app/a.ts:4, app/b.ts:8

@@ -5,26 +5,6 @@ import { writeTextFile } from '../../process/files/files.js';
 
 export const AQG_HINTS_DIRECTORY = '.aqg/hints';
 
-const LIVE_UI_SURFACE = `# live-ui-surface
-
-Remove the dead UI option from its prop type, CVA branch, render branch, and associated classes.
-
-For an unused theme token, remove its \`@theme\` mapping and unreferenced backing variables.
-
-Do not add artificial call sites.
-`;
-
-const PRESENTATION_DUPLICATION = `# presentation-duplication
-
-Reuse the existing shared primitive at each call site with explicit props (for example \`Button\` with \`variant\`, or \`Input\` with \`type\` and \`step\`).
-
-Add a new shared component only when a smaller interface hides real composition or behavior.
-
-Do not create a presentation adapter that only renames or re-lists props of \`Button\`/\`Input\`.
-
-Do not change detector thresholds or copy the markup elsewhere.
-`;
-
 const CODE_DUPLICATION = `# code-duplication
 
 Deduplicate the listed file ranges (extract shared helpers).
@@ -83,17 +63,6 @@ Copy the intended change from \`.aqg/restored-migration.diff\` into a **new** mi
 Do not re-edit the restored committed migration files.
 `;
 
-const SINGLE_CONSUMER = `# single-consumer
-
-The listed module has exactly one importer in the project import graph.
-
-Inline or fold it into that sole caller (or give it a second real production consumer).
-
-Do not add artificial call sites, and do not change fallow / verify tooling to silence the finding.
-
-Also read \`.aqg/hints/avoid-micro-splits.md\` before carving a long file into more modules.
-`;
-
 const AVOID_MICRO_SPLITS = `# avoid-micro-splits
 
 A long file is not a reason to carve out a new micro-module.
@@ -104,15 +73,13 @@ Do not react to file length by extracting every function into its own \`.helpers
 
 - Keep cohesive domain logic together until a real boundary appears (shared reuse, deployment boundary, test isolation worth the split).
 - Extract one meaningful unit with a stable API and multiple expected callers — not a 5–20 line wrapper file.
-- Inline into the sole caller when only one module needs the code (\`single-consumer\` findings).
+- Inline into the sole caller when only one module needs the code.
 
 ## Avoid
 
 - New files whose only job is to shorten a parent file.
 - \`foo.helpers.ts\` / \`foo-lib.ts\` chains where each file has a single importer.
 - Splitting types, constants, and one-liner wrappers into separate files in the same feature folder.
-
-When verify lists \`single-consumer:\`, merge those modules back into the caller or into a shared module with real reuse.
 
 Baseline rules that also emit this hint: \`aqg/no-thin-forwarders\`, \`aqg/no-trivial-const-wrappers\`, \`aqg/no-identity-aliases\`, \`aqg/no-useless-exported-type-aliases\`, \`aqg/no-runtime-in-types-files\`.
 
@@ -262,15 +229,12 @@ Never hand-roll \`JsonValue\` / \`JsonObject\` unions.
 `;
 
 export const HINT_DOC_IDS = [
-  'live-ui-surface',
-  'presentation-duplication',
   'code-duplication',
   'database-boundary',
   'playwright-e2e',
   'type-aware-timeout',
   'dev-dep-in-prod',
   'database-committed-migration',
-  'single-consumer',
   'avoid-micro-splits',
   'bun-parse-json',
 ] as const;
@@ -278,14 +242,6 @@ export const HINT_DOC_IDS = [
 export type HintDocId = (typeof HINT_DOC_IDS)[number];
 
 export const HINT_DOCUMENTS: Record<HintDocId, { path: string; body: string }> = {
-  'live-ui-surface': {
-    path: `${AQG_HINTS_DIRECTORY}/live-ui-surface.md`,
-    body: LIVE_UI_SURFACE,
-  },
-  'presentation-duplication': {
-    path: `${AQG_HINTS_DIRECTORY}/presentation-duplication.md`,
-    body: PRESENTATION_DUPLICATION,
-  },
   'code-duplication': {
     path: `${AQG_HINTS_DIRECTORY}/code-duplication.md`,
     body: CODE_DUPLICATION,
@@ -310,10 +266,6 @@ export const HINT_DOCUMENTS: Record<HintDocId, { path: string; body: string }> =
     path: `${AQG_HINTS_DIRECTORY}/database-committed-migration.md`,
     body: DATABASE_COMMITTED_MIGRATION,
   },
-  'single-consumer': {
-    path: `${AQG_HINTS_DIRECTORY}/single-consumer.md`,
-    body: SINGLE_CONSUMER,
-  },
   'avoid-micro-splits': {
     path: `${AQG_HINTS_DIRECTORY}/avoid-micro-splits.md`,
     body: AVOID_MICRO_SPLITS,
@@ -337,6 +289,10 @@ export function parseHintDocId(line: string): HintDocId | undefined {
   if (id === undefined) {
     return undefined;
   }
+  return HINT_DOC_IDS.find((candidate) => candidate === id);
+}
+
+export function parseBuiltinHintId(id: string): HintDocId | undefined {
   return HINT_DOC_IDS.find((candidate) => candidate === id);
 }
 

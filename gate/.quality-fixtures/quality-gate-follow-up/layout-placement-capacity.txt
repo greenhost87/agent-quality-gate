@@ -1,0 +1,2 @@
+layout/placement:app/components/features/fabrics: 31 TypeScript modules exceed the per-directory limit of 12 under app/components/features; split the directory by concern
+layout/placement:app/components/features/mailings: 16 TypeScript modules exceed the per-directory limit of 12 under app/components/features; split the directory by concern
