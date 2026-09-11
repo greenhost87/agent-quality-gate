@@ -288,7 +288,6 @@ describe('oxlint virtual groups', () => {
       'boundaries:database',
       'boundaries:config',
       'lint',
-      'ui',
     ]);
   });
 });
