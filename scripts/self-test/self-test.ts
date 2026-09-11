@@ -14,21 +14,18 @@ import {
 import { runCapturedProcess } from '../../process/run-command/run-command.js';
 import { runRequired } from '../run-required/run-required.js';
 import { resolveBunTestTimeoutMs } from './bun-test-timeout.js';
+import { resolveBunTestParallelArgs } from './bun-test-parallel.js';
 import {
   containerRuntimeUnavailableResult,
   isContainerRuntimeAvailable,
 } from './container-runtime.js';
 
-const ROOT_TEST_ARGS = [
-  'test',
-  '--parallel',
+const ROOT_TEST_PATHS = [
   './adapters',
   './scripts',
   './gate/tests',
   './presets/baseline/tests',
   './presets/playwright/tests',
-  '--timeout',
-  String(resolveBunTestTimeoutMs()),
 ] as const;
 
 export function parseSelfTestArgs(argv: readonly string[]): ParseSelfTestArgsResult {
@@ -63,7 +60,13 @@ async function runRootTests(projectRoot: string): Promise<StreamResult> {
   const startedAt = performance.now();
   const result = await runCapturedProcess({
     command: 'bun',
-    args: [...ROOT_TEST_ARGS],
+    args: [
+      'test',
+      ...resolveBunTestParallelArgs(),
+      ...ROOT_TEST_PATHS,
+      '--timeout',
+      String(resolveBunTestTimeoutMs()),
+    ],
     cwd: projectRoot,
   });
   if (result.exitCode !== 0) {
