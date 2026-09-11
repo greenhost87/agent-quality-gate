@@ -13,7 +13,7 @@
 
 ## Requirements
 
-- macOS or Linux on ARM64 or x64. Windows is not supported.
+- macOS on ARM64 or Linux on ARM64 or x64. Windows is not supported.
 - Bun 1.4.0 or newer (Bun is the only supported runtime).
 
 ## Trust boundary
