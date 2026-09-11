@@ -5,6 +5,8 @@ import { dirname, join, resolve } from 'node:path';
 import { agentQualityGateHome } from '../../config/agent-quality-gate-home/agent-quality-gate-home.js';
 import { executeVerify } from '../execute-verify/execute-verify.js';
 import type { VerifyResult } from '../execute-verify/execute-verify.js';
+import { materializeDocumentHints } from '../execute-verify/check-hints.js';
+import { compactHintsFromStructured } from './compact-hints-from-structured.js';
 import {
   findProjectForCwd,
   readGlobalQualityGateConfig,
@@ -340,8 +342,12 @@ export async function followUpForSettledResult(run: QualityGateRun): Promise<str
     return undefined;
   }
   const diagnostics = formatVerifyResultDiagnostics(run.result);
-  const hints = collectCompactHints(diagnostics);
+  const structured = compactHintsFromStructured(run.result.hints);
+  const hints = [...new Set([...collectCompactHints(diagnostics), ...structured.lines])];
   await materializeFollowUpArtifacts(run.projectRoot, hints, diagnostics);
+  if (structured.documents.length > 0) {
+    await materializeDocumentHints(run.projectRoot, structured.documents);
+  }
   return [
     `verify failed with exit code ${String(run.result.exitCode)}.`,
     VERIFY_FAILURE_REMEDIATION,

@@ -201,8 +201,11 @@ describe('verify', () => {
 
     const outputLines = verifyPresentedText(result).split('\n');
     expect(result.exitCode).toBe(1);
-    expect(verifyPresentedText(result)).toContain('unused-class-member');
-    expect(verifyPresentedText(result)).toContain('workflows.dao.ts');
+    expect(
+      outputLines.some(
+        (line) => line.includes('unused-class-member') && line.includes('workflows.dao.ts'),
+      ),
+    ).toBe(true);
     expect(outputLines.some((line) => line.startsWith('vital-signs:'))).toBe(false);
     expect(outputLines.some((line) => line.startsWith('file-score:'))).toBe(false);
   });
