@@ -14,7 +14,7 @@ import {
 import { runCapturedProcess } from '../../process/run-command/run-command.js';
 import { runRequired } from '../run-required/run-required.js';
 import { resolveBunTestTimeoutMs } from './bun-test-timeout.js';
-import { resolveBunTestParallelArgs } from './bun-test-parallel.js';
+import { isBunTestParallelEnabled, resolveBunTestParallelArgs } from './bun-test-parallel.js';
 import {
   containerRuntimeUnavailableResult,
   isContainerRuntimeAvailable,
@@ -88,10 +88,16 @@ async function runUnitSelfTest(projectRoot: string): Promise<number> {
     stderr: '',
   });
 
-  const [repository, packs] = await Promise.all([
-    runRootTests(projectRoot),
-    testLocalPresetPacks(projectRoot),
-  ]);
+  if (isBunTestParallelEnabled()) {
+    const [repository, packs] = await Promise.all([
+      runRootTests(projectRoot),
+      testLocalPresetPacks(projectRoot),
+    ]);
+    return exitCodeAfterWritingResults(repository, packs);
+  }
+
+  const repository = await runRootTests(projectRoot);
+  const packs = await testLocalPresetPacks(projectRoot);
   return exitCodeAfterWritingResults(repository, packs);
 }
 

@@ -52,13 +52,20 @@ export async function runLocalPresetSteps(
   presetNames: readonly string[],
   runStep: (presetName: string) => Promise<{ exitCode: number; stdout: string; stderr: string }>,
   failureLabel: (presetName: string) => string,
+  execution: PresetStepExecution = 'parallel',
 ): Promise<StreamResult> {
-  const settled = await Promise.all(
-    presetNames.map(async (presetName) => ({
-      presetName,
-      result: await runStep(presetName),
-    })),
-  );
+  const runPreset = async (presetName: string): Promise<PresetStepResult> => ({
+    presetName,
+    result: await runStep(presetName),
+  });
+  const settled: PresetStepResult[] = [];
+  if (execution === 'parallel') {
+    settled.push(...(await Promise.all(presetNames.map(runPreset))));
+  } else {
+    for (const presetName of presetNames) {
+      settled.push(await runPreset(presetName));
+    }
+  }
   settled.sort((left, right) => left.presetName.localeCompare(right.presetName));
 
   const stdoutParts: string[] = [];
@@ -87,3 +94,16 @@ export async function runLocalPresetSteps(
   }
   return passedLocalPresetVerify(stdoutParts);
 }
+
+export const PRESET_STEP_EXECUTIONS = ['parallel', 'sequential'] as const;
+
+export type PresetStepExecution = (typeof PRESET_STEP_EXECUTIONS)[number];
+
+type PresetStepResult = {
+  presetName: string;
+  result: {
+    exitCode: number;
+    stdout: string;
+    stderr: string;
+  };
+};
