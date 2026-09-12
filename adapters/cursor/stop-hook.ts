@@ -1,6 +1,9 @@
 #!/usr/bin/env bun
 
-import { readGlobalQualityGateConfig } from '../../config/global-config/global-config.js';
+import {
+  readGlobalQualityGateConfig,
+  type GlobalQualityGateConfig,
+} from '../../config/global-config/global-config.js';
 import { isConfiguredWorkspaceRoot } from '../../config/linked-checkout/linked-checkout.js';
 import {
   decideFollowUp,
@@ -34,13 +37,14 @@ export function parseCursorStopInput(value: object): CursorStopHookInput | undef
 export async function selectWorkspaceCwd(
   workspaceRoots: readonly string[],
   options: RegisterQualityGateOptions = {},
+  loadedConfig?: GlobalQualityGateConfig,
 ): Promise<string | undefined> {
   const workspaceRootInput = workspaceRoots[0];
   if (workspaceRoots.length !== 1 || workspaceRootInput === undefined) {
     return undefined;
   }
   const workspaceRoot = canonicalizePath(workspaceRootInput);
-  const config = await readGlobalQualityGateConfig(options.configPath);
+  const config = loadedConfig ?? (await readGlobalQualityGateConfig(options.configPath));
   return isConfiguredWorkspaceRoot(workspaceRoot, config.projects) ? workspaceRoot : undefined;
 }
 
@@ -51,17 +55,20 @@ export async function handleCursorStop(
   if (input.status !== 'completed') {
     return {};
   }
+  const config = await readGlobalQualityGateConfig(options.configPath);
+  const cwd = await selectWorkspaceCwd(input.workspace_roots, options, config);
+  if (cwd === undefined) {
+    return {};
+  }
   if (
     typeof input.transcript_path === 'string' &&
     transcriptEndsWithAskQuestion(input.transcript_path)
   ) {
     return {};
   }
-  const cwd = await selectWorkspaceCwd(input.workspace_roots, options);
-  if (cwd === undefined) {
-    return {};
-  }
-  const followUp = await followUpForSettledResult(await executeQualityGateForCwd(cwd, options));
+  const followUp = await followUpForSettledResult(
+    await executeQualityGateForCwd(cwd, options, config),
+  );
   const decision = decideFollowUp(followUp, input.loop_count ?? 0);
   if (decision.action === 'none') {
     return {};

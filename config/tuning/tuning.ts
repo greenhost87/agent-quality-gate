@@ -1,6 +1,8 @@
 /** Single home for repo-wide numeric tuning knobs (timeouts, budgets). */
 
-// Stop-hook `timeout` wired into Cursor/Claude/Codex configs by scripts/install-local.
+// Client-facing limits wired into MCP and stop-hook configs by scripts/install-local.
+export const MCP_STARTUP_TIMEOUT_SECONDS = 30;
+export const MCP_TOOL_TIMEOUT_SECONDS = 120;
 export const STOP_HOOK_TIMEOUT_SECONDS = 120;
 
 // Type-aware oxlint run kill timeout in gate/execute-verify.

@@ -1,4 +1,8 @@
 import {
+  findProjectForCwd,
+  readGlobalQualityGateConfig,
+} from '../../config/global-config/global-config.js';
+import {
   decideFollowUp,
   executeQualityGateForCwd,
   followUpForSettledResult,
@@ -17,12 +21,16 @@ export async function handleSessionStopQualityGate<TOutput extends object>(
   options: RegisterQualityGateOptions,
   context: SessionStopQualityGateContext<TOutput>,
 ): Promise<TOutput | Record<string, never>> {
+  const config = await readGlobalQualityGateConfig(options.configPath);
+  if (findProjectForCwd(input.cwd, config.projects) === undefined) {
+    return {};
+  }
   if (context.shouldSkip()) {
     resetStopSessionAttempts(context.harness, input.session_id);
     return {};
   }
   const followUp = await followUpForSettledResult(
-    await executeQualityGateForCwd(input.cwd, options),
+    await executeQualityGateForCwd(input.cwd, options, config),
   );
   if (followUp === undefined) {
     resetStopSessionAttempts(context.harness, input.session_id);

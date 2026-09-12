@@ -1,7 +1,11 @@
 import { TOML } from 'bun';
 import * as v from 'valibot';
 
-import { STOP_HOOK_TIMEOUT_SECONDS } from '../../config/tuning/tuning.js';
+import {
+  MCP_STARTUP_TIMEOUT_SECONDS,
+  MCP_TOOL_TIMEOUT_SECONDS,
+  STOP_HOOK_TIMEOUT_SECONDS,
+} from '../../config/tuning/tuning.js';
 import { pathExists, readTextFile, writeTextFile } from '../../process/files/files.js';
 import { readConfigDocument, writeConfigDocument, type ConfigDocument } from './wire-cursor.js';
 import {
@@ -17,6 +21,8 @@ export function codexMcpServerConfig(mcpServerPath: string): ConfigDocument {
   return {
     command: 'bun',
     args: [mcpServerPath],
+    startup_timeout_sec: MCP_STARTUP_TIMEOUT_SECONDS,
+    tool_timeout_sec: MCP_TOOL_TIMEOUT_SECONDS,
   };
 }
 

@@ -1,9 +1,11 @@
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterEach } from 'bun:test';
 
 import { readFixture } from '../../../tests/support/fixture-files.js';
+import {
+  makeTrackedTempDirectory,
+  removeTrackedTempDirectories,
+} from '../../../tests/support/tracked-temp-directories.js';
 import type { Diagnostic } from '../../execute-verify/check-result.js';
 
 export const tempDirectories: string[] = [];
@@ -153,15 +155,9 @@ export function packageBoundaryDiagnostics(): Diagnostic[] {
 }
 
 export async function makeTempDirectory(prefix: string): Promise<string> {
-  const directory = await mkdtemp(join(tmpdir(), prefix));
-  tempDirectories.push(directory);
-  return directory;
+  return await makeTrackedTempDirectory(tempDirectories, prefix);
 }
 
 afterEach(async () => {
-  await Promise.all(
-    tempDirectories.splice(0).map(async (directory) => {
-      await rm(directory, { recursive: true, force: true });
-    }),
-  );
+  await removeTrackedTempDirectories(tempDirectories);
 });

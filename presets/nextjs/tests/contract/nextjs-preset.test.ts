@@ -5,10 +5,8 @@ import { dirname, join } from 'node:path';
 import { resolvePresetContract } from '../../../../preset-catalog/catalog/preset-catalog.ts';
 import { useIsolatedAgentQualityGateHome } from '../../../../tests/support/isolated-home.ts';
 import { linkPresetIntoAgentQualityGateHome } from '../../../../tests/support/link-home-preset.ts';
-import {
-  createReactProject,
-  removeTrackedTempDirectories,
-} from '../../../../tests/support/react-project.ts';
+import { createReactProject } from '../../../../tests/support/react-project.ts';
+import { removeTrackedTempDirectories } from '../../../../tests/support/tracked-temp-directories.ts';
 import {
   loadGeneratedConfig,
   runOxlint,

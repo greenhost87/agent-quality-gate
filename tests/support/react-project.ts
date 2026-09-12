@@ -1,24 +1,8 @@
 import { write } from 'bun';
-import { mkdir, mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { mkdir } from 'node:fs/promises';
 import { dirname, join } from 'node:path';
 
-async function makeTrackedTempDirectory(
-  tempDirectories: string[],
-  prefix: string,
-): Promise<string> {
-  const directory = await mkdtemp(join(tmpdir(), prefix));
-  tempDirectories.push(directory);
-  return directory;
-}
-
-export async function removeTrackedTempDirectories(tempDirectories: string[]): Promise<void> {
-  await Promise.all(
-    tempDirectories.splice(0).map(async (directory) => {
-      await rm(directory, { recursive: true, force: true });
-    }),
-  );
-}
+import { makeTrackedTempDirectory } from './tracked-temp-directories.js';
 
 export async function createReactProject(tempDirectories: string[]): Promise<string> {
   const cwd = await makeTrackedTempDirectory(tempDirectories, 'aqg-react-project-');

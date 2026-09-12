@@ -1,11 +1,14 @@
-import { mkdtemp, mkdir } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { writeTextFile } from '../../../process/files/files.js';
 
 import { YAML } from 'bun';
 
 import { readFixture } from '../../../tests/support/fixture-files.js';
+import { writeNodeNextProjectScaffold } from '../../../tests/support/project-files.js';
+import {
+  makeTrackedTempDirectory,
+  takeTrackedTempDirectories,
+} from '../../../tests/support/tracked-temp-directories.js';
 
 import type {
   QualityGateExtensionApi,
@@ -17,13 +20,11 @@ const tempDirectories: string[] = [];
 const FIXTURES_ROOT = join(import.meta.dir, '..', '.quality-fixtures', 'extension');
 
 export async function makePiTempDirectory(prefix: string): Promise<string> {
-  const directory = await mkdtemp(join(tmpdir(), prefix));
-  tempDirectories.push(directory);
-  return directory;
+  return await makeTrackedTempDirectory(tempDirectories, prefix);
 }
 
 export function takePiTempDirectories(): string[] {
-  return tempDirectories.splice(0);
+  return takeTrackedTempDirectories(tempDirectories);
 }
 
 export async function writePiGlobalConfig(directory: string, value: object): Promise<string> {
@@ -37,28 +38,7 @@ export async function createPiProject(
 ): Promise<string> {
   const source = await readFixture(FIXTURES_ROOT, fixtureCase, 'src/index.ts');
   const cwd = await makePiTempDirectory('quality-gate-pi-project-');
-  await mkdir(join(cwd, 'src'));
-  await writeTextFile(
-    join(cwd, 'package.json'),
-    `${JSON.stringify({ name: 'pi-fixture', private: true, type: 'module', main: 'src/index.ts' }, null, 2)}\n`,
-  );
-  await writeTextFile(
-    join(cwd, 'tsconfig.json'),
-    `${JSON.stringify(
-      {
-        compilerOptions: {
-          module: 'NodeNext',
-          moduleResolution: 'NodeNext',
-          noEmit: true,
-          strict: true,
-          target: 'ES2022',
-        },
-        include: ['src/**/*.ts'],
-      },
-      null,
-      2,
-    )}\n`,
-  );
+  await writeNodeNextProjectScaffold(cwd, 'pi-fixture');
   await writeTextFile(join(cwd, 'src', 'index.ts'), source);
   return cwd;
 }
@@ -125,6 +105,15 @@ export function createPiExtensionHost(
     },
   };
 
+  async function runHandlers(
+    handlers: ReadonlyArray<(cwd: string) => Promise<void>>,
+    cwd: string,
+  ): Promise<void> {
+    for (const handler of handlers.slice()) {
+      await handler(cwd);
+    }
+  }
+
   return {
     pi,
     subscribed,
@@ -138,14 +127,10 @@ export function createPiExtensionHost(
       return activeTools.slice();
     },
     async emitSessionStart(cwd: string) {
-      for (const handler of sessionStarts.slice()) {
-        await handler(cwd);
-      }
+      await runHandlers(sessionStarts, cwd);
     },
     async emitAgentSettled(cwd: string) {
-      for (const handler of settled.slice()) {
-        await handler(cwd);
-      }
+      await runHandlers(settled, cwd);
     },
   };
 }

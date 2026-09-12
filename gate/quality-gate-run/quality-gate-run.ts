@@ -12,6 +12,7 @@ import type { Diagnostic } from '../execute-verify/check-result.js';
 import {
   findProjectForCwd,
   readGlobalQualityGateConfig,
+  type GlobalQualityGateConfig,
 } from '../../config/global-config/global-config.js';
 import { resolveLinkedCheckoutRoot } from '../../config/linked-checkout/linked-checkout.js';
 import { writeTextFile } from '../../process/files/files.js';
@@ -120,11 +121,12 @@ export async function logQualityGateInternalFailure(
 export async function executeQualityGateForCwd(
   cwd: string,
   options: RegisterQualityGateOptions = {},
+  loadedConfig?: GlobalQualityGateConfig,
 ): Promise<QualityGateRun> {
   let projectRoot: string | undefined;
   const startedAt = performance.now();
   try {
-    const config = await readGlobalQualityGateConfig(options.configPath);
+    const config = loadedConfig ?? (await readGlobalQualityGateConfig(options.configPath));
     const project = findProjectForCwd(cwd, config.projects);
     if (project === undefined) {
       const resolvedCwd = resolve(cwd);

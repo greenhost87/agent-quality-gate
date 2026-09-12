@@ -70,6 +70,10 @@
     "thin-wrapper": "error",
     "duplicate-prop-shape": "error"
   },
-  "production": true,
+  "production": {
+    "deadCode": true,
+    "health": true,
+    "dupes": false
+  },
   "includeEntryExports": false
 }
