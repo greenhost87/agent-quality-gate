@@ -19,8 +19,13 @@ export type QualityGateExtensionContext = {
   sessionManager?: QualityGateSessionManager;
 };
 
-export type AgentSettledEvent = {
-  reason?: string;
+export type AgentEndMessage = {
+  role?: string;
+  stopReason?: string;
+};
+
+export type AgentEndEvent = {
+  messages: readonly AgentEndMessage[];
 };
 
 export type SessionStartEvent = {
@@ -48,11 +53,18 @@ export type QualityGateExtensionApi = {
   getActiveTools(): string[];
   setActiveTools(names: readonly string[]): void;
   on(
-    event: 'session_start' | 'agent_settled',
+    event: 'session_start' | 'agent_end',
     handler: (
-      event: SessionStartEvent | AgentSettledEvent,
+      event: SessionStartEvent | AgentEndEvent,
       ctx: QualityGateExtensionContext,
     ) => Promise<void>,
   ): void;
-  sendUserMessage(content: string, options?: { deliverAs?: 'followUp' | 'steer' }): void;
+  sendMessage(
+    message: {
+      customType: string;
+      content: string;
+      display: boolean;
+    },
+    options: { triggerTurn: true; deliverAs: 'followUp' },
+  ): void;
 };

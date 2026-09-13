@@ -1,6 +1,10 @@
 import { Type } from 'typebox';
 
-import type { QualityGateExtensionApi } from './extension-api.types.js';
+import type {
+  AgentEndEvent,
+  QualityGateExtensionApi,
+  SessionStartEvent,
+} from './extension-api.types.js';
 import {
   createGlobalQualityGateConfig,
   findProjectForCwd,
@@ -20,10 +24,20 @@ import { activeToolNamesForCwd } from './verify-tool-visibility.js';
 const VERIFY_PROMPT_SNIPPET = 'Run Oxlint and Fallow quality checks for the configured workspace';
 
 const VERIFY_PROMPT_GUIDELINES = [
-  'The stop/settled gate already runs verify; do not call verify after every JavaScript or TypeScript edit.',
+  'The completion gate already runs verify; do not call verify after every JavaScript or TypeScript edit.',
   'Call verify mid-task only when you want earlier feedback; on failure, fix only the listed source-file violations and do not search for verify tooling or quality-gate packages.',
-  'Do not consider the task complete while the settle/stop verify follow-up still reports failures.',
+  'Do not consider the task complete while the completion-gate verify follow-up still reports failures.',
 ];
+
+const NON_TERMINAL_STOP_REASONS = new Set(['aborted', 'error', 'length']);
+
+function agentEndCanSettle(event: AgentEndEvent | SessionStartEvent): boolean {
+  if (!('messages' in event)) {
+    return false;
+  }
+  const stopReason = event.messages.findLast((message) => message.role === 'assistant')?.stopReason;
+  return stopReason === undefined || !NON_TERMINAL_STOP_REASONS.has(stopReason);
+}
 
 async function workspaceIsConfigured(
   cwd: string,
@@ -65,9 +79,9 @@ async function bindConfiguredWorkspace(
   let followUpAttempts = 0;
   registerVerifyTool(pi, options);
   pi.setActiveTools(await activeToolNamesForCwd(cwd, pi.getActiveTools(), options.configPath));
-  pi.on('agent_settled', async (_event, ctx) => {
+  pi.on('agent_end', async (event, ctx) => {
     const branch = ctx.sessionManager?.getBranch() ?? [];
-    if (branchEndsWithAskUser(branch)) {
+    if (!agentEndCanSettle(event) || branchEndsWithAskUser(branch)) {
       return;
     }
     const followUp = await followUpForSettledResult(
@@ -82,7 +96,14 @@ async function bindConfiguredWorkspace(
       return;
     }
     followUpAttempts += 1;
-    pi.sendUserMessage(decision.message, { deliverAs: 'followUp' });
+    pi.sendMessage(
+      {
+        customType: 'agent-quality-gate',
+        content: decision.message,
+        display: true,
+      },
+      { triggerTurn: true, deliverAs: 'followUp' },
+    );
   });
 }
 

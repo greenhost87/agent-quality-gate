@@ -28,6 +28,20 @@ async function listPublicLedgerTables(client: SQL): Promise<string[]> {
 }
 
 describe('database runtime integration', () => {
+  test('uses PostgreSQL settings optimized for test performance', async () => {
+    await using client = new SQL(getRequiredEnv('DATABASE_URL'));
+    const query = await file(join(fixturesDirectory, 'list-test-durability-settings.sql')).text();
+    const settings = await client.unsafe<{ name: string; setting: string }[]>(query);
+
+    expect(settings).toEqual([
+      { name: 'fsync', setting: 'off' },
+      { name: 'full_page_writes', setting: 'off' },
+      { name: 'max_wal_senders', setting: '0' },
+      { name: 'synchronous_commit', setting: 'off' },
+      { name: 'wal_level', setting: 'minimal' },
+    ]);
+  });
+
   test('starts from migrated baseline seed data', async () => {
     const items = await listRuntimeItems();
     expect(items.map((item) => item.name)).toEqual(['seed']);

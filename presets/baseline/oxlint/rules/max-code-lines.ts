@@ -34,8 +34,7 @@ export default defineRule({
       },
     ],
     messages: {
-      tooManyLines:
-        'File has {{count}} code lines; maximum is {{max}}. Imports, comments, and blank lines are excluded.',
+      tooManyLines: '{{count}} of {{max}}',
     },
   },
   createOnce(context) {

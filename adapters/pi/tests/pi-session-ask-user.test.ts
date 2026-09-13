@@ -23,7 +23,7 @@ afterEach(async () => {
   );
 });
 
-describe('pi ask_user settle skip', () => {
+describe('pi ask_user completion skip', () => {
   it('skips follow-up when the last assistant branch turn used ask_user', async () => {
     const cwd = await createPiProject('debugger-with-export');
     const configPath = await writePiGlobalConfig(
@@ -46,7 +46,7 @@ describe('pi ask_user settle skip', () => {
 
     registerQualityGate(host.pi, { configPath });
     await host.emitSessionStart(cwd);
-    await host.emitAgentSettled(cwd);
+    await host.emitAgentEnd(cwd);
 
     expect(host.followUps).toEqual([]);
   });
@@ -87,7 +87,7 @@ describe('pi ask_user settle skip', () => {
 
     registerQualityGate(host.pi, { configPath });
     await host.emitSessionStart(cwd);
-    await host.emitAgentSettled(cwd);
+    await host.emitAgentEnd(cwd);
 
     expect(host.followUps.join('\n')).toContain('no-debugger');
   });

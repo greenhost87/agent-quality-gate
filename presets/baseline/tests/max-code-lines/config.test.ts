@@ -56,8 +56,8 @@ it('enforces 400 TS and 500 TSX code lines through baseline overrides', async ()
     ]);
     expect(stderr).toBe('');
     expect(status).toBe(1);
-    expect(stdout).toContain('File has 401 code lines; maximum is 400');
-    expect(stdout).toContain('File has 501 code lines; maximum is 500');
+    expect(stdout).toContain('401 of 400');
+    expect(stdout).toContain('501 of 500');
     expect(stdout).not.toContain('at-limit.ts');
   } finally {
     rmSync(root, { recursive: true, force: true });

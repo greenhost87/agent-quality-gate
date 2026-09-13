@@ -55,20 +55,22 @@ async function dropDatabase(client: SQL, databaseName: string): Promise<void> {
   await client.unsafe(`DROP DATABASE IF EXISTS ${quoteIdentifier(databaseName)} WITH (FORCE)`);
 }
 
+async function dropApplicationDatabaseWithClient(client: SQL): Promise<void> {
+  await terminateDatabaseConnections(client, APPLICATION_DATABASE_NAME);
+  await dropDatabase(client, APPLICATION_DATABASE_NAME);
+}
+
 export async function recreateApplicationDatabaseFromTemplate(): Promise<void> {
   await withAdminClient(async (client) => {
-    await dropApplicationDatabase();
+    await dropApplicationDatabaseWithClient(client);
     await client.unsafe(
-      `CREATE DATABASE ${quoteIdentifier(APPLICATION_DATABASE_NAME)} TEMPLATE ${quoteIdentifier(TEST_DATABASE.templateName)}`,
+      `CREATE DATABASE ${quoteIdentifier(APPLICATION_DATABASE_NAME)} TEMPLATE ${quoteIdentifier(TEST_DATABASE.templateName)} STRATEGY = FILE_COPY`,
     );
   });
 }
 
 export async function dropApplicationDatabase(): Promise<void> {
-  await withAdminClient(async (client) => {
-    await terminateDatabaseConnections(client, APPLICATION_DATABASE_NAME);
-    await dropDatabase(client, APPLICATION_DATABASE_NAME);
-  });
+  await withAdminClient(dropApplicationDatabaseWithClient);
 }
 
 export async function ensureWorkerApplicationDatabase(): Promise<void> {
@@ -96,6 +98,22 @@ async function startSharedTestDatabaseContainer(): Promise<StartedPostgreSqlCont
     .withDatabase(TEST_DATABASE.bootstrapName)
     .withUsername(TEST_DATABASE.user)
     .withPassword(TEST_DATABASE.password)
+    .withTmpFs({
+      '/var/lib/postgresql': 'rw,noexec,nosuid,size=1g',
+    })
+    .withCommand([
+      'postgres',
+      '-c',
+      'fsync=off',
+      '-c',
+      'synchronous_commit=off',
+      '-c',
+      'full_page_writes=off',
+      '-c',
+      'wal_level=minimal',
+      '-c',
+      'max_wal_senders=0',
+    ])
     .withWaitStrategy(Wait.forHealthCheck())
     .start();
   console.log('[Test Mode] PostgreSQL container started via Testcontainers');

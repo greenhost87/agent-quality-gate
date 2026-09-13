@@ -197,7 +197,7 @@ describe('pi extension', () => {
     expect(host.subscribed).toEqual(['session_start']);
 
     await host.emitSessionStart(cwd);
-    await host.emitAgentSettled(cwd);
+    await host.emitAgentEnd(cwd);
 
     expect(host.subscribed).toEqual(['session_start']);
     expect(host.registeredTools).toEqual([]);
@@ -219,31 +219,31 @@ describe('pi extension', () => {
     expect(host.subscribed).toEqual(['session_start']);
 
     await host.emitSessionStart(cwd);
-    expect(host.subscribed).toEqual(['session_start', 'agent_settled']);
+    expect(host.subscribed).toEqual(['session_start', 'agent_end']);
     expect(host.registeredTools).toEqual([
       {
         name: VERIFY_TOOL_NAME,
         promptSnippet: 'Run Oxlint and Fallow quality checks for the configured workspace',
         promptGuidelines: [
-          'The stop/settled gate already runs verify; do not call verify after every JavaScript or TypeScript edit.',
+          'The completion gate already runs verify; do not call verify after every JavaScript or TypeScript edit.',
           'Call verify mid-task only when you want earlier feedback; on failure, fix only the listed source-file violations and do not search for verify tooling or quality-gate packages.',
-          'Do not consider the task complete while the settle/stop verify follow-up still reports failures.',
+          'Do not consider the task complete while the completion-gate verify follow-up still reports failures.',
         ],
       },
     ]);
     expect(host.activeTools()).toContain(VERIFY_TOOL_NAME);
 
     await host.emitSessionStart(cwd);
-    expect(host.subscribed).toEqual(['session_start', 'agent_settled']);
+    expect(host.subscribed).toEqual(['session_start', 'agent_end']);
 
-    await host.emitAgentSettled(cwd);
+    await host.emitAgentEnd(cwd);
     expect(host.followUps.join('\n')).toContain('no-debugger');
   });
 
-  it('lets an allowlisted workspace settle when verify passes', async () => {
-    const cwd = await createPiProject('clean-function');
+  it('does not run the completion gate before retry or compaction recovery', async () => {
+    const cwd = await createPiProject('debugger-with-export');
     const configPath = await writePiGlobalConfig(
-      await makePiTempDirectory('quality-gate-pi-settle-ok-'),
+      await makePiTempDirectory('quality-gate-pi-recovery-'),
       {
         projects: [{ root: cwd, entries: ['src/index.ts'] }],
       },
@@ -252,12 +252,32 @@ describe('pi extension', () => {
 
     registerQualityGate(host.pi, { configPath });
     await host.emitSessionStart(cwd);
-    await host.emitAgentSettled(cwd);
+
+    await host.emitAgentEnd(cwd, 'error');
+    await host.emitAgentEnd(cwd, 'length');
+    await host.emitAgentEnd(cwd, 'aborted');
 
     expect(host.followUps).toEqual([]);
   });
 
-  it('caps follow-ups on repeated failed settles and escalates on the last attempt', async () => {
+  it('lets an allowlisted workspace complete when verify passes', async () => {
+    const cwd = await createPiProject('clean-function');
+    const configPath = await writePiGlobalConfig(
+      await makePiTempDirectory('quality-gate-pi-complete-ok-'),
+      {
+        projects: [{ root: cwd, entries: ['src/index.ts'] }],
+      },
+    );
+    const host = createPiExtensionHost();
+
+    registerQualityGate(host.pi, { configPath });
+    await host.emitSessionStart(cwd);
+    await host.emitAgentEnd(cwd);
+
+    expect(host.followUps).toEqual([]);
+  });
+
+  it('caps follow-ups on repeated failed completions and escalates on the last attempt', async () => {
     const cwd = await createPiProject('debugger-with-export');
     const configPath = await writePiGlobalConfig(
       await makePiTempDirectory('quality-gate-pi-budget-'),
@@ -270,9 +290,9 @@ describe('pi extension', () => {
     registerQualityGate(host.pi, { configPath });
     await host.emitSessionStart(cwd);
 
-    await host.emitAgentSettled(cwd);
-    await host.emitAgentSettled(cwd);
-    await host.emitAgentSettled(cwd);
+    await host.emitAgentEnd(cwd);
+    await host.emitAgentEnd(cwd);
+    await host.emitAgentEnd(cwd);
     expect(host.followUps).toHaveLength(3);
     expect(host.followUps[0]).toContain('no-debugger');
     expect(host.followUps[0]).not.toContain('Retry budget exhausted');
@@ -280,7 +300,7 @@ describe('pi extension', () => {
       'Retry budget exhausted. Stop and report the blocker to the user.',
     );
 
-    await host.emitAgentSettled(cwd);
+    await host.emitAgentEnd(cwd);
     expect(host.followUps).toHaveLength(3);
   });
 });

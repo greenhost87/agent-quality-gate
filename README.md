@@ -31,7 +31,7 @@ Adoption is: a human edits gate config once (roots, entries, presets, optional `
 
 ## Supported harnesses
 
-- [Pi](https://github.com/earendil-works/pi): coding-agent extension that registers a `verify` tool and re-runs the gate on `agent_settled`. Requires Pi itself to run under Bun (see [Pi](#pi) below).
+- [Pi](https://github.com/earendil-works/pi): coding-agent extension that registers a `verify` tool and re-runs the gate on `agent_end`, queuing failures inside the active prompt lifecycle. Requires Pi itself to run under Bun (see [Pi](#pi) below).
 - Cursor: MCP `verify` tool plus a stop hook that re-runs the gate when the agent status is `completed`.
 - Claude Code: MCP `verify` tool plus a Stop command hook. CLI TUI, the VS Code extension, and the Desktop Code tab share user-scope `~/.claude.json` and `~/.claude/settings.json`.
 - Codex: MCP `verify` tool plus a Stop command hook. CLI TUI, the VS Code extension, and the ChatGPT desktop app share user-scope `~/.codex/config.toml` and `~/.codex/hooks.json`.
@@ -83,11 +83,11 @@ Run `bun ./install.ts` (or install from a GitHub Release tarball) so user-scope 
 
 ## Usage
 
-Pi exposes `verify` only when `ctx.cwd` is inside a configured project root, or inside a git worktree that shares that project's repository. The deepest matching ancestor root wins when more than one configured root contains the working directory. Workspaces outside the allowlist do not see the tool and are not checked on `agent_settled`.
+Pi exposes `verify` only when `ctx.cwd` is inside a configured project root, or inside a git worktree that shares that project's repository. The deepest matching ancestor root wins when more than one configured root contains the working directory. Workspaces outside the allowlist do not see the tool and are not checked on `agent_end`.
 
-On `agent_settled` (Pi), a completed Cursor stop, a Claude Code Stop hook, or a Codex Stop hook, the same check runs. A passing run lets the agent finish. A failing run returns diagnostics and remediation so the agent continues until the gate passes (within the follow-up budget).
+On a terminal `agent_end` (Pi), a completed Cursor stop, a Claude Code Stop hook, or a Codex Stop hook, the same check runs. Pi skips error, length, and aborted endings so its retry and compaction recovery can proceed first. A passing run lets the agent finish. A failing run returns diagnostics and remediation so the agent continues until the gate passes (within the follow-up budget).
 
-Pi system guidance no longer tells agents to call `verify` after every JavaScript or TypeScript edit; the settle/stop hook already runs the gate. Call `verify` mid-task only when you want earlier feedback.
+Pi system guidance no longer tells agents to call `verify` after every JavaScript or TypeScript edit; the completion/stop hook already runs the gate. Call `verify` mid-task only when you want earlier feedback.
 
 The check uses the Oxlint and Fallow policy shipped in this package. Project-local Oxlint, Fallow, or tool config files cannot weaken or disable those rules. Tools run with the project root as `cwd` and do not require a project-local installation of `agent-quality-gate`. Each run writes ephemeral Oxlint/Fallow configs under `.aqg/oxlint/` and `.aqg/fallow/` with per-call run ids so parallel agents in the same workspace do not clobber each other; those files are removed after the run.
 

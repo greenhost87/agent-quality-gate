@@ -33,7 +33,7 @@ describe('max-code-lines', () => {
         { max: count - 1 },
       ]);
       expect(result.status).toBe(1);
-      expect(result.output).toContain(`File has ${String(count)} code lines`);
+      expect(result.output).toContain(`${String(count)} of ${String(count - 1)}`);
     });
   }
 });

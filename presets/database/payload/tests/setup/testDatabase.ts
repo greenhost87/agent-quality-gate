@@ -8,11 +8,19 @@ import {
 } from './testDatabase.bootstrap';
 
 export function useIsolatedTestDatabase(_testId: string): void {
+  let databaseIsFresh = false;
+
   beforeAll(async () => {
     await ensureWorkerApplicationDatabase();
+    databaseIsFresh = true;
   }, 120_000);
 
   beforeEach(async () => {
+    if (databaseIsFresh) {
+      databaseIsFresh = false;
+      return;
+    }
+
     await closeDatabase().catch(() => undefined);
     await recreateApplicationDatabaseFromTemplate();
   }, 30_000);

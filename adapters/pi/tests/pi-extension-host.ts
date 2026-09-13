@@ -11,6 +11,7 @@ import {
 } from '../../../tests/support/tracked-temp-directories.js';
 
 import type {
+  AgentEndEvent,
   QualityGateExtensionApi,
   QualityGateExtensionContext,
 } from '../extension-api.types.js';
@@ -55,7 +56,7 @@ export function createPiExtensionHost(
   const followUps: string[] = [];
   const notifications: string[] = [];
   const sessionStarts: Array<(cwd: string) => Promise<void>> = [];
-  const settled: Array<(cwd: string) => Promise<void>> = [];
+  const agentEnds: Array<(cwd: string, event: AgentEndEvent) => Promise<void>> = [];
   let activeTools = ['read', 'bash'];
   let branch: readonly SessionBranchEntry[] = hostOptions.branch ?? [];
 
@@ -89,19 +90,18 @@ export function createPiExtensionHost(
     },
     on(event, handler) {
       subscribed.push(event);
-      const run = async (cwd: string) => {
-        await handler({ reason: 'startup' }, contextFor(cwd));
-      };
       if (event === 'session_start') {
-        sessionStarts.push(run);
+        sessionStarts.push(async (cwd) => {
+          await handler({ reason: 'startup' }, contextFor(cwd));
+        });
         return;
       }
-      settled.push(run);
+      agentEnds.push(async (cwd, agentEnd) => {
+        await handler(agentEnd, contextFor(cwd));
+      });
     },
-    sendUserMessage(content, options) {
-      if (options?.deliverAs === 'followUp') {
-        followUps.push(content);
-      }
+    sendMessage(message, _options) {
+      followUps.push(message.content);
     },
   };
 
@@ -129,8 +129,13 @@ export function createPiExtensionHost(
     async emitSessionStart(cwd: string) {
       await runHandlers(sessionStarts, cwd);
     },
-    async emitAgentSettled(cwd: string) {
-      await runHandlers(settled, cwd);
+    async emitAgentEnd(cwd: string, stopReason = 'stop') {
+      const event: AgentEndEvent = {
+        messages: [{ role: 'assistant', stopReason }],
+      };
+      for (const handler of agentEnds.slice()) {
+        await handler(cwd, event);
+      }
     },
   };
 }
