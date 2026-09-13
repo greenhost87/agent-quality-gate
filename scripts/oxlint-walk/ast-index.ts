@@ -1,7 +1,7 @@
 import { type ESTree } from '@oxlint/plugins';
 import * as v from 'valibot';
 
-import { AstNodeSchema, forEachAstChild } from './ast-node-schema.ts';
+import { AstNodeSchema, forEachAstChildWithKey } from './ast-node-schema.ts';
 
 const TYPE_SUBTREE_KEYS = new Set(['typeAnnotation', 'returnType', 'typeParameters']);
 const EMPTY_NODES: readonly ESTree.Node[] = Object.freeze([]);
@@ -76,10 +76,7 @@ function buildAstIndex(program: ESTree.Node): AstIndex {
       pushByType(runtimeByType, node);
     }
 
-    forEachAstChild(node, (child, key) => {
-      if (!isProgramAstNode(child)) {
-        return;
-      }
+    forEachAstChildWithKey(node, (child, key) => {
       scan(child, node, runtime && !TYPE_SUBTREE_KEYS.has(key));
     });
   }

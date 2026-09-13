@@ -51,9 +51,7 @@ function walkNode(node: ESTree.Node, parent: ESTree.Node | null, visitors: Visit
   callVisitor(visitors, node.type, node);
 
   forEachAstChild(node, (child) => {
-    if (isAstNode(child)) {
-      walkNode(child, node, visitors);
-    }
+    walkNode(child, node, visitors);
   });
 
   callVisitor(visitors, `${node.type}:exit`, node);

@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { parseSync } from 'oxc-parser';
 
+import { forEachAstChild, forEachAstChildWithKey } from '../ast-node-schema.ts';
 import {
   astIndex,
   astIndexBuildStats,
@@ -58,6 +59,54 @@ describe('agent-quality-gate/oxlint-walk', () => {
     expect(types[0]).toBe('Program');
     expect(types).toContain('VariableDeclaration');
     expect(types).toContain('Literal');
+  });
+
+  it('walkAst observes AST changes and visitor side effects on every call', () => {
+    const program = parseProgram('const first = 1;');
+    let visits = 0;
+    let declarators = 0;
+    walkAst(program, (node) => {
+      visits += 1;
+      if (node.type === 'VariableDeclarator') {
+        declarators += 1;
+      }
+    });
+    const firstVisits = visits;
+    expect(declarators).toBe(1);
+
+    const addition = parseProgram('const second = 2;');
+    Reflect.set(program, 'body', [...program.body, ...addition.body]);
+    walkAst(program, (node) => {
+      visits += 1;
+      if (node.type === 'VariableDeclarator') {
+        declarators += 1;
+      }
+    });
+    expect(visits).toBeGreaterThan(firstVisits * 2);
+    expect(declarators).toBe(3);
+  });
+
+  it('forEachAstChild keeps the keyless fast path and exposes keys only on demand', () => {
+    const program = parseProgram('const value = 1;');
+    const argumentCounts: number[] = [];
+    forEachAstChild(program, (...args) => {
+      argumentCounts.push(args.length);
+    });
+    expect(argumentCounts).toEqual([1]);
+
+    const keyedChildren: string[] = [];
+    forEachAstChildWithKey(program, (child, key) => {
+      keyedChildren.push(`${key}:${child.type}`);
+    });
+    expect(keyedChildren).toEqual(['body:VariableDeclaration']);
+
+    forEachAstChildWithKey(
+      program,
+      () => {
+        throw new Error('skipKeys should omit the Program body');
+      },
+      { skipKeys: new Set(['body']) },
+    );
   });
 
   it('isAstNode accepts nodes and rejects primitives', () => {

@@ -16,9 +16,7 @@ export function childNodes(
   forEachAstChild(
     node,
     (child) => {
-      if (isAstNode(child)) {
-        children.push(child);
-      }
+      children.push(child);
     },
     options,
   );
