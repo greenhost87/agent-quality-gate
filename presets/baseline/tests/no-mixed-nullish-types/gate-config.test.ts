@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'bun:test';
 
-import { applyConfiguredRules, parsePresetConfig } from '../../gate-config.ts';
-import type { OxlintRuleSetting } from 'agent-quality-gate/oxlint-config-types';
+import {
+  applyConfiguredRules,
+  parsePresetConfig,
+} from 'agent-quality-gate/internal/presets/baseline/gate-config.ts';
+import type { OxlintRuleSetting } from 'agent-quality-gate/shared/oxlint';
 
 describe('baseline noMixedNullishTypes config', () => {
   it('disables the on-by-default rule', () => {

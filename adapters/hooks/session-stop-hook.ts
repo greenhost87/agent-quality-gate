@@ -4,7 +4,7 @@ import { transcriptEndsWithAskUserQuestion } from '../claude/transcript-ask-user
 
 import { transcriptEndsWithAskUserInput } from '../codex/transcript-ask-user-input.js';
 import { handleSessionStopQualityGate } from './handle-session-stop-quality-gate.js';
-import type { RegisterQualityGateOptions } from '../../gate/quality-gate-run/quality-gate-run.js';
+import type { RegisterQualityGateOptions } from '#system/gate/quality-gate-run/quality-gate-run.js';
 import { runSessionStopHookMain } from './run-session-stop-hook.js';
 import { SessionStopHookBaseSchema } from './session-stop-hook-input.js';
 import type { StopSessionHarness } from './stop-session-attempts.js';

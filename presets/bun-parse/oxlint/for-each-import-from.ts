@@ -1,7 +1,7 @@
 import type { ESTree } from '@oxlint/plugins';
 
-import { astIndex } from '../../../scripts/oxlint-walk/ast-index.ts';
-import { walkAst } from '../../../scripts/oxlint-walk/oxlint-walk.ts';
+import { astIndex } from 'agent-quality-gate/shared/oxlint';
+import { walkAst } from 'agent-quality-gate/shared/oxlint';
 
 export function forEachImportSpecifierFrom(
   root: ESTree.Node,

@@ -19,10 +19,10 @@
   "include": [
     "build-examples-md.ts",
     "check.ts",
+    "gate-config.ts",
     "examples/**/*.ts",
     "oxlint/**/*.ts",
     "payload/**/*.ts",
-    "tests/**/*.ts",
-    "../../preset-catalog/database/**/*.ts"
+    "tests/**/*.ts"
   ]
 }

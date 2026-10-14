@@ -1,8 +1,8 @@
-import { packageBoundaries } from '../../../oxlint/package-boundaries.ts';
+import { packageBoundaries } from 'agent-quality-gate/internal/presets/layout/oxlint/package-boundaries.ts';
 
-import { benchCreateOnceRule } from 'agent-quality-gate/oxlint-rule-bench';
-import { repeat } from 'agent-quality-gate/oxlint-rule-bench/hot-code';
-import type { BenchCreateOnceRuleInput } from 'agent-quality-gate/oxlint-rule-bench/types';
+import { benchCreateOnceRule } from 'agent-quality-gate/testing/oxlint';
+import { repeat } from 'agent-quality-gate/testing/oxlint';
+import type { BenchCreateOnceRuleInput } from 'agent-quality-gate/testing/oxlint';
 
 export const packageBoundariesBench: BenchCreateOnceRuleInput = {
   name: 'package-boundaries',

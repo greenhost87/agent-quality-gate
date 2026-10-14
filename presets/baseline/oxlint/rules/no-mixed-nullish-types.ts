@@ -1,4 +1,4 @@
-import { defineNullishAbsenceRule } from '../nullish-absence.ts';
+import { defineNullishAbsenceRule } from 'agent-quality-gate/internal/presets/baseline/oxlint/nullish-absence.ts';
 
 export default defineNullishAbsenceRule({
   messageId: 'mixedNullish',

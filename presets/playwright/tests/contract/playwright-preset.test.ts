@@ -1,16 +1,30 @@
 import { mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { writeTextFile } from '../../../../process/files/files.ts';
+import { writeTextFile } from 'agent-quality-gate/shared/verify';
 
-import { afterEach, describe, expect, it } from 'bun:test';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'bun:test';
 
-import { executeVerify } from '../../../../gate/execute-verify/execute-verify.ts';
-import { resolvePresetContract } from '../../../../preset-catalog/catalog/preset-catalog.ts';
-import { useIsolatedAgentQualityGateHome } from '../../../../tests/support/isolated-home.ts';
-import { verifyPresentedText } from '../../../../tests/support/verify-result-text.ts';
+import { executeVerify } from 'agent-quality-gate/shared/verify';
+import { resolvePresetContract } from 'agent-quality-gate/shared/verify';
+let isolatedHome = '';
+let previousHome: string | undefined;
 
-useIsolatedAgentQualityGateHome();
+beforeAll(async () => {
+  isolatedHome = await mkdtemp(join(tmpdir(), 'aqg-home-'));
+  previousHome = process.env.AGENT_QUALITY_GATE_HOME;
+  process.env.AGENT_QUALITY_GATE_HOME = isolatedHome;
+});
+
+beforeEach(() => {
+  process.env.AGENT_QUALITY_GATE_HOME = isolatedHome;
+});
+
+afterAll(async () => {
+  if (previousHome === undefined) delete process.env.AGENT_QUALITY_GATE_HOME;
+  else process.env.AGENT_QUALITY_GATE_HOME = previousHome;
+  await rm(isolatedHome, { recursive: true, force: true });
+});
 
 const tempDirectories: string[] = [];
 
@@ -45,9 +59,7 @@ describe('playwright preset contract', () => {
       severity: 'error',
       phase: 'boundaries',
     });
-    expect(contract.files.map((file) => file.destination)).toEqual([
-      'scripts/playwright-web-server.ts',
-    ]);
+    expect(contract.files).toEqual([]);
   });
 
   it('does not require a Playwright config when the project has no e2e surface', async () => {
@@ -64,11 +76,8 @@ describe('playwright preset contract', () => {
       entries: ['src/index.ts'],
       presets: ['playwright'],
     });
-    const output = verifyPresentedText(result);
-    expect(result.exitCode).toBe(1);
-    expect(output).toContain('scripts/playwright-web-server.ts (missing)');
-    expect(output).toContain('example .aqg/playwright/scripts/playwright-web-server.ts');
-    expect(output).not.toContain('playwright-config:');
+    expect(result.exitCode).toBe(0);
+    expect(JSON.stringify(result)).not.toContain('playwright-config:');
   });
 
   it('requires a Playwright config when @playwright/test is a dependency', async () => {
@@ -88,13 +97,18 @@ describe('playwright preset contract', () => {
       )}\n`,
     );
     await writeTextFile(join(cwd, 'src/index.ts'), 'export const value = 1;\n');
+    await mkdir(join(cwd, 'node_modules', '@playwright', 'test'), { recursive: true });
+    await writeTextFile(
+      join(cwd, 'node_modules', '@playwright', 'test', 'package.json'),
+      '{"name":"@playwright/test"}\n',
+    );
 
     const inactive = await executeVerify({
       projectRoot: cwd,
       entries: ['src/index.ts'],
     });
     expect(inactive.exitCode).toBe(0);
-    expect(verifyPresentedText(inactive)).not.toContain('playwright/config');
+    expect(JSON.stringify(inactive)).not.toContain('playwright/config');
 
     const active = await executeVerify({
       projectRoot: cwd,
@@ -102,8 +116,8 @@ describe('playwright preset contract', () => {
       presets: ['playwright'],
     });
     expect(active.exitCode).toBe(1);
-    expect(verifyPresentedText(active)).toContain('playwright/config');
-    expect(verifyPresentedText(active)).toContain(
+    expect(JSON.stringify(active)).toContain('playwright/config');
+    expect(JSON.stringify(active)).toContain(
       'add playwright.config.ts with use.baseURL and webServer',
     );
   });

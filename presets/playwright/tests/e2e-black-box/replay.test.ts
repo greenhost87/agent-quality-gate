@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'bun:test';
 
-import { replayCreateOnceRule } from 'agent-quality-gate/oxlint-rule-bench';
-import { createBenchRuleContext } from 'agent-quality-gate/oxlint-rule-bench/create-bench-context';
-import { requireCreateOnceRule } from 'agent-quality-gate/oxlint-rule-bench/require-create-once-rule';
-import { HOT } from 'agent-quality-gate/oxlint-rule-bench/hot-code';
+import { replayCreateOnceRule } from 'agent-quality-gate/testing/oxlint';
+import { createBenchRuleContext } from 'agent-quality-gate/testing/oxlint';
+import { requireCreateOnceRule } from 'agent-quality-gate/testing/oxlint';
+import { HOT } from 'agent-quality-gate/testing/oxlint';
 
-import { itRegistersTypedVisitors } from '../support/expect-typed-visitors.ts';
+import { itRegistersTypedVisitors } from 'agent-quality-gate/internal/presets/playwright/tests/support/expect-typed-visitors.ts';
 import { e2eBlackBoxBench } from './bench.ts';
 
 describe('e2e-black-box visitors', () => {

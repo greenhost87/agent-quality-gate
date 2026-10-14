@@ -42,6 +42,13 @@ jobs:
         run: bun install --frozen-lockfile
         working-directory: presets/config
 
+      - name: Link source package for preset checks
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/node_modules"
+          if [ ! -e "$GITHUB_WORKSPACE/node_modules/agent-quality-gate" ]; then
+            ln -s "$GITHUB_WORKSPACE" "$GITHUB_WORKSPACE/node_modules/agent-quality-gate"
+          fi
+
       - name: Verify config preset
         run: bun run verify
         working-directory: presets/config
@@ -56,6 +63,12 @@ jobs:
 
       - name: Verify
         run: bun run --silent verify
+
+      - name: Typecheck
+        run: bun run typecheck
+
+      - name: Typecheck baseline preset
+        run: bun run typecheck:baseline
 
       - name: Build and test
         run: bun run test
@@ -81,6 +94,13 @@ jobs:
       - name: Install database preset
         run: bun install --frozen-lockfile
         working-directory: presets/database
+
+      - name: Link source package for preset integration
+        run: |
+          mkdir -p "$GITHUB_WORKSPACE/node_modules"
+          if [ ! -e "$GITHUB_WORKSPACE/node_modules/agent-quality-gate" ]; then
+            ln -s "$GITHUB_WORKSPACE" "$GITHUB_WORKSPACE/node_modules/agent-quality-gate"
+          fi
 
       - name: Run database Testcontainers integration
         run: bun run test:integration

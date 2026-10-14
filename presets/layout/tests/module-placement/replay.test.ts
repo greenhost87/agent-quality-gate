@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'bun:test';
 
-import { replayCreateOnceRule } from 'agent-quality-gate/oxlint-rule-bench';
-import { createBenchRuleContext } from 'agent-quality-gate/oxlint-rule-bench/create-bench-context';
-import { requireCreateOnceRule } from 'agent-quality-gate/oxlint-rule-bench/require-create-once-rule';
+import { replayCreateOnceRule } from 'agent-quality-gate/testing/oxlint';
+import { createBenchRuleContext } from 'agent-quality-gate/testing/oxlint';
+import { requireCreateOnceRule } from 'agent-quality-gate/testing/oxlint';
 
-import { itRegistersTypedVisitors } from '../support/expect-typed-visitors.ts';
+import { itRegistersTypedVisitors } from 'agent-quality-gate/internal/presets/layout/tests/support/expect-typed-visitors.ts';
 import { modulePlacementBench } from './bench.ts';
 
 describe('module-placement visitors', () => {

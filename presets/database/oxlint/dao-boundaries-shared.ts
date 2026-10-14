@@ -1,6 +1,6 @@
 import type { Context, ESTree } from '@oxlint/plugins';
 
-import type { AstParentOf } from '../../../scripts/oxlint-walk/oxlint-walk.ts';
+import type { AstParentOf } from 'agent-quality-gate/shared/oxlint';
 
 export const daoImplementationPattern = /\.dao\.ts$/u;
 export const daoFilePattern = /\.dao(?:\.[^/]+)*\.ts$/u;
@@ -207,16 +207,14 @@ export function isDatabaseLifecycleImport(node: ESTree.ImportDeclaration): boole
 export function isTestDatabaseInfrastructureImport(
   node: ESTree.ImportDeclaration,
   source: string | null,
+  infrastructureImports: ReadonlySet<string>,
 ): boolean {
   const importsDatabaseLifecycle =
     source &&
     databaseConnectionImportPattern.test(source) &&
     findImportedSpecifier(node, 'closeDatabase');
   return (
-    source === 'pg' ||
-    source === '@testcontainers/postgresql' ||
-    source === 'testcontainers' ||
-    source === 'node-pg-migrate' ||
+    (source !== null && infrastructureImports.has(source)) ||
     (source !== null && migrationImportPattern.test(source)) ||
     Boolean(importsDatabaseLifecycle)
   );

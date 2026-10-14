@@ -1,9 +1,9 @@
 import { fileURLToPath } from 'node:url';
 
-import { readGlobalQualityGateConfig } from '../../config/global-config/global-config.js';
-import { isConfiguredWorkspaceRoot } from '../../config/linked-checkout/linked-checkout.js';
-import type { WorkspaceRootSource } from '../../gate/run-stats/workspace-root-source.js';
-import { canonicalizePath } from '../../process/files/paths.js';
+import { readGlobalQualityGateConfig } from '#system/config/global-config/global-config.js';
+import { isConfiguredWorkspaceRoot } from '#system/config/linked-checkout/linked-checkout.js';
+import type { WorkspaceRootSource } from '#system/gate/run-stats/workspace-root-source.js';
+import { canonicalizePath } from '#system/process/files/paths.js';
 
 export async function resolveMcpWorkspaceRoot(
   client: McpRootsClient,

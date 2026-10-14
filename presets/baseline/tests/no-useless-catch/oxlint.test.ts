@@ -1,8 +1,6 @@
 import { expect, test } from 'bun:test';
-import { join } from 'node:path';
-
-import { readOxlintConfig } from '../../../../config/verify-config-files/verify-config-files.js';
-import { runOxlintFixture } from '../support/run-oxlint.ts';
+import { packagedAssetsDirectory, readOxlintConfig } from 'agent-quality-gate/shared/verify';
+import { runOxlintFixture } from 'agent-quality-gate/internal/presets/baseline/tests/support/run-oxlint.ts';
 
 const rule = 'no-useless-catch';
 
@@ -47,6 +45,6 @@ test('no-useless-catch allows mismatched rethrows', async () => {
 });
 
 test('assets baseline keeps native no-useless-catch enabled', () => {
-  const config = readOxlintConfig(join(import.meta.dir, '../../../../assets'));
+  const config = readOxlintConfig(packagedAssetsDirectory());
   expect(config.rules?.['no-useless-catch']).toBe('error');
 });

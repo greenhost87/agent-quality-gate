@@ -1,0 +1,2 @@
+error aqg/no-inline-multiline-test-data: Do not embed multi-line test data.
+  tests/extensions/context-gatherer/context-gatherer.test.ts:[8:20,34:43,35:43]

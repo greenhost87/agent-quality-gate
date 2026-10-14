@@ -3,8 +3,9 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'bun:test';
 
-import { parsePresetManifest } from '../../../preset-catalog/manifest/parse-preset-manifest.ts';
-import { EXECUTE_VERIFY_REPO_ROOT } from '../../../tests/support/execute-verify-fixture.ts';
+import { parsePresetManifest } from 'agent-quality-gate/shared/verify';
+
+const EXECUTE_VERIFY_REPO_ROOT = join(import.meta.dir, '../../..');
 
 describe('sync-database-managed', () => {
   it('keeps MANAGED_FILES in sync with manifest managed files', async () => {

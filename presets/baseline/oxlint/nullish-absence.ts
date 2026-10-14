@@ -1,6 +1,6 @@
 import { defineRule, type Context, type ESTree, type Rule, type Visitor } from '@oxlint/plugins';
 
-import { astParentOf } from 'agent-quality-gate/oxlint-walk';
+import { astParentOf } from 'agent-quality-gate/shared/oxlint';
 
 export type AbsenceReport = {
   messageId: string;

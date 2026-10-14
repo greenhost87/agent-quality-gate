@@ -5,10 +5,14 @@ import {
   type Context,
   type ESTree,
 } from '@oxlint/plugins';
+import * as v from 'valibot';
 
+import {
+  isInConfiguredDirectory,
+  PlaywrightOptionsSchema,
+} from 'agent-quality-gate/internal/presets/playwright/playwright-options.ts';
 import { externalNetworkOnly, staticName } from './external-network-only.ts';
 
-const e2eDirectoryPattern = /(?:^|\/)tests\/e2e\//u;
 const playwrightConfigPattern = /(?:^|\/)playwright\.config\.[cm]?[jt]s$/u;
 const bunTestApiNames = new Set(['test', 'it', 'describe']);
 const browserLaunchNames = new Set(['chromium', 'firefox', 'webkit']);
@@ -17,7 +21,19 @@ const daoImportPattern = /\.dao(?:\.[cm]?[jt]s)?$/u;
 const databaseImportPattern = /(?:^|\/)system\/database(?:\/|$)/u;
 const testDatabaseImportPattern = /(?:^|\/)testDatabase(?:\.[cm]?[jt]s)?$/u;
 const allowedE2eSourcePattern =
-  /(?:^|\/)tests\/e2e\/(?:.+\/)?(?:[^/]+\.pw\.[jt]sx?|[^/]+\.helpers\.[jt]sx?|[^/]+\.types\.ts)$/u;
+  /(?:^|\/)(?:[^/]+\.pw\.[jt]sx?|[^/]+\.helpers\.[jt]sx?|[^/]+\.types\.ts)$/u;
+
+const playwrightBoundarySchema = [
+  {
+    type: 'object',
+    additionalProperties: false,
+    properties: {
+      e2eDirectory: { type: 'string' },
+      externalMockOrigins: { type: 'array', items: { type: 'string' } },
+      processRunnerImports: { type: 'array', items: { type: 'string' } },
+    },
+  },
+];
 
 function normalizedFilename(context: Context): string {
   return context.filename.replaceAll('\\', '/');
@@ -104,7 +120,11 @@ function reportE2eFilename(context: Context, node: ESTree.Program, relativePath:
   }
 }
 
-function reportE2eImports(context: Context, node: ESTree.ImportDeclaration): void {
+function reportE2eImports(
+  context: Context,
+  node: ESTree.ImportDeclaration,
+  processRunnerImports: ReadonlySet<string>,
+): void {
   const source = importSource(node);
   if (source === 'bun:test') {
     for (const specifier of node.specifiers) {
@@ -113,7 +133,7 @@ function reportE2eImports(context: Context, node: ESTree.ImportDeclaration): voi
       }
     }
   }
-  if (source !== null && childProcessModules.has(source)) {
+  if (source !== null && (childProcessModules.has(source) || processRunnerImports.has(source))) {
     context.report({ node: node.source, messageId: 'spawn' });
   }
   if (source !== null && testDatabaseImportPattern.test(source)) {
@@ -160,7 +180,7 @@ function reportBlackBoxImport(context: Context, node: ESTree.ImportDeclaration):
 export const e2eRunner = defineRule({
   meta: {
     type: 'problem',
-    schema: [],
+    schema: playwrightBoundarySchema,
     messages: {
       bunTest: 'Playwright e2e must import test from @playwright/test, not bun:test.',
       launch:
@@ -174,10 +194,13 @@ export const e2eRunner = defineRule({
   },
   createOnce(context) {
     let relativePath = '';
+    let processRunnerImports: ReadonlySet<string> = new Set();
     return {
       before() {
         relativePath = projectPath(context);
-        if (!e2eDirectoryPattern.test(relativePath)) {
+        const options = v.parse(PlaywrightOptionsSchema, context.options[0] ?? {});
+        processRunnerImports = new Set(options.processRunnerImports);
+        if (!isInConfiguredDirectory(relativePath, options.e2eDirectory)) {
           return false;
         }
         return undefined;
@@ -186,7 +209,7 @@ export const e2eRunner = defineRule({
         reportE2eFilename(context, node, relativePath);
       },
       ImportDeclaration(node) {
-        reportE2eImports(context, node);
+        reportE2eImports(context, node, processRunnerImports);
       },
       CallExpression(node) {
         reportBrowserLaunch(context, node);
@@ -201,7 +224,7 @@ export const e2eRunner = defineRule({
 export const e2eBlackBox = defineRule({
   meta: {
     type: 'problem',
-    schema: [],
+    schema: playwrightBoundarySchema,
     messages: {
       dao: 'Playwright e2e must not import DAO modules; drive the app through the UI.',
       database: 'Playwright e2e must not import system/database; drive the app through the UI.',
@@ -210,7 +233,8 @@ export const e2eBlackBox = defineRule({
   createOnce(context) {
     return {
       before() {
-        if (!e2eDirectoryPattern.test(projectPath(context))) {
+        const options = v.parse(PlaywrightOptionsSchema, context.options[0] ?? {});
+        if (!isInConfiguredDirectory(projectPath(context), options.e2eDirectory)) {
           return false;
         }
         return undefined;

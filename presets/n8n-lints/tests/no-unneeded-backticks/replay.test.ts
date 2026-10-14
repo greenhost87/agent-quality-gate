@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'bun:test';
 
-import { replayCreateOnceRule } from 'agent-quality-gate/oxlint-rule-bench';
-import { HOT } from 'agent-quality-gate/oxlint-rule-bench/hot-code';
+import { replayCreateOnceRule } from 'agent-quality-gate/testing/oxlint';
+import { HOT } from 'agent-quality-gate/testing/oxlint';
 
-import { itRegistersTypedVisitors } from '../support/expect-typed-visitors.ts';
-import { readRuleFixture } from '../support/read-rule-fixture.ts';
+import { itRegistersTypedVisitors } from 'agent-quality-gate/internal/presets/n8n-lints/tests/support/expect-typed-visitors.ts';
+import { readRuleFixture } from 'agent-quality-gate/internal/presets/n8n-lints/tests/support/read-rule-fixture.ts';
 import { noUnneededBackticksBench } from './bench.ts';
 
 describe('no-unneeded-backticks visitors', () => {

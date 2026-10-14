@@ -1,22 +1,19 @@
-import { formatPrefixedViolations } from '../../scripts/self-verify/repo-walk.js';
-import type { CheckResult } from '../../gate/execute-verify/check-result.js';
+import { formatPrefixedViolations } from 'agent-quality-gate/shared/verify';
+import type { CheckResult } from 'agent-quality-gate/shared/verify';
 
 const TEST_FILE_PATTERN = /\.(?:test|spec|bench|pw)\.(?:[cm]?[jt]sx?)$/u;
 
-const AQG_TOP_LEVEL_SUPPORT_REASON =
-  'top-level tests/ may only hold shared helpers under tests/support/';
+const AQG_TOP_LEVEL_SUPPORT_REASON = 'AQG shared test helpers belong under system/tests/support/';
 const AQG_OWNER_TESTS_REASON =
-  'test and bench files must live under adapters/*/tests, scripts/tests, scripts/*/tests, gate/tests, presets/*/tests, or presets/*/examples/tests';
+  'test and bench files must live under adapters/*/tests, system/tests/*, presets/*/tests, or presets/*/examples/tests';
 
 const APPLICATION_TESTS_REASON = 'test and bench files must live under tests/';
 const APPLICATION_SUPPORT_REASON =
   'top-level tests/ may only hold helpers under tests/support/ or tests/setup/';
 
 const AQG_OWNER_TEST_PATH_PATTERNS = [
+  /^system\/tests\//u,
   /^adapters\/[^/]+\/tests\//u,
-  /^scripts\/tests\//u,
-  /^scripts\/[^/]+\/tests\//u,
-  /^gate\/tests\//u,
   /^presets\/[^/]+\/tests\//u,
   /^presets\/[^/]+\/examples\/tests\//u,
 ] as const;
@@ -43,13 +40,10 @@ function isTopLevelTestsPath(relativePath: string): boolean {
   return relativePath === 'tests' || relativePath.startsWith('tests/');
 }
 
-function isAllowedSupportPath(relativePath: string): boolean {
-  return relativePath === 'tests/support' || relativePath.startsWith('tests/support/');
-}
-
 function isAllowedApplicationHelperPath(relativePath: string): boolean {
   return (
-    isAllowedSupportPath(relativePath) ||
+    relativePath === 'tests/support' ||
+    relativePath.startsWith('tests/support/') ||
     relativePath === 'tests/setup' ||
     relativePath.startsWith('tests/setup/')
   );
@@ -61,14 +55,11 @@ function isAllowedAqgOwnerTestPath(relativePath: string): boolean {
 
 function violationForAqgRepositoryPath(relativePath: string): TestColocationViolation | undefined {
   const isTestFile = TEST_FILE_PATTERN.test(fileName(relativePath));
-  if (isTopLevelTestsPath(relativePath)) {
-    if (isTestFile || !isAllowedSupportPath(relativePath)) {
-      return { path: relativePath, reason: AQG_TOP_LEVEL_SUPPORT_REASON };
-    }
-    return undefined;
-  }
   if (isTestFile && !isAllowedAqgOwnerTestPath(relativePath)) {
     return { path: relativePath, reason: AQG_OWNER_TESTS_REASON };
+  }
+  if (isTopLevelTestsPath(relativePath)) {
+    return { path: relativePath, reason: AQG_TOP_LEVEL_SUPPORT_REASON };
   }
   return undefined;
 }
@@ -97,7 +88,9 @@ export function colocationListIgnorePatterns(
   if (policy !== 'aqg-repository') {
     return ignorePatterns;
   }
-  return ignorePatterns.filter((pattern) => pattern !== 'presets/**/*');
+  return ignorePatterns.filter(
+    (pattern) => pattern !== 'presets/**/*' && pattern !== 'system/tests/**',
+  );
 }
 
 export function findTestColocationViolationsFromRelativePaths(

@@ -2,7 +2,7 @@
 
 Portable lint rules adapted from `@n8n/eslint-config` (`n8n-local-rules`). Test hygiene and string discipline for AI-assisted TypeScript work. Report-only; no autofixes.
 
-Useless-catch and JSON deep-copy coverage moved to the mandatory AQG baseline (`no-useless-catch` in assets config; `aqg/no-json-parse-json-stringify`).
+Useless-catch and JSON deep-copy coverage moved to the mandatory AQG policy (`no-useless-catch` in `system/configs/oxlint.config.ts`; `aqg/no-json-parse-json-stringify` in baseline).
 
 ## What it installs
 

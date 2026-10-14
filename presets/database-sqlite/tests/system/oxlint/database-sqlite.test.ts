@@ -11,6 +11,7 @@ async function runOxlint(
   relativePath: string,
   source: string,
   rule = 'database-sqlite/boundaries',
+  options?: object,
 ): Promise<OxlintResult> {
   const workspace = await realpath(await mkdtemp(join(tmpdir(), 'database-sqlite-')));
   const sourcePath = join(workspace, relativePath);
@@ -23,7 +24,7 @@ async function runOxlint(
       JSON.stringify({
         categories: { correctness: 'off' },
         jsPlugins: [{ name: 'database-sqlite', specifier: pluginPath }],
-        rules: { [rule]: 'error' },
+        rules: { [rule]: options === undefined ? 'error' : ['error', options] },
       }),
     ),
   ]);
@@ -87,6 +88,40 @@ function sourceLines(...lines: string[]): string {
 }
 
 describe('database-sqlite boundaries', () => {
+  it('supports a configured database directory', async () => {
+    const options = { databaseDirectory: 'src/server/database' };
+    const source = `import { Database } from 'bun:sqlite';\n`;
+    const result = await runOxlint(
+      'src/server/database/connection.ts',
+      source,
+      'database-sqlite/boundaries',
+      options,
+    );
+    expect(result).toEqual({ output: '', status: 0 });
+
+    const connectionResult = await runOxlint(
+      'src/server/orders/service.ts',
+      `import { getDatabase } from '@/src/server/database/connection';\n`,
+      'database-sqlite/boundaries',
+      options,
+    );
+    expect(connectionResult.status).not.toBe(0);
+    expect(connectionResult.output).toContain(
+      'Compose the SQLite connection outside system modules',
+    );
+
+    const migrationResult = await runOxlint(
+      'tests/orders/service.test.ts',
+      `import { migrate } from '@/src/server/database/migrate';\n`,
+      'database-sqlite/test-boundaries',
+      options,
+    );
+    expect(migrationResult.status).not.toBe(0);
+    expect(migrationResult.output).toContain(
+      'SQLite migration and test connection infrastructure is available only',
+    );
+  });
+
   it('keeps runtime driver imports in database infrastructure', async () => {
     const message = 'Import the bun:sqlite runtime only from managed database infrastructure';
     await Promise.all([
@@ -128,6 +163,28 @@ describe('database-sqlite boundaries', () => {
     ]);
   });
 
+  it('keeps SQLite statements in DAO modules', async () => {
+    const query = sourceLines(
+      `import type { Database } from 'bun:sqlite';`,
+      `import { getDatabase } from '../system/database/connection.ts';`,
+      'function activeDatabase(): Database { return getDatabase(); }',
+      'activeDatabase().query(`SELECT * FROM applications`).all();',
+    );
+    await Promise.all([
+      expectRejected('viewer/db.ts', query, 'Execute SQLite statements only from DAO modules'),
+      expectAllowed(
+        'system/database/applications/applications.dao.ts',
+        sourceLines(
+          `import type { Database } from 'bun:sqlite';`,
+          'export function listApplications(database: Database): unknown[] {',
+          '  return database.query(`SELECT * FROM applications`).all();',
+          '}',
+        ),
+      ),
+      expectAllowed('viewer/search.ts', `searchClient.query('applications');\n`),
+    ]);
+  });
+
   it('rejects DAO-to-DAO imports', async () => {
     await expectRejected(
       'system/database/orders/orders.dao.ts',
@@ -143,6 +200,7 @@ describe('database-sqlite boundaries', () => {
       expectRejected('system/database/orders/orders.dao.ts', source, message),
       expectAllowed('system/database/migrate.ts', source),
       expectAllowed('tests/setup/testDatabase.ts', source),
+      expectAllowed('tests/e2e/application.pw.ts', `const label = 'Create New';\n`),
     ]);
   });
 });

@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'bun:test';
 
-import { replayCreateOnceRule } from 'agent-quality-gate/oxlint-rule-bench';
-import { createBenchRuleContext } from 'agent-quality-gate/oxlint-rule-bench/create-bench-context';
-import { requireCreateOnceRule } from 'agent-quality-gate/oxlint-rule-bench/require-create-once-rule';
-import { HOT } from 'agent-quality-gate/oxlint-rule-bench/hot-code';
+import { replayCreateOnceRule } from 'agent-quality-gate/testing/oxlint';
+import { createBenchRuleContext } from 'agent-quality-gate/testing/oxlint';
+import { requireCreateOnceRule } from 'agent-quality-gate/testing/oxlint';
+import { HOT } from 'agent-quality-gate/testing/oxlint';
 
 import { scriptsBoundariesBench } from './bench.ts';
 
@@ -22,6 +22,7 @@ describe('scripts-boundaries before skip', () => {
     const context = createBenchRuleContext(scriptsBoundariesBench.ruleId);
     context.state.filename = '/bench/scripts/load-config.ts';
     context.state.cwd = '/bench';
+    context.state.options = [{ scriptDirectories: ['scripts'] }];
     const visitors = createOnce(context);
     expect(visitors.before?.()).toBe(false);
   });

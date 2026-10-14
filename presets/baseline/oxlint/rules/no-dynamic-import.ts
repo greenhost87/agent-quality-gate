@@ -2,7 +2,7 @@ import { defineRule, type ESTree, type Options } from '@oxlint/plugins';
 import { resolve } from 'node:path';
 import * as v from 'valibot';
 
-import { createOptionsRefCache } from '../../../../scripts/oxlint-options-ref-cache/options-ref-cache.ts';
+import { createOptionsRefCache } from 'agent-quality-gate/shared/oxlint';
 
 const OptionsSchema = v.object({
   allowedFiles: v.optional(v.array(v.pipe(v.string(), v.minLength(1))), []),

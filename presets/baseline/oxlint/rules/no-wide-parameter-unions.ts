@@ -1,6 +1,6 @@
 import { defineRule, type ESTree } from '@oxlint/plugins';
 
-import { paramUnionBeforeVisitors } from 'agent-quality-gate/oxlint-walk';
+import { paramUnionBeforeVisitors } from 'agent-quality-gate/shared/oxlint';
 
 function isWideNonLiteralUnion(node: ESTree.TSUnionType): boolean {
   const { types } = node;

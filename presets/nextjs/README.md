@@ -1,6 +1,6 @@
 # Preset: `nextjs`
 
-Optional Next.js lint surface for projects that already use `react-presentation`. Enables the Oxlint `nextjs` plugin with an explicit checked rule list. Does not enable `jsx-a11y`. Enabling `react-presentation` alone does not activate this preset.
+Optional standalone Next.js lint surface. Enables the Oxlint `nextjs` plugin with an explicit checked rule list. Does not enable `jsx-a11y`.
 
 ## What it installs
 
@@ -9,14 +9,17 @@ Optional Next.js lint surface for projects that already use `react-presentation`
 | Native plugin | `nextjs`                                            |
 | Rules         | 21 `nextjs/*` ids from the AQG migration V4 handoff |
 
-Requires: `react-presentation`. Managed files: none. Dependencies: none.
+Requires: none. Managed files: none. Dependencies: none.
 
 ## Enable
 
-```yaml
-presets:
-  - react-presentation
-  - nextjs
+This source preset is not in the shipped AQG catalog. Install it into the AQG home before enabling it:
+
+```bash
+bun ./system/install/cli.ts preset /absolute/path/to/agent-quality-gate/presets/nextjs
 ```
 
-Or just `nextjs` — `react-presentation` is pulled in via `requires`.
+```yaml
+presets:
+  - nextjs
+```

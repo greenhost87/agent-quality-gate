@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'bun:test';
 
-import { replayCreateOnceRule } from 'agent-quality-gate/oxlint-rule-bench';
-import type { BenchCreateOnceRuleInput } from 'agent-quality-gate/oxlint-rule-bench/types';
+import { replayCreateOnceRule } from 'agent-quality-gate/testing/oxlint';
+import type { BenchCreateOnceRuleInput } from 'agent-quality-gate/testing/oxlint';
 
 export function describeRuleBenchReplay(input: BenchCreateOnceRuleInput): void {
   describe(input.name, () => {

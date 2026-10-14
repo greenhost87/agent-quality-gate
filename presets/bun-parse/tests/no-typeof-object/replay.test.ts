@@ -1,25 +1,17 @@
 import { describe, expect, it } from 'bun:test';
 
-import { replayCreateOnceRule } from 'agent-quality-gate/oxlint-rule-bench';
-import { createBenchRuleContext } from 'agent-quality-gate/oxlint-rule-bench/create-bench-context';
-import { requireCreateOnceRule } from 'agent-quality-gate/oxlint-rule-bench/require-create-once-rule';
-import { HOT } from 'agent-quality-gate/oxlint-rule-bench/hot-code';
+import { replayCreateOnceRule } from 'agent-quality-gate/testing/oxlint';
+import { createBenchRuleContext } from 'agent-quality-gate/testing/oxlint';
+import { requireCreateOnceRule } from 'agent-quality-gate/testing/oxlint';
+import { HOT } from 'agent-quality-gate/testing/oxlint';
 
 import { noTypeofObjectBench } from './bench.ts';
 
-describe('no-typeof-object before skip', () => {
-  it('skips tests/ without scanning', () => {
+describe('no-typeof-object before scan', () => {
+  it('scans files under tests/', () => {
     const createOnce = requireCreateOnceRule(noTypeofObjectBench.rule);
     const context = createBenchRuleContext(noTypeofObjectBench.ruleId);
     context.state.filename = '/bench/tests/utils.ts';
-    const visitors = createOnce(context);
-    expect(visitors.before?.()).toBe(false);
-  });
-
-  it('does not skip when scanning via visitors', () => {
-    const createOnce = requireCreateOnceRule(noTypeofObjectBench.rule);
-    const context = createBenchRuleContext(noTypeofObjectBench.ruleId);
-    context.state.filename = '/bench/utils.ts';
     context.state.code = 'typeof value === "object";\n';
     const visitors = createOnce(context);
     expect(visitors.before?.()).toBeUndefined();

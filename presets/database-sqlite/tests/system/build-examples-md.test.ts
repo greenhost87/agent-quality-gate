@@ -1,7 +1,7 @@
 import { file } from 'bun';
 import { expect, test } from 'bun:test';
 import { join } from 'node:path';
-import { buildDatabaseSqliteExamplesMarkdown } from '../../build-examples-md.ts';
+import { buildDatabaseSqliteExamplesMarkdown } from 'agent-quality-gate/internal/presets/database-sqlite/build-examples-md.ts';
 
 test('builds examples from verified TypeScript sources and official Bun references', async () => {
   const committedMarkdown = await file(

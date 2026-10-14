@@ -1,7 +1,7 @@
 import { describe } from 'bun:test';
 
-import { describeRuleBenchReplay } from '../support/describe-rule-bench-replay.ts';
-import { itRegistersTypedVisitors } from '../support/expect-typed-visitors.ts';
+import { describeRuleBenchReplay } from 'agent-quality-gate/internal/presets/baseline/tests/support/describe-rule-bench-replay.ts';
+import { itRegistersTypedVisitors } from 'agent-quality-gate/internal/presets/baseline/tests/support/expect-typed-visitors.ts';
 
 import { noIdentityAliasesBench } from './bench.ts';
 

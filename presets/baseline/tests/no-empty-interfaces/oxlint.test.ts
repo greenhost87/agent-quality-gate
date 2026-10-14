@@ -1,8 +1,9 @@
 import { expect, test } from 'bun:test';
-import { join } from 'node:path';
-
-import { readOxlintConfig } from '../../../../config/verify-config-files/verify-config-files.js';
-import { runOxlintFixture, runOxlintFixtureRules } from '../support/run-oxlint.ts';
+import { packagedAssetsDirectory, readOxlintConfig } from 'agent-quality-gate/shared/verify';
+import {
+  runOxlintFixture,
+  runOxlintFixtureRules,
+} from 'agent-quality-gate/internal/presets/baseline/tests/support/run-oxlint.ts';
 
 const rule = 'aqg/no-empty-interfaces';
 const customMessage = 'Do not declare empty interfaces.';
@@ -62,7 +63,7 @@ test('empty object type literal is owned by no-empty-object-type only', async ()
 });
 
 test('assets keeps no-empty-object-type interface-always object-never', () => {
-  const config = readOxlintConfig(join(import.meta.dir, '../../../../assets'));
+  const config = readOxlintConfig(packagedAssetsDirectory());
   const expected = [...emptyObjectSetting];
   const jsOverride = config.overrides?.find((entry) => {
     const files = (entry as { files?: string[] }).files;

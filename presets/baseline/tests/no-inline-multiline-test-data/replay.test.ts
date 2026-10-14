@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'bun:test';
 
-import { replayCreateOnceRule } from 'agent-quality-gate/oxlint-rule-bench';
-import { readRuleFixture } from '../support/read-rule-fixture.ts';
+import { replayCreateOnceRule } from 'agent-quality-gate/testing/oxlint';
+import { readRuleFixture } from 'agent-quality-gate/internal/presets/baseline/tests/support/read-rule-fixture.ts';
 
 import { noInlineMultilineTestDataBench } from './bench.ts';
 describe('no-inline-multiline-test-data reports', () => {

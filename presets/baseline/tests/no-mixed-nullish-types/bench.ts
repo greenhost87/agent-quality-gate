@@ -1,8 +1,8 @@
-import noMixedNullishTypes from '../../oxlint/rules/no-mixed-nullish-types.ts';
+import noMixedNullishTypes from 'agent-quality-gate/internal/presets/baseline/oxlint/rules/no-mixed-nullish-types.ts';
 
-import { benchCreateOnceRule } from 'agent-quality-gate/oxlint-rule-bench';
-import type { BenchCreateOnceRuleInput } from 'agent-quality-gate/oxlint-rule-bench/types';
-import { repeat } from '../support/hot-code.ts';
+import { benchCreateOnceRule } from 'agent-quality-gate/testing/oxlint';
+import type { BenchCreateOnceRuleInput } from 'agent-quality-gate/testing/oxlint';
+import { repeat } from 'agent-quality-gate/internal/presets/baseline/tests/support/hot-code.ts';
 
 export const noMixedNullishTypesBench: BenchCreateOnceRuleInput = {
   name: 'no-mixed-nullish-types',

@@ -1,0 +1,14 @@
+{
+  "name": "release-install-smoke",
+  "requires": [],
+  "files": [],
+  "dependencies": [],
+  "oxlint": {
+    "nativePlugins": [],
+    "plugins": [
+      { "name": "release-install-smoke", "specifier": "oxlint/release-install-smoke.ts" }
+    ],
+    "rules": { "release-install-smoke/example": "error" },
+    "overrides": []
+  }
+}

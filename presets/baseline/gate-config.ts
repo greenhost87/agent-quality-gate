@@ -1,7 +1,35 @@
 import * as v from 'valibot';
 
-import { applyConfiguredRule } from '../../preset-catalog/oxlint-config/apply-configured-rule.ts';
-import type { OxlintRuleSetting } from '../../preset-catalog/oxlint-config/write-oxlint-config.ts';
+import { applyConfiguredRule } from 'agent-quality-gate/shared/oxlint';
+import type { OxlintRuleSetting } from 'agent-quality-gate/shared/oxlint';
+import type { CheckHint, Diagnostic } from 'agent-quality-gate/shared/verify';
+
+const MICRO_SPLIT_RULE_IDS = new Set([
+  'aqg/no-thin-forwarders',
+  'aqg/no-trivial-const-wrappers',
+  'aqg/no-identity-aliases',
+  'aqg/no-useless-exported-type-aliases',
+  'aqg/no-runtime-in-types-files',
+]);
+
+export function hintsForDiagnostics(diagnostics: readonly Diagnostic[]): CheckHint[] {
+  const hints: CheckHint[] = [];
+  if (diagnostics.some((diagnostic) => MICRO_SPLIT_RULE_IDS.has(diagnostic.ruleId ?? ''))) {
+    hints.push({
+      kind: 'document',
+      id: 'avoid-micro-splits',
+      body: `# avoid-micro-splits\n\nKeep cohesive domain logic together until a real boundary appears. Avoid extracting tiny wrappers, types, or constants solely to shorten a file. Extract meaningful units with stable APIs and multiple expected callers.\n`,
+    });
+  }
+  if (diagnostics.some((diagnostic) => diagnostic.ruleId === 'no-restricted-imports')) {
+    hints.push({
+      kind: 'document',
+      id: 'avoid-deep-relative-imports',
+      body: `# avoid-deep-relative-imports\n\nFor imports matching \`../../**\`, move shared code to a suitable common module or use a project import alias. Do not inline or duplicate the imported implementation just to satisfy the rule.\n`,
+    });
+  }
+  return hints;
+}
 
 const StringArraySchema = v.pipe(
   v.array(v.unknown()),
@@ -152,7 +180,7 @@ function setRuleSeverity(
   if (!Object.hasOwn(rules, ruleId)) {
     return;
   }
-  const setting = rules[ruleId];
+  const setting = rules[ruleId] ?? severity;
   if (typeof setting === 'string') {
     rules[ruleId] = severity;
     return;

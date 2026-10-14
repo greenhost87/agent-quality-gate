@@ -3,12 +3,22 @@ import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { packagedAssetsDirectory } from '../../../../config/packaged-assets/packaged-assets.ts';
-import { resolvePresetContract } from '../../../../preset-catalog/catalog/preset-catalog.ts';
-import { writeOxlintConfigForProject } from '../../../../preset-catalog/oxlint-config/write-oxlint-config.ts';
-import { createEnv, getOptionalEnv } from '../../../../gate/read-env/read-env.ts';
-import { isPlainObject } from '../../../../tests/support/is-plain-object.ts';
-import type { Dict } from '../../../../tests/support/dict.types.ts';
+import { packagedAssetsDirectory } from 'agent-quality-gate/shared/verify';
+import { resolvePresetContract } from 'agent-quality-gate/shared/verify';
+import { writeOxlintConfigForProject } from 'agent-quality-gate/shared/verify';
+import { createEnv, getOptionalEnv } from 'agent-quality-gate/shared/verify';
+import * as v from 'valibot';
+
+type Dict = Record<string, unknown>;
+
+const DictSchema = v.looseObject({});
+
+function isPlainObject(value: unknown): value is Dict {
+  if (!v.safeParse(DictSchema, value).success) {
+    return false;
+  }
+  return Object.getPrototypeOf(value) === Object.prototype || Object.getPrototypeOf(value) === null;
+}
 
 export const PACKAGED_OXLINT_ASSETS = packagedAssetsDirectory();
 const AQG_CHECKOUT = join(import.meta.dir, '..', '..', '..', '..');

@@ -1,0 +1,79 @@
+{
+  "entry": [
+    "adapters/cursor/*.ts",
+    "adapters/pi/*.ts",
+    "presets/baseline/oxlint/*.ts",
+    "presets/baseline/oxlint/rules/*.ts",
+    "presets/baseline/gate-config.ts",
+    "system/scripts/*/*.ts",
+    "system/scripts/install-local/*.ts",
+    "adapters/hooks/*.ts",
+    "config/*/*.ts",
+    "system/gate/*/*.ts",
+    "system/presets/*.ts",
+    "process/*/*.ts"
+  ],
+  "ignorePatterns": [
+    ".*/**",
+    "artifacts/**",
+    "build/**",
+    "coverage/**",
+    "dist/**",
+    "node_modules/**",
+    ".codex/**",
+    "presets/**/*",
+    "!presets/baseline/oxlint/**",
+    "!presets/baseline/gate-config.ts",
+    "tmp/**"
+  ],
+  "ignoreDependencies": ["@oxlint/plugins"],
+  "ignoreExports": [],
+  "duplicates": {
+    "mode": "mild",
+    "near": true,
+    "minTokens": 30,
+    "minLines": 3,
+    "threshold": 0.1,
+    "ignore": [
+      "**/*.lock",
+      "**/*.min.js",
+      "presets/**/gate-config.ts",
+      "system/presets/load-preset-check.ts",
+      "system/presets/load-preset-gate-config.ts"
+    ]
+  },
+  "health": {
+    "maxCyclomatic": 20,
+    "maxCognitive": 15,
+    "maxCrap": 999
+  },
+  "rules": {
+    "unused-files": "error",
+    "unused-exports": "error",
+    "unused-types": "error",
+    "unused-dependencies": "error",
+    "unused-dev-dependencies": "error",
+    "unused-optional-dependencies": "error",
+    "unused-enum-members": "error",
+    "unused-class-members": "error",
+    "unresolved-imports": "error",
+    "unlisted-dependencies": "error",
+    "duplicate-exports": "error",
+    "type-only-dependencies": "error",
+    "test-only-dependencies": "error",
+    "circular-dependencies": "error",
+    "re-export-cycle": "error",
+    "boundary-violation": "error",
+    "stale-suppressions": "error",
+    "require-suppression-reason": "error",
+    "prop-drilling": "error",
+    "thin-wrapper": "error",
+    "duplicate-prop-shape": "error"
+  },
+  "production": {
+    "deadCode": true,
+    "health": true,
+    "dupes": false
+  },
+  "includeEntryExports": false
+}

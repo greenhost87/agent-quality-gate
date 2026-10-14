@@ -1,11 +1,11 @@
 import { expect, test } from 'bun:test';
 
-import { parsePresetConfig } from '../../gate-config.ts';
+import { parsePresetConfig } from 'agent-quality-gate/internal/presets/layout/gate-config.ts';
 import {
   findDirectoryCapacityViolations,
   findRouteCompositionViolations,
   routeModuleReferences,
-} from '../../scan-module-placement.ts';
+} from 'agent-quality-gate/internal/presets/layout/scan-module-placement.ts';
 
 const UI_ROOT = 'app/components/ui';
 

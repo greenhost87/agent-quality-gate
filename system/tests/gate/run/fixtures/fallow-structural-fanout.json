@@ -1,0 +1,7 @@
+{
+  "kind": "dead-code",
+  "prop_drilling_chains": [
+    { "hops": [{ "component": "Title", "file": "app/title.tsx", "line": 3 }], "prop": "title" }
+  ],
+  "total_issues": 0
+}

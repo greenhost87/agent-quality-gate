@@ -1,7 +1,7 @@
 import { defineRule, type ESTree, type Options } from '@oxlint/plugins';
 import * as v from 'valibot';
 
-import { createOptionsRefCache } from '../../../../scripts/oxlint-options-ref-cache/options-ref-cache.ts';
+import { createOptionsRefCache } from 'agent-quality-gate/shared/oxlint';
 
 const SuffixesOptionsSchema = v.object({
   suffixes: v.array(v.unknown()),

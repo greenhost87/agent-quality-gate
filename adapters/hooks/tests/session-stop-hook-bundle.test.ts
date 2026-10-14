@@ -1,21 +1,15 @@
-import { mkdir, mkdtemp, rm } from 'node:fs/promises';
+import { mkdir, mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawn } from 'bun';
-import { afterEach, describe, expect, it } from 'bun:test';
-import { readTextFile, writeTextFile } from '../../../process/files/files.js';
+import { describe, expect, it } from 'bun:test';
+import { readTextFile, writeTextFile } from '#system/process/files/files.js';
+import { useTrackedTempDirectories } from '#system/tests/support/tracked-temp-directories.js';
+import { processOutput } from '#system/tests/support/process-output.js';
 
 const REPO_ROOT = fileURLToPath(new URL('../../..', import.meta.url));
-const tempDirectories: string[] = [];
-
-afterEach(async () => {
-  await Promise.all(
-    tempDirectories.splice(0).map(async (directory) => {
-      await rm(directory, { recursive: true, force: true });
-    }),
-  );
-});
+const { tempDirectories } = useTrackedTempDirectories();
 
 async function runCommand(
   command: string,
@@ -33,12 +27,7 @@ async function runCommand(
     await child.stdin.write(stdinText);
     await child.stdin.end();
   }
-  const [exitCode, stderr, stdout] = await Promise.all([
-    child.exited,
-    new Response(child.stderr).text(),
-    new Response(child.stdout).text(),
-  ]);
-  return { exitCode, stderr, stdout };
+  return await processOutput(child);
 }
 
 describe('session stop hook release bundle', () => {
@@ -46,11 +35,11 @@ describe('session stop hook release bundle', () => {
     const install = await mkdtemp(join(tmpdir(), 'aqg-session-stop-bundle-'));
     tempDirectories.push(install);
     const codexDir = join(install, 'dist', 'codex');
-    const assetsDir = join(install, 'dist', 'extensions', 'assets');
+    const configsDir = join(codexDir, 'configs');
     await mkdir(codexDir, { recursive: true });
-    await mkdir(assetsDir, { recursive: true });
-    await writeTextFile(join(assetsDir, 'oxlint.config.ts'), 'export default {};\n');
-    await writeTextFile(join(assetsDir, '.fallowrc.json'), '{}\n');
+    await mkdir(configsDir, { recursive: true });
+    await writeTextFile(join(configsDir, 'oxlint.config.ts'), 'export default {};\n');
+    await writeTextFile(join(configsDir, '.fallowrc.json'), '{}\n');
     const outfile = join(codexDir, 'stop-hook.js');
 
     const build = await runCommand(

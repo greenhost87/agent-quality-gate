@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'bun:test';
 
-import { replayCreateOnceRule } from 'agent-quality-gate/oxlint-rule-bench';
+import { replayCreateOnceRule } from 'agent-quality-gate/testing/oxlint';
 
-import noDynamicImport from '../../oxlint/rules/no-dynamic-import.ts';
+import noDynamicImport from 'agent-quality-gate/internal/presets/baseline/oxlint/rules/no-dynamic-import.ts';
 
 const RULE_ID = 'aqg/no-dynamic-import';
 const ALLOWED_OPTIONS = [{ allowedFiles: ['src/instrumentation.ts'] }];

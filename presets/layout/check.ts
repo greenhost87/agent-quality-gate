@@ -1,17 +1,15 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
-import type { CheckResult } from '../../gate/execute-verify/check-result.ts';
-import { failedCheckResult } from '../../gate/execute-verify/check-result.ts';
+import { fallowDupesCacheDirForProject } from 'agent-quality-gate/shared/verify';
+import type { CheckResult } from 'agent-quality-gate/shared/verify';
+import { failedCheckResult } from 'agent-quality-gate/shared/verify';
 import {
   fallowCacheEnvironment,
   listFallowDiscoveredFiles,
-} from '../../gate/preflight/fallow-analysis.ts';
-import type {
-  PresetCheckModule,
-  PresetVerifyContext,
-} from '../../preset-catalog/contract/preset-check.types.ts';
-import { formatPrefixedViolations } from '../../scripts/self-verify/repo-walk.ts';
+} from 'agent-quality-gate/shared/verify';
+import type { PresetCheckModule, PresetVerifyContext } from 'agent-quality-gate/shared/verify';
+import { formatPrefixedViolations } from 'agent-quality-gate/shared/verify';
 import {
   parsePresetConfig,
   type LayoutGateConfig,
@@ -28,22 +26,37 @@ import {
   findTestColocationViolationsFromRelativePaths,
 } from './scan-test-colocation.ts';
 
+type LayoutFileList = { ok: true; files: readonly string[] } | { ok: false; result: CheckResult };
+
 async function listLayoutFiles(
   context: PresetVerifyContext,
   listIgnorePatterns: readonly string[],
-): Promise<{ ok: true; files: readonly string[] } | { ok: false; result: CheckResult }> {
-  return listFallowDiscoveredFiles({
+  cache: Map<string, Promise<LayoutFileList>>,
+): Promise<LayoutFileList> {
+  // placement and test-colocation usually discover with identical patterns
+  // (application policy keeps ignorePatterns as-is): share one `fallow list`.
+  const key = JSON.stringify(listIgnorePatterns);
+  const cached = cache.get(key);
+  if (cached !== undefined) return cached;
+  // Third verify launch: file discovery shares the `dupes` extraction cache
+  // with the `dupes` + test-production-copies runs of the same stage.
+  const dupesCacheDir = fallowDupesCacheDirForProject(context.projectRoot);
+  const pending = listFallowDiscoveredFiles({
     projectRoot: context.projectRoot,
     fallowConfigPath: context.fallowConfigPath,
     listIgnorePatterns,
-    environment: fallowCacheEnvironment(context.projectRoot),
+    environment: fallowCacheEnvironment(context.projectRoot, dupesCacheDir),
     failurePrefix: 'verify: ',
+    cacheDir: dupesCacheDir,
   });
+  cache.set(key, pending);
+  return pending;
 }
 
 async function placementBoundaryChecks(
   context: PresetVerifyContext,
   placement: ModulePlacementGateConfig | undefined,
+  fileLists: Map<string, Promise<LayoutFileList>>,
 ): Promise<CheckResult[]> {
   if (
     placement === undefined ||
@@ -52,7 +65,7 @@ async function placementBoundaryChecks(
   ) {
     return [];
   }
-  const listResult = await listLayoutFiles(context, context.ignorePatterns);
+  const listResult = await listLayoutFiles(context, context.ignorePatterns, fileLists);
   if (!listResult.ok) {
     return [listResult.result];
   }
@@ -106,12 +119,13 @@ async function placementBoundaryChecks(
 async function testColocationBoundaryChecks(
   context: PresetVerifyContext,
   layout: LayoutGateConfig,
+  fileLists: Map<string, Promise<LayoutFileList>>,
 ): Promise<CheckResult[]> {
   if (layout.testColocationInvalid === true) {
     return [
       failedCheckResult(
         1,
-        'verify: layout/testColocation requires policy (aqg-repository | application); legacy key: presetConfig.test-colocation.policy',
+        'verify: presetConfig.layout.testColocation.policy must be aqg-repository or application',
       ),
     ];
   }
@@ -121,6 +135,7 @@ async function testColocationBoundaryChecks(
   const listResult = await listLayoutFiles(
     context,
     colocationListIgnorePatterns(context.ignorePatterns, layout.testColocation.policy),
+    fileLists,
   );
   if (!listResult.ok) {
     return [listResult.result];
@@ -144,9 +159,10 @@ async function layoutBoundaryChecks(
   if (layout === undefined) {
     return [];
   }
+  const fileLists = new Map<string, Promise<LayoutFileList>>();
   const [placementResults, colocationResults] = await Promise.all([
-    placementBoundaryChecks(context, layout.placement),
-    testColocationBoundaryChecks(context, layout),
+    placementBoundaryChecks(context, layout.placement, fileLists),
+    testColocationBoundaryChecks(context, layout, fileLists),
   ]);
   return [...placementResults, ...colocationResults];
 }

@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'bun:test';
 
-import { replayCreateOnceRule } from 'agent-quality-gate/oxlint-rule-bench';
-import { createBenchRuleContext } from 'agent-quality-gate/oxlint-rule-bench/create-bench-context';
-import { requireCreateOnceRule } from 'agent-quality-gate/oxlint-rule-bench/require-create-once-rule';
-import { HOT } from 'agent-quality-gate/oxlint-rule-bench/hot-code';
+import { replayCreateOnceRule } from 'agent-quality-gate/testing/oxlint';
+import { createBenchRuleContext } from 'agent-quality-gate/testing/oxlint';
+import { requireCreateOnceRule } from 'agent-quality-gate/testing/oxlint';
+import { HOT } from 'agent-quality-gate/testing/oxlint';
 
-import { itRegistersTypedVisitors } from '../support/expect-typed-visitors.ts';
+import { itRegistersTypedVisitors } from 'agent-quality-gate/internal/presets/config/tests/support/expect-typed-visitors.ts';
 import { environmentBoundariesBench } from './bench.ts';
 
 describe('environment-boundaries visitors', () => {
@@ -51,6 +51,31 @@ describe('environment-boundaries reports', () => {
       ],
     });
     expect(result.cases[0]?.reports).toEqual([]);
+  });
+
+  it('skips a configured environment module instead of the default path', () => {
+    const result = replayCreateOnceRule({
+      ruleId: environmentBoundariesBench.ruleId,
+      rule: environmentBoundariesBench.rule,
+      cases: [
+        {
+          name: 'configured-env-module',
+          filename: '/bench/src/server/config/environment.ts',
+          cwd: '/bench',
+          code: 'export const token = process.env.TOKEN;\n',
+          options: [{ environmentPath: 'src/server/config/environment.ts' }],
+        },
+        {
+          name: 'default-env-module',
+          filename: '/bench/system/config/environment.ts',
+          cwd: '/bench',
+          code: 'export const token = process.env.TOKEN;\n',
+          options: [{ environmentPath: 'src/server/config/environment.ts' }],
+        },
+      ],
+    });
+    expect(result.cases[0]?.reports).toEqual([]);
+    expect(result.cases[1]?.reports).toHaveLength(1);
   });
 
   it('allows only NEXT_RUNTIME in instrumentation.ts', () => {

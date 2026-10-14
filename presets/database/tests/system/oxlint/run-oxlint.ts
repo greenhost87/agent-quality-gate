@@ -15,7 +15,22 @@ async function writeRuleConfig(rule: string) {
     JSON.stringify({
       categories: { correctness: 'off' },
       jsPlugins: [{ name: 'database', specifier: pluginPath }],
-      rules: { [rule]: 'error' },
+      rules: {
+        [rule]:
+          rule === 'database/test-database-boundaries'
+            ? [
+                'error',
+                {
+                  infrastructureImports: [
+                    'pg',
+                    '@testcontainers/postgresql',
+                    'testcontainers',
+                    'node-pg-migrate',
+                  ],
+                },
+              ]
+            : 'error',
+      },
     }),
   );
   return { workspace, configPath };

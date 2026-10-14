@@ -7,8 +7,8 @@ import {
   insertRuntimeItemInTransaction,
   insertRuntimeItemThenFail,
   listRuntimeItems,
-} from '../fixture/system/database/runtime/runtime.dao.ts';
-import { useIsolatedTestDatabase } from '../payload/tests/setup/testDatabase.ts';
+} from 'agent-quality-gate/internal/presets/database/fixture/system/database/runtime/runtime.dao.ts';
+import { useIsolatedTestDatabase } from 'agent-quality-gate/internal/presets/database/payload/tests/setup/testDatabase.ts';
 
 const presetRoot = resolve(import.meta.dir, '..');
 chdir(presetRoot);

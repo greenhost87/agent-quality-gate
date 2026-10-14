@@ -1,8 +1,8 @@
-import requireExportStringLiteralCatalogsAsConst from '../../oxlint/rules/require-export-string-literal-catalogs-as-const.ts';
+import requireExportStringLiteralCatalogsAsConst from 'agent-quality-gate/internal/presets/baseline/oxlint/rules/require-export-string-literal-catalogs-as-const.ts';
 
-import { benchCreateOnceRule } from 'agent-quality-gate/oxlint-rule-bench';
-import type { BenchCreateOnceRuleInput } from 'agent-quality-gate/oxlint-rule-bench/types';
-import { repeat } from '../support/hot-code.ts';
+import { benchCreateOnceRule } from 'agent-quality-gate/testing/oxlint';
+import type { BenchCreateOnceRuleInput } from 'agent-quality-gate/testing/oxlint';
+import { repeat } from 'agent-quality-gate/internal/presets/baseline/tests/support/hot-code.ts';
 
 export const requireExportStringLiteralCatalogsAsConstBench: BenchCreateOnceRuleInput = {
   name: 'require-export-string-literal-catalogs-as-const',

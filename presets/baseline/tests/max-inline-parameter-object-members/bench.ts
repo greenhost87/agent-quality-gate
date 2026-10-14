@@ -1,8 +1,8 @@
-import maxInlineParameterObjectMembers from '../../oxlint/rules/max-inline-parameter-object-members.ts';
+import maxInlineParameterObjectMembers from 'agent-quality-gate/internal/presets/baseline/oxlint/rules/max-inline-parameter-object-members.ts';
 
-import { benchCreateOnceRule } from 'agent-quality-gate/oxlint-rule-bench';
-import type { BenchCreateOnceRuleInput } from 'agent-quality-gate/oxlint-rule-bench/types';
-import { repeat } from '../support/hot-code.ts';
+import { benchCreateOnceRule } from 'agent-quality-gate/testing/oxlint';
+import type { BenchCreateOnceRuleInput } from 'agent-quality-gate/testing/oxlint';
+import { repeat } from 'agent-quality-gate/internal/presets/baseline/tests/support/hot-code.ts';
 
 export const maxInlineParameterObjectMembersBench: BenchCreateOnceRuleInput = {
   name: 'max-inline-parameter-object-members',

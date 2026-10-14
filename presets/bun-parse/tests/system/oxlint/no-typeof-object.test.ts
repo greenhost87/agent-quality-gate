@@ -100,8 +100,14 @@ test('no-typeof-object allows valibot-only modules', async () => {
   await expectAllowed('valibot-only', 'utils.ts');
 });
 
-test('no-typeof-object allows typeof object under tests/', async () => {
-  await expectAllowed('tests-home', 'tests/fixture.ts');
+test('no-typeof-object checks plain-object recipes under tests/', async () => {
+  const result = await runOxlintFixture(
+    'no-typeof-object/valid/tests-home',
+    'tests/fixture.ts',
+    rule,
+  );
+  expect(result.status).not.toBe(0);
+  expect(result.output).toContain(plainObjectRecipeMessage);
 });
 
 test('no-typeof-object typeof-only mode still rejects typeof object', async () => {

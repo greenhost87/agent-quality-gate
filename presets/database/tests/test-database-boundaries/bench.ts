@@ -1,8 +1,8 @@
-import { testDatabaseBoundaries } from '../../oxlint/test-database-boundaries-rule.ts';
+import { testDatabaseBoundaries } from 'agent-quality-gate/internal/presets/database/oxlint/test-database-boundaries-rule.ts';
 
-import { benchCreateOnceRule } from 'agent-quality-gate/oxlint-rule-bench';
-import type { BenchCreateOnceRuleInput } from 'agent-quality-gate/oxlint-rule-bench/types';
-import { repeat } from 'agent-quality-gate/oxlint-rule-bench/hot-code';
+import { benchCreateOnceRule } from 'agent-quality-gate/testing/oxlint';
+import type { BenchCreateOnceRuleInput } from 'agent-quality-gate/testing/oxlint';
+import { repeat } from 'agent-quality-gate/testing/oxlint';
 
 export const testDatabaseBoundariesBench: BenchCreateOnceRuleInput = {
   name: 'test-database-boundaries',

@@ -1,6 +1,6 @@
 import { defineRule, type ESTree } from '@oxlint/plugins';
 
-import { isStaticString } from '../ast.ts';
+import { isStaticString } from 'agent-quality-gate/internal/presets/baseline/oxlint/ast.ts';
 
 function isStringLiteralType(node: ESTree.TSType): boolean {
   return node.type === 'TSLiteralType' && isStaticString(node.literal);

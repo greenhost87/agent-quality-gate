@@ -1,6 +1,6 @@
 import { defineRule, type ESTree } from '@oxlint/plugins';
 
-import { isAstNode } from '../../../scripts/oxlint-walk/oxlint-walk.ts';
+import { isAstNode } from 'agent-quality-gate/shared/oxlint';
 
 export const noUnneededBackticks = defineRule({
   meta: {

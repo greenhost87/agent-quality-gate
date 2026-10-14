@@ -1,6 +1,6 @@
 {
   "name": "nextjs",
-  "requires": ["react-presentation"],
+  "requires": [],
   "files": [],
   "dependencies": [],
   "oxlint": {

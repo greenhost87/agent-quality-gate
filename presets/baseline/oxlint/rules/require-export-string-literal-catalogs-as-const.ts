@@ -1,6 +1,9 @@
 import { defineRule, type ESTree } from '@oxlint/plugins';
 
-import { isReadonlyStringLiteralCatalog, isStaticString } from '../ast.ts';
+import {
+  isReadonlyStringLiteralCatalog,
+  isStaticString,
+} from 'agent-quality-gate/internal/presets/baseline/oxlint/ast.ts';
 
 function arrayExpression(node: ESTree.Node | null): ESTree.ArrayExpression | null {
   let expression: ESTree.Node | null = node;

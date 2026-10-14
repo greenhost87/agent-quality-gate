@@ -4,8 +4,8 @@ import { resolve } from 'node:path';
 import {
   insertRuntimeItemInTransaction,
   listRuntimeItems,
-} from '../fixture/system/database/runtime/runtime.dao.ts';
-import { useIsolatedTestDatabase } from '../payload/tests/setup/testDatabase.ts';
+} from 'agent-quality-gate/internal/presets/database/fixture/system/database/runtime/runtime.dao.ts';
+import { useIsolatedTestDatabase } from 'agent-quality-gate/internal/presets/database/payload/tests/setup/testDatabase.ts';
 
 chdir(resolve(import.meta.dir, '..'));
 useIsolatedTestDatabase(import.meta.path);

@@ -3,15 +3,15 @@
 import {
   readGlobalQualityGateConfig,
   type GlobalQualityGateConfig,
-} from '../../config/global-config/global-config.js';
-import { isConfiguredWorkspaceRoot } from '../../config/linked-checkout/linked-checkout.js';
+} from '#system/config/global-config/global-config.js';
+import { isConfiguredWorkspaceRoot } from '#system/config/linked-checkout/linked-checkout.js';
 import {
   decideFollowUp,
   executeQualityGateForCwd,
   followUpForSettledResult,
-} from '../../gate/quality-gate-run/quality-gate-run.js';
-import type { RegisterQualityGateOptions } from '../../gate/quality-gate-run/quality-gate-run.js';
-import { canonicalizePath } from '../../process/files/paths.js';
+} from '#system/gate/quality-gate-run/quality-gate-run.js';
+import type { RegisterQualityGateOptions } from '#system/gate/quality-gate-run/quality-gate-run.js';
+import { canonicalizePath } from '#system/process/files/paths.js';
 import { runStdinJsonHook } from '../hooks/stdin-json-hook.js';
 
 import { transcriptEndsWithAskQuestion } from './transcript-ask-question.js';

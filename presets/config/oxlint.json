@@ -16,7 +16,10 @@
   "rules": {
     "aqg/no-inline-multiline-test-data": "error",
     "aqg/no-oxlint-disable-directives": "error",
-    "config/environment-boundaries": "error",
+    "config/environment-boundaries": [
+      "error",
+      { "environmentPath": "payload/system/config/environment.ts" }
+    ],
     "config/no-valibot-custom": "error",
     "config/no-trivial-valibot-schema-alias": "error"
   }

@@ -5,10 +5,13 @@ import {
   isExternalTestModule,
   testImportOrigin,
   type TestOriginResolver,
-} from '../test-substitution-bindings.ts';
+} from 'agent-quality-gate/internal/presets/baseline/oxlint/test-substitution-bindings.ts';
 import { isRecognizedTestFile } from './no-inline-multiline-test-data.ts';
 
-import { staticPropertyName, staticStringValue } from '../ast.ts';
+import {
+  staticPropertyName,
+  staticStringValue,
+} from 'agent-quality-gate/internal/presets/baseline/oxlint/ast.ts';
 
 function isObjectMutation(node: ESTree.CallExpression): boolean {
   const callee = node.callee;

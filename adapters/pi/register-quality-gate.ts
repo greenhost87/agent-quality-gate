@@ -1,3 +1,4 @@
+import { Container, Text } from '@earendil-works/pi-tui';
 import { Type } from 'typebox';
 
 import type {
@@ -9,19 +10,22 @@ import {
   createGlobalQualityGateConfig,
   findProjectForCwd,
   readGlobalQualityGateConfig,
-} from '../../config/global-config/global-config.js';
+} from '#system/config/global-config/global-config.js';
 import {
   decideFollowUp,
   executeQualityGateForCwd,
   followUpForSettledResult,
   toolOutput,
-} from '../../gate/quality-gate-run/quality-gate-run.js';
-import type { RegisterQualityGateOptions } from '../../gate/quality-gate-run/quality-gate-run.js';
+} from '#system/gate/quality-gate-run/quality-gate-run.js';
+import type { RegisterQualityGateOptions } from '#system/gate/quality-gate-run/quality-gate-run.js';
 import { VERIFY_TOOL_NAME } from '../hooks/verify-tool-name.js';
 import { branchEndsWithAskUser } from './session-ask-user.js';
 import { activeToolNamesForCwd } from './verify-tool-visibility.js';
 
 const VERIFY_PROMPT_SNIPPET = 'Run Oxlint and Fallow quality checks for the configured workspace';
+
+const VERIFY_RETRY_GUIDANCE =
+  'Fix all current findings before calling verify again; do not rerun it after each edit.';
 
 const VERIFY_PROMPT_GUIDELINES = [
   'The completion gate already runs verify; do not call verify after every JavaScript or TypeScript edit.',
@@ -56,15 +60,38 @@ function registerVerifyTool(
   pi.registerTool({
     name: VERIFY_TOOL_NAME,
     label: 'Verify',
+    renderShell: 'self',
     description:
       'Run the agent-quality-gate Oxlint and Fallow checks for the configured workspace.',
     parameters: Type.Object({}),
     promptSnippet: VERIFY_PROMPT_SNIPPET,
     promptGuidelines: VERIFY_PROMPT_GUIDELINES,
+    renderCall(_params, _theme, context) {
+      const text =
+        context.lastComponent instanceof Text ? context.lastComponent : new Text('verify', 0, 0);
+      context.state.verifyCall = text;
+      return text;
+    },
+    renderResult(result, options, _theme, context) {
+      if (!options.isPartial && context.state.verifyCall instanceof Text) {
+        context.state.verifyCall.setText(
+          result.content
+            .map((item) => item.text)
+            .join('\n')
+            .trim(),
+        );
+      }
+      return new Container();
+    },
     async execute(_toolCallId, _params, _signal, _onUpdate, ctx) {
       const run = await executeQualityGateForCwd(ctx.cwd, options);
+      const output = await toolOutput(run);
+      const text =
+        run.kind === 'ran' && run.result.exitCode !== 0
+          ? `${output}\n${VERIFY_RETRY_GUIDANCE}`
+          : output;
       return {
-        content: [{ type: 'text', text: await toolOutput(run) }],
+        content: [{ type: 'text', text }],
         details: {},
       };
     },

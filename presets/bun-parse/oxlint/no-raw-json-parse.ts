@@ -1,10 +1,6 @@
 import { defineRule, type Context, type ESTree } from '@oxlint/plugins';
 
-import {
-  isAstNode,
-  type AstParentOf,
-  unwrapExpression,
-} from '../../../scripts/oxlint-walk/oxlint-walk.ts';
+import { isAstNode, type AstParentOf, unwrapExpression } from 'agent-quality-gate/shared/oxlint';
 import {
   createEmptyBunFileBindings,
   isBunFileFactoryCall,

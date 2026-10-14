@@ -1,7 +1,7 @@
 import * as v from 'valibot';
 
 import { contentHasNamedTool } from './content-has-named-tool.js';
-import { readTextFileSync } from '../../process/files/files.js';
+import { readTextFileSync } from '#system/process/files/files.js';
 
 const TOOL_USE_TYPE = 'tool_use';
 

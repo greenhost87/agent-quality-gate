@@ -1,12 +1,11 @@
 import { expect, test } from 'bun:test';
 
-import { replayCreateOnceRule } from 'agent-quality-gate/oxlint-rule-bench';
-import rule from '../../oxlint/rules/no-nullish-except-undefined.ts';
-import { readRuleFixture } from '../support/read-rule-fixture.ts';
+import { replayCreateOnceRule } from 'agent-quality-gate/testing/oxlint';
+import rule from 'agent-quality-gate/internal/presets/baseline/oxlint/rules/no-nullish-except-undefined.ts';
+import { readRuleFixture } from 'agent-quality-gate/internal/presets/baseline/tests/support/read-rule-fixture.ts';
 
 test('allows standalone void returns and asynchronous results', () => {
   const result = replayCreateOnceRule({
-    name: 'no-nullish-except-undefined',
     ruleId: 'aqg/no-nullish-except-undefined',
     rule,
     cases: [
@@ -22,7 +21,6 @@ test('allows standalone void returns and asynchronous results', () => {
 
 test('rejects void values and unions without relaxing null or optional forms', () => {
   const result = replayCreateOnceRule({
-    name: 'no-nullish-except-undefined',
     ruleId: 'aqg/no-nullish-except-undefined',
     rule,
     cases: [

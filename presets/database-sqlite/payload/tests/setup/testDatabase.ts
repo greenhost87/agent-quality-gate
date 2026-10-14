@@ -18,7 +18,12 @@ export function useIsolatedTestDatabase(
     const database = new Database(':memory:', { strict: true });
     try {
       database.run('PRAGMA foreign_keys = ON');
-      runDatabaseMigrations({ database, directory: options.migrationsDirectory });
+      runDatabaseMigrations({
+        database,
+        ...(options.migrationsDirectory === undefined
+          ? {}
+          : { directory: options.migrationsDirectory }),
+      });
       template = database.serialize();
     } finally {
       database.close(true);

@@ -1,10 +1,9 @@
 import { defineRule, type ESTree, type Options } from '@oxlint/plugins';
 import * as v from 'valibot';
 
-import { createOptionsRefCache } from '../../../scripts/oxlint-options-ref-cache/options-ref-cache.ts';
-import { unwrapExpression } from '../../../scripts/oxlint-walk/oxlint-walk.ts';
+import { createOptionsRefCache } from 'agent-quality-gate/shared/oxlint';
+import { unwrapExpression } from 'agent-quality-gate/shared/oxlint';
 
-import { isUnderPathSegment, projectPath } from './project-path.ts';
 import { isTypeofObjectLiteral } from './typeof-object-sides.ts';
 
 const OBJECT_COMPARE_OPS = new Set(['===', '!==', '==', '!=']);
@@ -176,10 +175,6 @@ export const noTypeofObject = defineRule({
       before() {
         const mode = modeCache.get(context.options);
         if (mode === 'off') {
-          return false;
-        }
-        const relativePath = projectPath(context);
-        if (isUnderPathSegment(relativePath, 'tests')) {
           return false;
         }
         banArrayIsArray = mode === 'strict';

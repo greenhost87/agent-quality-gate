@@ -1,8 +1,8 @@
 import { defineRule, type ESTree } from '@oxlint/plugins';
 
-import { unwrapExpression } from 'agent-quality-gate/oxlint-walk';
+import { unwrapExpression } from 'agent-quality-gate/shared/oxlint';
 
-import { staticPropertyName } from '../ast.ts';
+import { staticPropertyName } from 'agent-quality-gate/internal/presets/baseline/oxlint/ast.ts';
 
 function sameStaticCallee(left: ESTree.Node, right: ESTree.Node): boolean {
   const first = unwrapExpression(left);

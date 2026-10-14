@@ -8,6 +8,15 @@ const pluginPath = resolve(import.meta.dir, '../../../oxlint/playwright.ts');
 const fixturesRoot = resolve(import.meta.dir, '../../../.quality-fixtures');
 
 async function writeRuleConfig(rule: string, options?: object) {
+  const boundaryOptions =
+    rule === 'playwright/config'
+      ? options
+      : {
+          e2eDirectory: 'tests/e2e',
+          externalMockOrigins: [],
+          processRunnerImports: [],
+          ...options,
+        };
   const workspace = realpathSync(mkdtempSync(join(tmpdir(), 'playwright-')));
   const configPath = join(workspace, 'oxlint.json');
   await write(
@@ -15,7 +24,7 @@ async function writeRuleConfig(rule: string, options?: object) {
     JSON.stringify({
       categories: { correctness: 'off' },
       jsPlugins: [{ name: 'playwright', specifier: pluginPath }],
-      rules: { [rule]: options === undefined ? 'error' : ['error', options] },
+      rules: { [rule]: boundaryOptions === undefined ? 'error' : ['error', boundaryOptions] },
     }),
   );
   return { workspace, configPath };

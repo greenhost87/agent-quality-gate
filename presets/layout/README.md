@@ -1,6 +1,6 @@
 # Preset: `layout`
 
-Single entry for repository layout policy: where modules live, where tests live, and which packages may import which. Engines stay as they were (oxlint + fallow list checks); the config surface and docs are unified.
+Single entry for repository layout policy: where modules live, where tests live, and which packages may import which. TypeScript and JavaScript layout checks use Oxlint and Fallow file discovery.
 
 Semantic API boundaries (`database/*`, `config/environment-boundaries`, `bun-parse/scripts-boundaries`, …) are **not** part of this preset.
 
@@ -31,6 +31,8 @@ Requires: none.
 ```yaml
 projects:
   - root: /absolute/path/to/app
+    entries:
+      - app/routes.ts
     presets:
       - layout
     presetConfig:
@@ -54,6 +56,11 @@ projects:
         testColocation:
           policy: application
         packages:
+          compositionDirectories: [app, components, system]
+          nonProductionDirectories: [deploy, migrations, scripts, tests]
+          alwaysAllowedDependencies: [system]
+          testDirectories: [tests]
+          testImportablePrivatePackages: [app]
           allowedRootModules:
             - config.ts
             - instrumentation.ts
@@ -65,8 +72,11 @@ projects:
             http: [auth]
             fabrics: [media]
           privatePackages:
+            - app
             - visual
 ```
+
+The example uses the supported preset-name list plus `presetConfig` syntax. The same sections can be placed directly under `presets.layout` using inline preset options. Replace `entries` with the project's real TypeScript or JavaScript runtime roots. Use the canonical `layout` preset name and its nested sections; the former `module-placement`, `test-colocation`, and `packages` preset aliases and flat layout options are no longer supported.
 
 ### `placement`
 
@@ -89,35 +99,28 @@ Valid layout under each watched directory:
 
 ### `testColocation`
 
-| Policy           | Layout                                                                                                                   |
-| ---------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `application`    | All `*.test.ts` / `*.spec.ts` / `*.bench.ts` under `tests/`; helpers only under `tests/support/` or `tests/setup/`       |
-| `aqg-repository` | Owner tests under `gate/tests`, `presets/*/tests`, `adapters/*/tests`, …; top-level `tests/` limited to `tests/support/` |
+| Policy           | Layout                                                                                                                     |
+| ---------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `application`    | All `*.test.ts` / `*.spec.ts` / `*.bench.ts` under `tests/`; helpers only under `tests/support/` or `tests/setup/`         |
+| `aqg-repository` | Owner tests under `system/tests/*`, `presets/*/tests`, `adapters/*/tests`, …; shared helpers under `system/tests/support/` |
 
 ### `packages`
 
-Composition / infrastructure roots are not packages: `app/`, `components/`, `system/`, plus non-production `deploy/`, `migrations/`, `scripts/`, `tests/`. Everything else at the project root is a package.
+Configure directory classifications explicitly. A top-level directory is treated as a package unless it appears in `compositionDirectories` or `nonProductionDirectories`. No directory names, allowed root filenames, or globally allowed dependencies are assumed.
 
-| Field                  | Purpose                                                             |
-| ---------------------- | ------------------------------------------------------------------- |
-| `allowedRootModules`   | Filenames allowed at the project root                               |
-| `declaredDependencies` | Map of package → packages it may import via `@/…`                   |
-| `privatePackages`      | Top-level directories that only code under the same root may import |
+| Field                           | Purpose                                                                                                                               |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
+| `allowedRootModules`            | Filenames allowed at the project root                                                                                                 |
+| `alwaysAllowedDependencies`     | Package names any package may import via `@/…` without a declared edge                                                                |
+| `compositionDirectories`        | Top-level composition/infrastructure directory names excluded from the package graph                                                  |
+| `declaredDependencies`          | Map of package → other packages it may import via `@/…`; imports within the same package are allowed                                  |
+| `nonProductionDirectories`      | Top-level non-production directory names excluded from the package graph                                                              |
+| `privatePackages`               | Top-level directories that only code under the same root may import, subject to the configured test exception                         |
+| `testDirectories`               | Project-relative test directories whose imports receive the test exception; modules outside these directories cannot import from them |
+| `testImportablePrivatePackages` | Private package names code under `testDirectories` may import                                                                         |
 
-When `app` is listed in `privatePackages`, files under the project-root `tests/` tree may import it (`@/app/...` or relative paths). That exception does not apply to other private roots, nested trees such as `app/tests/`, or production-like paths whose names merely look like tests. Production modules (including code under `app/`) must not import or re-export modules from root `tests/`, so a test helper cannot become a privacy bypass.
+All lists default to `[]`; `declaredDependencies` defaults to `{}`. Package-boundary checking is inactive until at least one setting is non-empty. Once active, root source files require an explicit `allowedRootModules` entry. Composition/non-production classifications do not exempt modules from private-package or test-import restrictions.
 
-## Legacy aliases
+For example, to let root `tests/` import a private `app/`, set `privatePackages: [app]`, `testDirectories: [tests]`, and `testImportablePrivatePackages: [app]`. There is no implicit exception for `app` or `tests`. Only the configured test-directory prefixes receive this exception; `app/tests/` does not match `tests`. Code outside the configured test directories cannot import or re-export their modules.
 
-These preset names still resolve to `layout`:
-
-- `module-placement`
-- `test-colocation`
-- `packages`
-
-Legacy `presetConfig` keys still merge into the matching section:
-
-- `presetConfig.module-placement` → `layout.placement`
-- `presetConfig.test-colocation` → `layout.testColocation`
-- `presetConfig.packages` → `layout.packages`
-
-Prefer `presets: [layout]` and `presetConfig.layout.*` for new config.
+To retain the former directory classifications, explicitly configure `compositionDirectories: [app, components, system]` and `nonProductionDirectories: [deploy, migrations, scripts, tests]`. Add `alwaysAllowedDependencies: [system]` if it should be globally permitted and list any allowed root filenames in `allowedRootModules`.

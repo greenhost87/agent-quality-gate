@@ -1,6 +1,6 @@
-import type { PresetCheckModule } from '../../preset-catalog/contract/preset-check.types.ts';
-import { committedMigrationsPreflight } from '../../preset-catalog/database/committed-migrations-preflight.ts';
-import { databaseConcurrencyPreflight } from '../../preset-catalog/database/database-concurrency-preflight.ts';
+import type { PresetCheckModule } from 'agent-quality-gate/shared/verify';
+import { committedMigrationsPreflight } from 'agent-quality-gate/internal/presets/_shared/database-preflight/committed-migrations-preflight.ts';
+import { databaseConcurrencyPreflight } from 'agent-quality-gate/internal/presets/_shared/database-preflight/database-concurrency-preflight.ts';
 
 const checkModule: PresetCheckModule = {
   preflight: async (projectRoot) =>

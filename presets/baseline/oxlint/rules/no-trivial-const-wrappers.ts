@@ -1,6 +1,10 @@
 import { defineRule, type ESTree } from '@oxlint/plugins';
 
-import { declarationNode, directReturnExpression, isFunctionLike } from '../ast.ts';
+import {
+  declarationNode,
+  directReturnExpression,
+  isFunctionLike,
+} from 'agent-quality-gate/internal/presets/baseline/oxlint/ast.ts';
 
 function unwrapExpression(node: ESTree.Expression): ESTree.Expression {
   if (

@@ -4,7 +4,7 @@ import {
   functionParamVisitors,
   paramTypeAnnotation,
   walkAst,
-} from 'agent-quality-gate/oxlint-walk';
+} from 'agent-quality-gate/shared/oxlint';
 
 function hasTypePredicateReturn(node: ESTree.Node): boolean {
   if (

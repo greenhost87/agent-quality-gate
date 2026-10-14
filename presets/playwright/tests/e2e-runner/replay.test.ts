@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'bun:test';
 
-import { replayCreateOnceRule } from 'agent-quality-gate/oxlint-rule-bench';
-import { createBenchRuleContext } from 'agent-quality-gate/oxlint-rule-bench/create-bench-context';
-import { requireCreateOnceRule } from 'agent-quality-gate/oxlint-rule-bench/require-create-once-rule';
-import { HOT } from 'agent-quality-gate/oxlint-rule-bench/hot-code';
+import { replayCreateOnceRule } from 'agent-quality-gate/testing/oxlint';
+import { createBenchRuleContext } from 'agent-quality-gate/testing/oxlint';
+import { requireCreateOnceRule } from 'agent-quality-gate/testing/oxlint';
+import { HOT } from 'agent-quality-gate/testing/oxlint';
 
-import { itRegistersTypedVisitors } from '../support/expect-typed-visitors.ts';
+import { itRegistersTypedVisitors } from 'agent-quality-gate/internal/presets/playwright/tests/support/expect-typed-visitors.ts';
 import { e2eRunnerBench } from './bench.ts';
 
 describe('e2e-runner visitors', () => {
@@ -40,6 +40,23 @@ describe('e2e-runner reports', () => {
     expect(reports.filter((report) => report.messageId === 'launch').length).toBe(HOT);
   });
 
+  it('reports configured process-runner imports', () => {
+    const result = replayCreateOnceRule({
+      ruleId: e2eRunnerBench.ruleId,
+      rule: e2eRunnerBench.rule,
+      cases: [
+        {
+          name: 'configured-process-runner',
+          filename: '/bench/specs/browser/app.pw.ts',
+          cwd: '/bench',
+          options: [{ e2eDirectory: 'specs/browser', processRunnerImports: ['execa'] }],
+          code: "import { execa } from 'execa'; void execa;",
+        },
+      ],
+    });
+    expect(result.cases[0]?.reports[0]?.messageId).toBe('spawn');
+  });
+
   it('reports invalid e2e filenames', () => {
     const result = replayCreateOnceRule({
       ruleId: e2eRunnerBench.ruleId,
@@ -49,6 +66,7 @@ describe('e2e-runner reports', () => {
           name: 'bad-filename',
           filename: '/bench/tests/e2e/visualizer.test.ts',
           cwd: '/bench',
+          options: [{ e2eDirectory: 'tests/e2e' }],
           code: 'export const ok = true;\n',
         },
       ],

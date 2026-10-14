@@ -1,6 +1,6 @@
 import { defineRule, type ESTree } from '@oxlint/plugins';
 
-import { isAstNode } from 'agent-quality-gate/oxlint-walk';
+import { isAstNode } from 'agent-quality-gate/shared/oxlint';
 
 const DIAGNOSTIC =
   'Do not embed multi-line test data. Store it in a fixture file and load it in the test.';

@@ -1,8 +1,8 @@
-import { noTypeofObject } from '../../oxlint/no-typeof-object.ts';
+import { noTypeofObject } from 'agent-quality-gate/internal/presets/bun-parse/oxlint/no-typeof-object.ts';
 
-import { benchCreateOnceRule } from 'agent-quality-gate/oxlint-rule-bench';
-import type { BenchCreateOnceRuleInput } from 'agent-quality-gate/oxlint-rule-bench/types';
-import { repeat } from 'agent-quality-gate/oxlint-rule-bench/hot-code';
+import { benchCreateOnceRule } from 'agent-quality-gate/testing/oxlint';
+import type { BenchCreateOnceRuleInput } from 'agent-quality-gate/testing/oxlint';
+import { repeat } from 'agent-quality-gate/testing/oxlint';
 
 export const noTypeofObjectBench: BenchCreateOnceRuleInput = {
   name: 'no-typeof-object',

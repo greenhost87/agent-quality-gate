@@ -1,0 +1,4 @@
+projects:
+  - root: __PROJECT_ROOT__
+    entries:
+      - entry.ts

@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
 
-import { runOxlintFixture } from '../support/run-oxlint.ts';
+import { runOxlintFixture } from 'agent-quality-gate/internal/presets/baseline/tests/support/run-oxlint.ts';
 
 const rule = 'aqg/no-oxlint-disable-directives';
 const forbidden = 'Inline lint directives are forbidden';

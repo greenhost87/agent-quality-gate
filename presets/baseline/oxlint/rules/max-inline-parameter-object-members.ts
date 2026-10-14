@@ -1,10 +1,10 @@
 import { defineRule, type ESTree } from '@oxlint/plugins';
 
-import { createMaxOptionReader } from '../max-option.ts';
+import { createMaxOptionReader } from 'agent-quality-gate/internal/presets/baseline/oxlint/max-option.ts';
 
-import { functionParamVisitors, paramTypeAnnotation } from 'agent-quality-gate/oxlint-walk';
+import { functionParamVisitors, paramTypeAnnotation } from 'agent-quality-gate/shared/oxlint';
 
-import { createOptionsRefCache } from '../../../../scripts/oxlint-options-ref-cache/options-ref-cache.ts';
+import { createOptionsRefCache } from 'agent-quality-gate/shared/oxlint';
 
 const DEFAULT_MAX = -1;
 

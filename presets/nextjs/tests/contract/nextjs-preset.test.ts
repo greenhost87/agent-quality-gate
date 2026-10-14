@@ -1,12 +1,11 @@
-import { afterEach, beforeAll, describe, expect, it } from 'bun:test';
-import { copyFile, mkdir } from 'node:fs/promises';
-import { dirname, join } from 'node:path';
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from 'bun:test';
+import { copyFile, mkdir, mkdtemp, rm, symlink } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { dirname, join, resolve } from 'node:path';
+import { write } from 'bun';
 
-import { resolvePresetContract } from '../../../../preset-catalog/catalog/preset-catalog.ts';
-import { useIsolatedAgentQualityGateHome } from '../../../../tests/support/isolated-home.ts';
-import { linkPresetIntoAgentQualityGateHome } from '../../../../tests/support/link-home-preset.ts';
-import { createReactProject } from '../../../../tests/support/react-project.ts';
-import { removeTrackedTempDirectories } from '../../../../tests/support/tracked-temp-directories.ts';
+import { resolvePresetContract } from 'agent-quality-gate/shared/verify';
+import { getOptionalEnv } from 'agent-quality-gate/shared/verify';
 import {
   loadGeneratedConfig,
   runOxlint,
@@ -14,21 +13,87 @@ import {
   writePresetConfig,
 } from './helpers.ts';
 
-useIsolatedAgentQualityGateHome();
+const tempDirectories: string[] = [];
+let isolatedHome = '';
+let previousHome: string | undefined;
 
 beforeAll(async () => {
-  await linkPresetIntoAgentQualityGateHome(
-    'react-presentation',
-    join(import.meta.dir, '../../..', 'react-presentation'),
-  );
+  isolatedHome = await mkdtemp(join(tmpdir(), 'aqg-home-'));
+  previousHome = process.env.AGENT_QUALITY_GATE_HOME;
+  process.env.AGENT_QUALITY_GATE_HOME = isolatedHome;
+});
+
+beforeEach(() => {
+  process.env.AGENT_QUALITY_GATE_HOME = isolatedHome;
+});
+
+afterAll(async () => {
+  if (previousHome === undefined) delete process.env.AGENT_QUALITY_GATE_HOME;
+  else process.env.AGENT_QUALITY_GATE_HOME = previousHome;
+  await rm(isolatedHome, { recursive: true, force: true });
+});
+
+async function makeTrackedTempDirectory(
+  trackedDirectories: string[],
+  prefix: string,
+): Promise<string> {
+  const directory = await mkdtemp(join(tmpdir(), prefix));
+  trackedDirectories.push(directory);
+  return directory;
+}
+
+beforeAll(async () => {
   await linkPresetIntoAgentQualityGateHome('nextjs', join(import.meta.dir, '../..'));
 });
 
-const tempDirectories: string[] = [];
 const fixturesRoot = join(import.meta.dir, '../../.quality-fixtures');
 
+async function linkPresetIntoAgentQualityGateHome(
+  presetName: string,
+  presetRoot: string,
+): Promise<void> {
+  const home = getOptionalEnv('AGENT_QUALITY_GATE_HOME');
+  if (home === undefined || home.length === 0) {
+    throw new Error('AGENT_QUALITY_GATE_HOME must be set before linking a preset');
+  }
+  const presetsDir = join(home, 'presets');
+  await mkdir(presetsDir, { recursive: true });
+  await symlink(resolve(presetRoot), join(presetsDir, presetName));
+}
+
+async function createReactProject(): Promise<string> {
+  const cwd = await makeTrackedTempDirectory(tempDirectories, 'aqg-react-project-');
+  await write(
+    join(cwd, 'package.json'),
+    `${JSON.stringify({ name: 'sample-react-fixture', private: true, type: 'module' }, null, 2)}\n`,
+  );
+  await write(
+    join(cwd, 'tsconfig.json'),
+    `${JSON.stringify(
+      {
+        compilerOptions: {
+          jsx: 'react-jsx',
+          module: 'ESNext',
+          moduleResolution: 'Bundler',
+          noEmit: true,
+          strict: true,
+          target: 'ES2022',
+        },
+        include: ['**/*.tsx', '**/*.ts'],
+      },
+      null,
+      2,
+    )}\n`,
+  );
+  return cwd;
+}
+
 afterEach(async () => {
-  await removeTrackedTempDirectories(tempDirectories);
+  await Promise.all(
+    tempDirectories.splice(0).map(async (directory) => {
+      await rm(directory, { recursive: true, force: true });
+    }),
+  );
 });
 
 async function copyFixture(projectRoot: string, relative: string, dest: string): Promise<string> {
@@ -39,32 +104,21 @@ async function copyFixture(projectRoot: string, relative: string, dest: string):
 }
 
 describe('nextjs preset contract', () => {
-  it('requires react-presentation and does not reverse-activate from react-presentation alone', async () => {
+  it('activates independently with its own plugin and rules', async () => {
     const nextjs = await resolvePresetContract(['nextjs']);
-    expect(nextjs.names).toEqual(['baseline', 'react-presentation', 'nextjs']);
-    expect(nextjs.nativePlugins).toContain('react');
-    expect(nextjs.nativePlugins).toContain('nextjs');
+    expect(nextjs.names).toEqual(['baseline', 'nextjs']);
+    expect(nextjs.nativePlugins).toEqual(['nextjs']);
     expect(nextjs.rules['nextjs/no-img-element']).toEqual({
       severity: 'error',
       phase: 'ui',
     });
-    expect(nextjs.rules['react/immutability']).toEqual({
-      severity: 'error',
-      phase: 'ui',
-    });
-
-    const reactOnly = await resolvePresetContract(['react-presentation']);
-    expect(reactOnly.names).toEqual(['baseline', 'react-presentation']);
-    expect(reactOnly.names).not.toContain('nextjs');
-    expect(reactOnly.rules['nextjs/no-img-element']).toBeUndefined();
   });
 
   it('generated config includes nextjs plugin without jsx-a11y', async () => {
-    const cwd = await createReactProject(tempDirectories);
+    const cwd = await createReactProject();
     const configPath = await writePresetConfig(cwd, ['nextjs']);
     const config = await loadGeneratedConfig(configPath);
     expect(config.plugins).toContain('nextjs');
-    expect(config.plugins).toContain('react');
     expect(config.plugins).not.toContain('jsx-a11y');
     expect(config.rules['nextjs/no-img-element']).toBe('error');
     expect(config.rules['nextjs/no-html-link-for-pages']).toBe('error');
@@ -73,7 +127,7 @@ describe('nextjs preset contract', () => {
 
 describe('nextjs preset rules', () => {
   it('rejects raw img, html page links, font display, sync scripts, and inline script without id', async () => {
-    const cwd = await createReactProject(tempDirectories);
+    const cwd = await createReactProject();
     const configPath = await writeDiagnosticConfig(cwd, ['nextjs']);
 
     const badImg = await copyFixture(cwd, 'no-img-element/invalid/page.tsx', 'app/bad-img.tsx');
