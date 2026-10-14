@@ -1,6 +1,6 @@
 import { defineRule, type Variable } from '@oxlint/plugins';
 
-import { variableForName } from '../ast.ts';
+import { variableForName } from 'agent-quality-gate/internal/presets/baseline/oxlint/ast.ts';
 
 function hasNonInitWrite(variable: Variable): boolean {
   return variable.references.some((reference) => reference.isWrite() && !reference.init);

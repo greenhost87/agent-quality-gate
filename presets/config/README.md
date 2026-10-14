@@ -1,13 +1,13 @@
 # Preset: `config`
 
-Single gateway for environment variables. Application code never reads `process.env` directly; it goes through managed helpers in `system/config/environment.ts`.
+Single gateway for environment variables. Application code never reads `process.env` directly; it goes through the managed environment helper. Its default path is `system/config/environment.ts`; `presetConfig.config.environmentPath` can relocate it.
 
 ## What it installs
 
 | Kind         | Detail                                                                                                                                                          |
 | ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Managed file | `system/config/environment.ts` ← `payload/system/config/environment.ts`                                                                                         |
-| Dependency   | `valibot` (typed config/env schemas in project `configLoader` and elsewhere)                                                                                    |
+| Dependency   | `valibot` 1.4.2 or newer (typed config/env schemas in project `configLoader` and elsewhere)                                                                     |
 | Oxlint rules | `config/environment-boundaries`, `config/no-valibot-custom`, `config/no-trivial-valibot-schema-alias` ← `oxlint/index.ts` (bundled to `.js` on package/install) |
 
 Requires: none.
@@ -29,11 +29,11 @@ flowchart LR
   end
 ```
 
-Verify checks `environment.ts` against the preset `contentHash` and refreshes the example under `.aqg/config/…`. Copy the example into place when the file is missing or drifted. Keep project-specific typed getters in your own `configLoader.ts` (or equivalent) that call the shared helpers (`getRequiredEnv`, `getBooleanEnv`, …).
+Verify checks the configured environment file against the preset `contentHash` and refreshes the example under `.aqg/config/<environmentPath>`. Copy the example into place when the file is missing or drifted. Keep project-specific typed getters in your own `configLoader.ts` (or equivalent) that call the shared helpers (`getRequiredEnv`, `getBooleanEnv`, …).
 
 ## Boundary rule
 
-Outside `system/config/environment.ts`, these patterns fail lint:
+Outside the configured environment helper (default `system/config/environment.ts`), these patterns fail lint:
 
 - `process.env…`
 - `const { env } = process` / assignment destructuring of `process.env`
@@ -51,7 +51,23 @@ Prefer structural schemas (`object`, `union`, `lazy`, `pipe` + `check`) and inli
 
 ## Enable
 
+The default path needs no configuration:
+
 ```yaml
 presets:
   - config
 ```
+
+To keep the managed helper inside an application source tree, configure a project-relative `.ts` path:
+
+```yaml
+presets:
+  - config
+presetConfig:
+  config:
+    environmentPath: src/server/config/environment.ts
+```
+
+The boundary rule and managed-file verification use the same configured path. Absolute paths, parent traversal, backslashes, and non-`.ts` destinations are ignored.
+
+Relocation changes the managed destination and boundary exemption; it does not rewrite imports inside other managed files. Presets such as `database` and `database-sqlite` still import `@/system/config/environment`. When combining them with a relocated helper, configure that alias to resolve to the new path.

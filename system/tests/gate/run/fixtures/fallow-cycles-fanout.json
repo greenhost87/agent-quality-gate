@@ -1,0 +1,7 @@
+{
+  "circular_dependencies": [{ "col": 1, "files": ["src/c.ts", "src/d.ts"], "line": 2 }],
+  "kind": "dead-code",
+  "re_export_cycles": [{ "files": ["src/a.ts", "src/b.ts"], "kind": "cycle" }],
+  "total_issues": 3,
+  "unresolved_imports": [{ "col": 0, "line": 3, "path": "src/e.ts", "specifier": "./missing" }]
+}

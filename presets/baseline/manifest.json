@@ -11,6 +11,17 @@
       }
     ],
     "rules": {
+      "no-restricted-imports": [
+        "error",
+        {
+          "patterns": [
+            {
+              "group": ["../../**"],
+              "message": "Avoid deep relative imports: move shared code to a suitable common module or use a project import alias. Do not inline or duplicate it."
+            }
+          ]
+        }
+      ],
       "aqg/console-format-placeholders": "error",
       "aqg/max-inline-parameter-object-members": "error",
       "aqg/no-class": "error",

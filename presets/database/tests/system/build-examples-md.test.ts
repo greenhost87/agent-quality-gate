@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test';
-import { buildDatabaseExamplesMarkdown } from '../../build-examples-md.ts';
+import { buildDatabaseExamplesMarkdown } from 'agent-quality-gate/internal/presets/database/build-examples-md.ts';
 
 test('database examples markdown embeds gated example sources', async () => {
   const markdown = await buildDatabaseExamplesMarkdown();

@@ -1,0 +1,6 @@
+{
+  "findings": [
+    { "cognitive": 30, "cyclomatic": 42, "line": 5, "name": "tooComplex", "path": "src/big.ts" }
+  ],
+  "kind": "health"
+}

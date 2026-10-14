@@ -1,39 +1,23 @@
-import { mkdtemp, mkdir, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
+import { mkdir } from 'node:fs/promises';
+
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
-import { afterEach, describe, expect, it } from 'bun:test';
-import { YAML } from 'bun';
+import { describe, expect, it } from 'bun:test';
 
-import { writeTextFile } from '../../../process/files/files.js';
-import { canonicalizePath } from '../../../process/files/paths.js';
+import { canonicalizePath } from '#system/process/files/paths.js';
+import { createTempYamlConfig, projectConfig } from '#system/tests/support/config-fixtures.js';
 import { resolveMcpWorkspaceRoot, type McpRootsClient } from '../workspace-root.js';
+import { useTrackedTempDirectories } from '#system/tests/support/tracked-temp-directories.js';
 
-const tempDirectories: string[] = [];
-
-afterEach(async () => {
-  await Promise.all(
-    tempDirectories.splice(0).map(async (directory) => {
-      await rm(directory, { recursive: true, force: true });
-    }),
-  );
-});
-
-async function makeTempDirectory(prefix: string): Promise<string> {
-  const directory = await mkdtemp(join(tmpdir(), prefix));
-  tempDirectories.push(directory);
-  return directory;
-}
+const { makeTempDirectory } = useTrackedTempDirectories();
 
 async function writeConfig(projectRoot: string): Promise<string> {
-  const directory = await makeTempDirectory('quality-gate-mcp-workspace-root-config-');
-  const path = join(directory, 'config.yaml');
-  await writeTextFile(
-    path,
-    YAML.stringify({ projects: [{ root: projectRoot, entries: ['src/index.ts'] }] }, null, 2),
+  return createTempYamlConfig(
+    makeTempDirectory,
+    'quality-gate-mcp-workspace-root-config-',
+    projectConfig(projectRoot),
   );
-  return path;
 }
 
 function createClient(options: CreateClientOptions): McpRootsClient {

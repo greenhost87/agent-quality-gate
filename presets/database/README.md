@@ -48,7 +48,7 @@ Build dynamic filtering and sorting with tagged SQL fragments. Bun SQL `.unsafe(
 
 Define empty-list semantics in the DAO before passing a dynamic value list to `sql(values)` / `tx(values)`. Return an empty result or no-op when an empty list means match-none; omit the conditional SQL fragment when it means no filter. Cover the empty case through the production DAO against the isolated PostgreSQL database.
 
-`migrations/**/*.sql` is applied in lexicographic order by the managed Bun.sql runner (one transaction per file). Invoke the runner with `bun system/database/migrate.ts` (`import.meta.main`); keep types and CLI in that file. If `pgmigrations` already exists, that ledger is reused; otherwise the runner creates `schema_migrations` in the same node-pg-migrate shape (`id`, `name`, `run_on`). Obvious `CREATE` / `ALTER` / `DROP` outside that tree is rejected, except managed `CREATE TABLE IF NOT EXISTS schema_migrations` inside `system/database/migrate.ts` and managed `CREATE DATABASE` / `DROP DATABASE` inside `tests/setup/testDatabase.ts` and `tests/setup/testDatabase.bootstrap.ts`. Files already present in git HEAD under `migrations/` must stay identical to HEAD. Verify restores those files and writes the discarded diff to `.aqg/restored-migration.diff`. The agent-facing hint points at that file; it does not list restored paths as violations. New files that are not in HEAD may still change.
+Direct `migrations/*.sql` files are applied in lexicographic order by the managed Bun.sql runner (one transaction per file); the runner does not recurse into subdirectories. Invoke it with `bun system/database/migrate.ts` (`import.meta.main`); keep types and CLI in that file. If `pgmigrations` already exists, that ledger is reused; otherwise the runner creates `schema_migrations` in the same node-pg-migrate shape (`id`, `name`, `run_on`). Obvious `CREATE` / `ALTER` / `DROP` outside the migrations tree is rejected, except managed `CREATE TABLE IF NOT EXISTS schema_migrations` inside `system/database/migrate.ts` and managed `CREATE DATABASE` / `DROP DATABASE` inside `tests/setup/testDatabase.ts` and `tests/setup/testDatabase.bootstrap.ts`. Files already present in git HEAD under `migrations/` must stay identical to HEAD. Verify restores changed/deleted files in both the index and working tree and writes the discarded diff to `.aqg/restored-migration.diff`. The agent-facing hint points at that file; it does not list restored paths as violations. New files that are not in HEAD may still change.
 
 ## Test layout
 
@@ -99,13 +99,20 @@ bun .aqg/database/scripts/sync-database-managed.ts
 bun .aqg/database/scripts/sync-database-managed.ts /path/to/project
 ```
 
-It copies every managed `config` + `database` file from `.aqg` to its project destination (`system/config/environment.ts`, `system/database/*`, `tests/setup/*`), overwriting those destinations in place. Rerun `verify` afterwards.
+It copies the default managed `config` + `database` destinations (`system/config/environment.ts`, `system/database/*`, `tests/setup/*`) from `.aqg`, overwriting those destinations in place. This helper uses fixed paths; if `config.environmentPath` is relocated, copy the refreshed environment example to that configured path separately and configure the canonical environment import alias. Rerun `verify` afterwards.
 
 ## Enable
 
 ```yaml
 presets:
-  - database
+  database:
+    infrastructureImports:
+      - pg
+      - '@testcontainers/postgresql'
+      - testcontainers
+      - node-pg-migrate
 ```
 
 `config` is activated transitively via `manifest.json` `requires`.
+
+`infrastructureImports` contains exact module specifiers forbidden in test/E2E files outside managed database setup. It defaults to `[]`; the example explicitly retains the former infrastructure package restrictions. Omit the list or use `database: {}` when no additional package restrictions are needed. Migration imports and database lifecycle restrictions are checked independently. The list does not grant permission to bypass the managed test-database hook.

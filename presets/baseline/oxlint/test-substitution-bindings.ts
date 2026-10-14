@@ -2,7 +2,7 @@ import { realpathSync } from 'node:fs';
 import { createRequire, isBuiltin } from 'node:module';
 import type { Context, ESTree, Scope, Variable } from '@oxlint/plugins';
 
-import { unwrapExpression } from 'agent-quality-gate/oxlint-walk';
+import { unwrapExpression } from 'agent-quality-gate/shared/oxlint';
 
 export type TestImportOrigin = {
   source: string;

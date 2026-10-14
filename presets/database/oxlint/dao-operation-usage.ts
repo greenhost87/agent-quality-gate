@@ -11,8 +11,8 @@ import {
   isDirectCallTarget,
   namespaceReferenceIsDirectCall,
 } from './dao-operation-call-targets.ts';
-import { astIndex } from '../../../scripts/oxlint-walk/ast-index.ts';
-import { type AstParentOf, unwrapExpression } from '../../../scripts/oxlint-walk/oxlint-walk.ts';
+import { astIndex } from 'agent-quality-gate/shared/oxlint';
+import { type AstParentOf, unwrapExpression } from 'agent-quality-gate/shared/oxlint';
 
 export const daoImportKinds = ['named', 'namespace'] as const;
 export type DaoImportKind = (typeof daoImportKinds)[number];

@@ -2,8 +2,8 @@ import { createHash } from 'node:crypto';
 import { mkdirSync, rmSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 
-import { agentQualityGateHome } from '../../config/agent-quality-gate-home/agent-quality-gate-home.js';
-import { pathExists, readTextFile, writeTextFile } from '../../process/files/files.js';
+import { agentQualityGateHome } from '#system/config/agent-quality-gate-home.js';
+import { pathExists, readTextFile, writeTextFile } from '#system/process/files/files.js';
 
 function sessionAttemptPath(harness: StopSessionHarness, sessionId: string): string {
   const id = createHash('sha256').update(sessionId).digest('hex').slice(0, 16);

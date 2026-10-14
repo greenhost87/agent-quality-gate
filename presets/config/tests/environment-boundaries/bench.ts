@@ -1,8 +1,8 @@
-import { environmentBoundaries } from '../../oxlint/environment-boundaries.ts';
+import { environmentBoundaries } from 'agent-quality-gate/internal/presets/config/oxlint/environment-boundaries.ts';
 
-import { benchCreateOnceRule } from 'agent-quality-gate/oxlint-rule-bench';
-import type { BenchCreateOnceRuleInput } from 'agent-quality-gate/oxlint-rule-bench/types';
-import { repeat } from 'agent-quality-gate/oxlint-rule-bench/hot-code';
+import { benchCreateOnceRule } from 'agent-quality-gate/testing/oxlint';
+import type { BenchCreateOnceRuleInput } from 'agent-quality-gate/testing/oxlint';
+import { repeat } from 'agent-quality-gate/testing/oxlint';
 
 export const environmentBoundariesBench: BenchCreateOnceRuleInput = {
   name: 'environment-boundaries',

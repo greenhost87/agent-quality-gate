@@ -1,17 +1,18 @@
-import { cp, mkdtemp, rm } from 'node:fs/promises';
+import { cp, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'bun:test';
 
-import { listFallowDiscoveredFiles } from '../../../../gate/preflight/fallow-analysis.js';
+import { listFallowDiscoveredFiles } from 'agent-quality-gate/shared/verify';
 import {
   findTestColocationViolationsFromRelativePaths,
   rejectMisplacedTestsFromRelativePaths,
-} from '../../scan-test-colocation.ts';
-import { fixturePath } from '../../../../tests/support/fixture-files.js';
+  type TestColocationPolicy,
+} from 'agent-quality-gate/internal/presets/layout/scan-test-colocation.ts';
 
 const FIXTURES_ROOT = join(import.meta.dir, '../../.quality-fixtures/test-colocation');
+const LOCAL_FIXTURES_ROOT = join(import.meta.dir, '../../.quality-fixtures/local-test-colocation');
 const tempDirectories: string[] = [];
 
 afterEach(async () => {
@@ -22,10 +23,10 @@ afterEach(async () => {
   );
 });
 
-async function materialize(caseName: string): Promise<string> {
+async function materialize(caseName: string, fixtureRoot = FIXTURES_ROOT): Promise<string> {
   const directory = await mkdtemp(join(tmpdir(), `test-colocation-${caseName}-`));
   tempDirectories.push(directory);
-  await cp(fixturePath(FIXTURES_ROOT, caseName), directory, { recursive: true });
+  await cp(join(fixtureRoot, caseName), directory, { recursive: true });
   return directory;
 }
 
@@ -38,7 +39,99 @@ async function listFixtureFiles(root: string): Promise<readonly string[]> {
   return list.files;
 }
 
+async function expectRejectedFixture(
+  caseName: string,
+  expected: readonly string[],
+  policy: TestColocationPolicy = 'aqg-repository',
+): Promise<void> {
+  const root = await materialize(caseName, LOCAL_FIXTURES_ROOT);
+  const files = await listFixtureFiles(root);
+  const result = rejectMisplacedTestsFromRelativePaths(files, policy);
+  expect(result.exitCode).toBe(1);
+  const text = result.diagnostics
+    .map((diagnostic) =>
+      [diagnostic.ruleId, diagnostic.location?.path, diagnostic.message].join(' '),
+    )
+    .join('\n');
+  for (const message of expected) {
+    expect(text).toContain(message);
+  }
+}
+
+describe('local test colocation', () => {
+  it('rejects test files dumped in top-level tests/', async () => {
+    await expectRejectedFixture('invalid-top-level', [
+      'layout/test-colocation',
+      'tests/example.test.ts',
+    ]);
+  });
+
+  it('rejects test files outside owner tests directories', async () => {
+    await expectRejectedFixture('invalid-loose', ['gate/example.test.ts']);
+  });
+
+  it('rejects bench files outside owner tests directories', async () => {
+    await expectRejectedFixture('invalid-bench-loose', ['gate/example.bench.ts']);
+  });
+
+  it('allows colocated owner tests and preset example tests', async () => {
+    const root = await materialize('valid', LOCAL_FIXTURES_ROOT);
+    const files = await listFixtureFiles(root);
+    expect(rejectMisplacedTestsFromRelativePaths(files)).toEqual({ exitCode: 0, diagnostics: [] });
+  });
+
+  it('rejects application test files outside tests/', async () => {
+    await expectRejectedFixture(
+      'invalid-application-colocated',
+      ['system/workflows/draft/example.test.ts', 'test and bench files must live under tests/'],
+      'application',
+    );
+  });
+
+  it('allows application tests and setup helpers under tests/', async () => {
+    const root = await materialize('valid-application', LOCAL_FIXTURES_ROOT);
+    const files = await listFixtureFiles(root);
+    expect(rejectMisplacedTestsFromRelativePaths(files, 'application')).toEqual({
+      exitCode: 0,
+      diagnostics: [],
+    });
+  });
+
+  it('rejects database setup files under tests/setup/', async () => {
+    await expectRejectedFixture('invalid-setup', [
+      'tests/setup/helper.ts',
+      'AQG shared test helpers belong under system/tests/support/',
+    ]);
+  });
+
+  it('rejects non-support helpers directly under tests/', async () => {
+    await expectRejectedFixture('invalid-example', [
+      'tests/database.integration.ts',
+      'AQG shared test helpers belong under system/tests/support/',
+    ]);
+  });
+});
+
 describe('test-colocation scan', () => {
+  it('accepts centralized system tests and rejects their former locations', () => {
+    expect(
+      findTestColocationViolationsFromRelativePaths(
+        ['system/tests/gate/verify.test.ts', 'system/tests/oxlint/rule-bench/bench.test.ts'],
+        'aqg-repository',
+      ),
+    ).toEqual([]);
+    expect(
+      findTestColocationViolationsFromRelativePaths(
+        [
+          'system/gate/tests/verify.test.ts',
+          'system/scripts/oxlint-ast-bench/tests/bench.test.ts',
+          'tests/system/gate/verify.test.ts',
+          'tests/system/scripts/oxlint-ast-bench/bench.test.ts',
+        ],
+        'aqg-repository',
+      ),
+    ).toHaveLength(4);
+  });
   it('rejects application test files outside tests/', async () => {
     const root = await materialize('invalid-application-colocated');
     const files = await listFixtureFiles(root);
@@ -47,6 +140,25 @@ describe('test-colocation scan', () => {
     expect(
       result.diagnostics.some((entry) => entry.location?.path?.includes('example.test.ts')),
     ).toBe(true);
+  });
+
+  it('discovers misplaced tests when the gate enables Fallow production mode', async () => {
+    const root = await materialize('invalid-application-colocated');
+    const configPath = join(root, 'fallow.json');
+    await writeFile(
+      configPath,
+      `${JSON.stringify({ entry: ['system/**/*.ts'], production: { deadCode: true } })}\n`,
+    );
+
+    const list = await listFallowDiscoveredFiles({
+      projectRoot: root,
+      fallowConfigPath: configPath,
+    });
+    expect(list.ok).toBe(true);
+    if (!list.ok) {
+      return;
+    }
+    expect(list.files.some((path) => path.endsWith('example.test.ts'))).toBe(true);
   });
 
   it('allows application tests and setup helpers under tests/', async () => {
@@ -90,29 +202,38 @@ describe('test-colocation scan', () => {
     ]);
   });
 
-  it('enforces repository ownership for Playwright tests even under shared support', () => {
+  it('requires repository shared helpers to live under system/', () => {
     const violations = findTestColocationViolationsFromRelativePaths(
-      ['presets/layout/tests/login.pw.ts', 'tests/support/login.pw.ts'],
+      [
+        'presets/layout/tests/login.pw.ts',
+        'system/tests/support/login.helpers.ts',
+        'tests/support/login.helpers.ts',
+      ],
       'aqg-repository',
     );
     expect(violations).toEqual([
       {
-        path: 'tests/support/login.pw.ts',
-        reason: 'top-level tests/ may only hold shared helpers under tests/support/',
+        path: 'tests/support/login.helpers.ts',
+        reason: 'AQG shared test helpers belong under system/tests/support/',
       },
     ]);
   });
 
   it('finds violations from an explicit relative path list', async () => {
     const violations = findTestColocationViolationsFromRelativePaths(
-      ['gate/example.test.ts'],
+      ['system/gate/example.test.ts', 'tests/system/gate/example.test.ts'],
       'aqg-repository',
     );
     expect(violations).toEqual([
       {
-        path: 'gate/example.test.ts',
+        path: 'system/gate/example.test.ts',
         reason:
-          'test and bench files must live under adapters/*/tests, scripts/tests, scripts/*/tests, gate/tests, presets/*/tests, or presets/*/examples/tests',
+          'test and bench files must live under adapters/*/tests, system/tests/*, presets/*/tests, or presets/*/examples/tests',
+      },
+      {
+        path: 'tests/system/gate/example.test.ts',
+        reason:
+          'test and bench files must live under adapters/*/tests, system/tests/*, presets/*/tests, or presets/*/examples/tests',
       },
     ]);
   });

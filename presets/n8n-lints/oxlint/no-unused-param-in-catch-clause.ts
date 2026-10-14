@@ -1,6 +1,6 @@
 import { defineRule, type ESTree } from '@oxlint/plugins';
 
-import { walkAstSkippingTypeSubtrees } from '../../../scripts/oxlint-walk/oxlint-walk.ts';
+import { walkAstSkippingTypeSubtrees } from 'agent-quality-gate/shared/oxlint';
 
 function isKeyPosition(node: ESTree.Node, parent: ESTree.Node): boolean {
   switch (parent.type) {

@@ -1,6 +1,6 @@
 import { defineRule, type ESTree } from '@oxlint/plugins';
 
-import { unwrapExpression } from '../../../../scripts/oxlint-walk/oxlint-walk.ts';
+import { unwrapExpression } from 'agent-quality-gate/shared/oxlint';
 
 function jsonMethodCall(node: ESTree.Node, method: string): ESTree.CallExpression | null {
   const call = unwrapExpression(node);

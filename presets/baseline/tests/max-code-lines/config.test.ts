@@ -2,7 +2,7 @@ import { expect, it } from 'bun:test';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
-import baselineConfig from '../../oxlint.json';
+import baselineConfig from 'agent-quality-gate/internal/presets/baseline/oxlint.json';
 
 it('enforces 400 TS and 500 TSX code lines through baseline overrides', async () => {
   const root = mkdtempSync(resolve(import.meta.dir, '../../.quality-fixtures/max-code-lines-'));

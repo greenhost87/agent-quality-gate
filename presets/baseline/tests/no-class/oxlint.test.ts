@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test';
 
-import { runOxlintFixture } from '../support/run-oxlint.ts';
+import { runOxlintFixture } from 'agent-quality-gate/internal/presets/baseline/tests/support/run-oxlint.ts';
 
 const rule = 'aqg/no-class';
 const enabled = ['error', { suffixes: ['Error', 'Element'] }] as const;

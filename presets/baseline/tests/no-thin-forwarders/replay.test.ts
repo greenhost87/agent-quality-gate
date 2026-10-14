@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'bun:test';
 
-import { replayCreateOnceRule } from 'agent-quality-gate/oxlint-rule-bench';
-import { HOT } from '../support/hot-code.ts';
-import { itRegistersTypedVisitors } from '../support/expect-typed-visitors.ts';
+import { replayCreateOnceRule } from 'agent-quality-gate/testing/oxlint';
+import { HOT } from 'agent-quality-gate/internal/presets/baseline/tests/support/hot-code.ts';
+import { itRegistersTypedVisitors } from 'agent-quality-gate/internal/presets/baseline/tests/support/expect-typed-visitors.ts';
 
 import { noThinForwardersBench } from './bench.ts';
 describe('no-thin-forwarders visitors', () => {

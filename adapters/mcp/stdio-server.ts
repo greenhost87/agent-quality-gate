@@ -11,8 +11,8 @@ import {
 } from '@modelcontextprotocol/sdk/types.js';
 import * as v from 'valibot';
 
-import { reportCommandError } from '../../process/command/command.js';
-import { runMcpVerify } from '../../gate/mcp-verify/mcp-verify.js';
+import { reportCommandError } from '#system/process/command/command.js';
+import { runMcpVerify } from '#system/gate/mcp-verify/mcp-verify.js';
 import { VERIFY_TOOL_NAME } from '../hooks/verify-tool-name.js';
 import { resolveMcpWorkspaceRoot } from './workspace-root.js';
 
@@ -25,7 +25,7 @@ const VERIFY_INPUT_JSON_SCHEMA = {
 };
 
 const VERIFY_TOOL_DESCRIPTION =
-  'Run agent-quality-gate Oxlint and Fallow checks for the current configured workspace. On failure, fix only the listed source-file violations, then call this tool again. Do not hunt for verify binaries, fallow/jscpd config, or agent-quality-gate packages.';
+  'Run agent-quality-gate checks for the current configured workspace. On failure, fix only the listed source-file violations, then call this tool again. Do not hunt for verify binaries, quality-gate config, or agent-quality-gate packages.';
 
 export function createAgentQualityGateMcpServer(
   options: AgentQualityGateMcpServerOptions = {},

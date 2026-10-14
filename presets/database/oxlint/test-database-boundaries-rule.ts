@@ -1,4 +1,5 @@
 import { defineRule, type Context, type ESTree } from '@oxlint/plugins';
+import * as v from 'valibot';
 
 import {
   bunTestApiNames,
@@ -23,8 +24,8 @@ import {
   unitTestsDirectoryPattern,
 } from './dao-boundaries-shared.ts';
 
-import { astIndex } from '../../../scripts/oxlint-walk/ast-index.ts';
-import type { AstParentOf } from '../../../scripts/oxlint-walk/oxlint-walk.ts';
+import { astIndex } from 'agent-quality-gate/shared/oxlint';
+import type { AstParentOf } from 'agent-quality-gate/shared/oxlint';
 
 export interface TestDatabaseScanFlags {
   isTestOrE2eFile: boolean;
@@ -55,7 +56,12 @@ export interface TestDatabaseScanState {
   deferred: TestDatabaseDeferred;
 }
 
+const TestDatabaseOptionsSchema = v.object({
+  infrastructureImports: v.optional(v.array(v.string()), []),
+});
+
 export interface TestDatabaseImportOptions {
+  infrastructureImports: ReadonlySet<string>;
   isTestOrE2eFile: boolean;
   isTestDatabaseSetup: boolean;
   isUnitTest: boolean;
@@ -164,6 +170,7 @@ function handleTestDatabaseImportDeclaration(
   if (!source) return;
 
   const {
+    infrastructureImports,
     isTestOrE2eFile,
     isTestDatabaseSetup,
     isUnitTest,
@@ -182,7 +189,11 @@ function handleTestDatabaseImportDeclaration(
     reportTestDatabaseImport(context, node, source, isUnitTest, state);
   }
 
-  if (isTestOrE2eFile && !isTestDatabaseSetup && isTestDatabaseInfrastructureImport(node, source)) {
+  if (
+    isTestOrE2eFile &&
+    !isTestDatabaseSetup &&
+    isTestDatabaseInfrastructureImport(node, source, infrastructureImports)
+  ) {
     context.report({ node: node.source, messageId: 'infrastructure' });
   }
 
@@ -314,7 +325,15 @@ function emptyScanState(flags: TestDatabaseScanFlags): TestDatabaseScanState {
 export const testDatabaseBoundaries = defineRule({
   meta: {
     type: 'problem',
-    schema: [],
+    schema: [
+      {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          infrastructureImports: { type: 'array', items: { type: 'string' } },
+        },
+      },
+    ],
     messages: {
       beforeAllDao:
         'Do not use production DAO bindings from beforeAll when useIsolatedTestDatabase is active; arrange in beforeEach or the test body.',
@@ -331,6 +350,7 @@ export const testDatabaseBoundaries = defineRule({
   },
   createOnce(context) {
     let relativePath = '';
+    let infrastructureImports: ReadonlySet<string> = new Set();
     let scanState = emptyScanState({
       isTestOrE2eFile: false,
       isTestDatabaseSetup: false,
@@ -340,6 +360,9 @@ export const testDatabaseBoundaries = defineRule({
     return {
       before() {
         relativePath = projectPath(context);
+        infrastructureImports = new Set(
+          v.parse(TestDatabaseOptionsSchema, context.options[0] ?? {}).infrastructureImports,
+        );
         const isTestOrE2eFile =
           testsDirectoryPattern.test(relativePath) || e2eDirectoryPattern.test(relativePath);
         const isTestDatabaseSetup =
@@ -377,6 +400,7 @@ export const testDatabaseBoundaries = defineRule({
       ImportDeclaration(node) {
         const { flags, bindings, state } = scanState;
         handleTestDatabaseImportDeclaration(context, node, {
+          infrastructureImports,
           isTestOrE2eFile: flags.isTestOrE2eFile,
           isTestDatabaseSetup: flags.isTestDatabaseSetup,
           isUnitTest: flags.isUnitTest,

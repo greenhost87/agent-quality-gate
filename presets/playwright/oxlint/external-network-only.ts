@@ -1,8 +1,10 @@
 import { defineRule, type Context, type ESTree } from '@oxlint/plugins';
 import * as v from 'valibot';
-import { isAstNode } from '../../../scripts/oxlint-walk/oxlint-walk.ts';
-
-const OptionsSchema = v.object({ externalMockOrigins: v.optional(v.array(v.string()), []) });
+import { isAstNode } from 'agent-quality-gate/shared/oxlint';
+import {
+  isInConfiguredDirectory,
+  PlaywrightOptionsSchema,
+} from 'agent-quality-gate/internal/presets/playwright/playwright-options.ts';
 const interceptionMethods = new Set(['route', 'routeFromHAR', 'routeWebSocket']);
 
 export function staticName(node: ESTree.Node, computed = false): string | undefined {
@@ -59,7 +61,11 @@ export const externalNetworkOnly = defineRule({
     schema: [
       {
         type: 'object',
-        properties: { externalMockOrigins: { type: 'array', items: { type: 'string' } } },
+        properties: {
+          e2eDirectory: { type: 'string' },
+          externalMockOrigins: { type: 'array', items: { type: 'string' } },
+          processRunnerImports: { type: 'array', items: { type: 'string' } },
+        },
         additionalProperties: false,
       },
     ],
@@ -75,12 +81,13 @@ export const externalNetworkOnly = defineRule({
     return {
       before() {
         const filename = context.filename.replaceAll('\\', '/');
-        const inE2e = /(?:^|\/)tests\/e2e\//u.test(filename);
+        const options = v.parse(PlaywrightOptionsSchema, context.options[0] ?? {});
+        const inE2e = isInConfiguredDirectory(filename, options.e2eDirectory);
         const config = /(?:^|\/)playwright\.config\.[cm]?[jt]s$/u.test(filename);
         if (!inE2e && !config && !context.sourceCode.text.includes('@playwright/test')) {
           return false;
         }
-        allowed = new Set(v.parse(OptionsSchema, context.options[0] ?? {}).externalMockOrigins);
+        allowed = new Set(options.externalMockOrigins);
         return undefined;
       },
       CallExpression(node) {

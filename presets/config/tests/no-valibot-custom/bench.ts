@@ -1,8 +1,8 @@
-import { noValibotCustom } from '../../oxlint/no-valibot-custom.ts';
+import { noValibotCustom } from 'agent-quality-gate/internal/presets/config/oxlint/no-valibot-custom.ts';
 
-import { benchCreateOnceRule } from 'agent-quality-gate/oxlint-rule-bench';
-import type { BenchCreateOnceRuleInput } from 'agent-quality-gate/oxlint-rule-bench/types';
-import { repeat } from 'agent-quality-gate/oxlint-rule-bench/hot-code';
+import { benchCreateOnceRule } from 'agent-quality-gate/testing/oxlint';
+import type { BenchCreateOnceRuleInput } from 'agent-quality-gate/testing/oxlint';
+import { repeat } from 'agent-quality-gate/testing/oxlint';
 
 export const noValibotCustomBench: BenchCreateOnceRuleInput = {
   name: 'no-valibot-custom',

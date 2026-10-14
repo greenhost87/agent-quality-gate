@@ -1,7 +1,7 @@
 import {
   findProjectForCwd,
   readGlobalQualityGateConfig,
-} from '../../config/global-config/global-config.js';
+} from '#system/config/global-config/global-config.js';
 import { VERIFY_TOOL_NAME } from '../hooks/verify-tool-name.js';
 
 export async function activeToolNamesForCwd(

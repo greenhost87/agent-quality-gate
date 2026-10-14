@@ -1,125 +1,33 @@
-import { mkdtemp, mkdir, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { writeTextFile } from '../../../process/files/files.js';
+import { writeTextFile } from '#system/process/files/files.js';
 
 import { afterEach, describe, expect, it } from 'bun:test';
-import { YAML } from 'bun';
-import { runMcpVerify } from '../../../gate/mcp-verify/mcp-verify.js';
-import { useIsolatedAgentQualityGateHome } from '../../../tests/support/isolated-home.js';
-import { readFixture } from '../../../tests/support/fixture-files.js';
+import { runMcpVerify } from '#system/gate/mcp-verify/mcp-verify.js';
+import { useIsolatedAgentQualityGateHome } from '#system/tests/support/isolated-home.js';
+import { describeMcpVerifyScenarios } from '#system/tests/support/mcp-verify-scenarios.js';
+import { createStopHookTestFixtures } from '#system/tests/support/stop-hook-test-fixtures.js';
 
 useIsolatedAgentQualityGateHome();
 
-const tempDirectories: string[] = [];
-const FIXTURES_ROOT = join(import.meta.dir, '..', '.quality-fixtures', 'mcp-verify');
+const FIXTURES_ROOT = join(import.meta.dir, '.quality-fixtures', 'mcp-verify');
+const fixtures = createStopHookTestFixtures('mcp', FIXTURES_ROOT);
+const { makeTempDirectory, createProject } = fixtures;
 
-async function makeTempDirectory(prefix: string): Promise<string> {
-  const directory = await mkdtemp(join(tmpdir(), prefix));
-  tempDirectories.push(directory);
-  return directory;
-}
-
-async function writeGlobalConfig(directory: string, value: object): Promise<string> {
-  const configPath = join(directory, 'config.yaml');
-  await writeTextFile(configPath, YAML.stringify(value, null, 2));
+async function writeCorruptConfig(): Promise<string> {
+  const configDirectory = await makeTempDirectory('quality-gate-mcp-corrupt-');
+  const configPath = join(configDirectory, 'config.yaml');
+  await writeTextFile(configPath, 'projects: true\n');
   return configPath;
 }
 
-async function createProject(
-  fixtureCase: 'clean-function' | 'debugger-with-export',
-): Promise<string> {
-  const source = await readFixture(FIXTURES_ROOT, fixtureCase, 'src/index.ts');
-  const cwd = await makeTempDirectory('quality-gate-mcp-project-');
-  await mkdir(join(cwd, 'src'));
-  await writeTextFile(
-    join(cwd, 'package.json'),
-    `${JSON.stringify(
-      {
-        name: 'quality-gate-mcp-fixture',
-        private: true,
-        type: 'module',
-        main: 'src/index.ts',
-      },
-      null,
-      2,
-    )}\n`,
-  );
-  await writeTextFile(
-    join(cwd, 'tsconfig.json'),
-    `${JSON.stringify(
-      {
-        compilerOptions: {
-          module: 'NodeNext',
-          moduleResolution: 'NodeNext',
-          noEmit: true,
-          strict: true,
-          target: 'ES2022',
-        },
-        include: ['src/**/*.ts'],
-      },
-      null,
-      2,
-    )}\n`,
-  );
-  await writeTextFile(join(cwd, 'src', 'index.ts'), source);
-  return cwd;
-}
+afterEach(fixtures.cleanup);
 
-afterEach(async () => {
-  await Promise.all(
-    tempDirectories.splice(0).map(async (directory) => {
-      await rm(directory, { recursive: true, force: true });
-    }),
-  );
-});
+describeMcpVerifyScenarios('cursor mcp verify', fixtures, 'quality-gate-mcp');
 
 describe('cursor mcp verify', () => {
-  it('returns isError when verify fails for a configured project', async () => {
-    const cwd = await createProject('debugger-with-export');
-    const configPath = await writeGlobalConfig(await makeTempDirectory('quality-gate-mcp-fail-'), {
-      projects: [{ root: cwd, entries: ['src/index.ts'] }],
-    });
-
-    const result = await runMcpVerify(cwd, { configPath });
-    expect(result.isError).toBe(true);
-    expect(result.text).toContain('no-debugger');
-    expect(result.text).toContain('Fix only the violations listed below');
-    expect(result.text).toContain('Apply fixes directly; do not investigate the gate');
-    expect(result.text).toContain(
-      'search prior fixes, transcripts, chats, git history, or gate tooling/config/packages',
-    );
-    expect(result.text).toContain('Then call native or MCP verify again');
-  });
-
-  it('returns ok text when verify passes', async () => {
-    const cwd = await createProject('clean-function');
-    const configPath = await writeGlobalConfig(await makeTempDirectory('quality-gate-mcp-pass-'), {
-      projects: [{ root: cwd, entries: ['src/index.ts'] }],
-    });
-
-    const result = await runMcpVerify(cwd, { configPath });
-    expect(result.isError).toBe(false);
-    expect(result.text).toContain('verify: ok');
-  });
-
-  it('skips without error for an unconfigured workspace', async () => {
-    const cwd = await createProject('debugger-with-export');
-    const other = await makeTempDirectory('quality-gate-mcp-other-');
-    const configPath = await writeGlobalConfig(await makeTempDirectory('quality-gate-mcp-skip-'), {
-      projects: [{ root: other, entries: ['src/index.ts'] }],
-    });
-
-    const result = await runMcpVerify(cwd, { configPath });
-    expect(result.isError).toBe(false);
-    expect(result.text).toContain('No configured agent-quality-gate project');
-  });
-
   it('treats invalid global config shape as unconfigured instead of unavailable', async () => {
     const cwd = await createProject('clean-function');
-    const configDirectory = await makeTempDirectory('quality-gate-mcp-corrupt-');
-    const configPath = join(configDirectory, 'config.yaml');
-    await writeTextFile(configPath, 'projects: true\n');
+    const configPath = await writeCorruptConfig();
 
     const result = await runMcpVerify(cwd, { configPath });
     expect(result.isError).toBe(false);

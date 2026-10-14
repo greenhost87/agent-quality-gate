@@ -1,0 +1,120 @@
+# Add projects here to enable automatic checks.
+#
+# AQG verifies TypeScript projects with its built-in Oxlint and Fallow checks.
+# Optional per-project autoFix: { oxlint: true, fallow: true } enables edits
+# during verification. Both tools default to report-only; Fallow fix may remove
+# unused code/dependencies. Each option can also be set in projectDefaults.
+# intrinsicInteractions, lifecycleCallbacks, and actionCompatibility configure
+# Fallow's UI interaction vocabulary.
+#
+# presets: shipped names from presets/*/manifest.json
+#   (baseline always on; optional: bun-parse, config, database, database-sqlite, playwright, layout, n8n-lints)
+# and home-installed names from $AGENT_QUALITY_GATE_HOME/presets/<name>/.
+#
+# Install optional presets (for example from aqg-presets) with:
+#   bun ./system/install/cli.ts preset /absolute/path/to/preset-root
+# or from aqg-presets: bun run install
+#
+# Gate policy stays in this file only — never in the target repo — so agents cannot
+# disable presets or weaken rules through ordinary project edits.
+#
+# Unknown keys are ignored. Invalid project option shapes skip that project;
+# preset-specific invalid options are handled by the owning preset parser.
+# Invalid YAML yields an empty project allowlist rather than failing the whole gate.
+#
+# `projectDefaults` optionally defines fields shared by every project. Nested
+# objects are merged recursively; project-level scalars and lists replace defaults.
+# `root` is never inherited, so every project must declare its own absolute root.
+# Example:
+# projectDefaults:
+#   ignorePatterns: [generated/**]
+#   presets:
+#     baseline:
+#       maxInlineParameterObjectMembers: 3
+#
+# `presets` is a map that activates each named preset and stores its options.
+# Use `{}` for a preset without options. Each preset owns its check schema; TS
+# presets may also map options to oxlint rules in gate-config.ts. Preset
+# name arrays plus a separate `presetConfig` bag remain supported.
+#
+# verify: gate-wide verify tuning shared by every configured project.
+#   lintGroups orders the oxlint output groups inside the verify pipeline; the first
+#   non-empty group gates the run and later findings are deferred behind it. Entries
+#   may contain boundaries, contracts, ui, lint, and e2e. `boundaries` expands into
+#   one group per plugin; `lint` (the catch-all for untagged rules) is appended when
+#   missing. boundaryPluginPriority orders plugins inside the boundaries phase.
+#   agentRunLogs controls full text dumps under ~/.agent-quality-gate/agent-run-logs/.
+#   It defaults to true. Set false to retain only compact verify run stats JSONL.
+#   Defaults: lintGroups [boundaries, contracts, lint, ui, e2e], priority [module-placement,
+#   config, database, database-sqlite, playwright].
+# verify:
+#   agentRunLogs: false
+#   lintGroups:
+#     - boundaries
+#     - contracts
+#     - lint
+#     - ui
+#     - e2e
+#   boundaryPluginPriority:
+#     - module-placement
+#     - config
+#     - database
+#     - database-sqlite
+#     - playwright
+#
+# presets.config.environmentPath relocates the managed environment helper
+# and process.env boundary exemption. It must be a project-relative .ts path.
+# Default: system/config/environment.ts.
+#
+# presets.baseline.literalDynamicImportFiles lists exact project-relative
+# runtime-boundary files where relative string-literal import() calls are allowed.
+# Computed and package-specifier imports remain forbidden.
+#
+# presets.baseline.maxInlineParameterObjectMembers limits inline object types
+# in parameters. -1 disables the check (default when omitted). 3 allows up to three.
+#
+# presets.baseline.noClassSuffixes enables aqg/no-class (off until set). List
+# allowed class-name / superclass suffixes such as [Error, Element]. An empty list
+# bans every runtime class.
+#
+# presets.baseline.noNullishExceptUndefined enables aqg/no-nullish-except-undefined
+# (off by default). When true, only `T | undefined` absence is allowed; `null`,
+# optional (`?:`), and non-return `void` forms are reported as errors. Standalone
+# `void` function returns remain allowed.
+#
+# presets.baseline.noMixedNullishTypes controls aqg/no-mixed-nullish-types
+# (error by default). Set false to disable mixing checks for the project.
+#
+# presets.layout
+# is the unified repository layout surface. See presets/layout/README.md.
+# placement watches directories and requires production modules one concern level
+# deeper. testColocation keeps tests out of production trees. packages enforces
+# the declared package import graph (rule stays off until packages is configured).
+
+# Example - this project with the database preset (transitively activates config):
+# projects:
+#   - root: /absolute/path/to/project
+#     entries:
+#       - adapters/claude/*.ts
+#       - adapters/cursor/*.ts
+#       - adapters/mcp/*.ts
+#       - adapters/pi/*.ts
+#       - presets/baseline/oxlint/*.ts
+#       - presets/baseline/oxlint/rules/*.ts
+#       - system/scripts/*/*.ts
+#     presets:
+#       database: {}
+#       baseline:
+#         maxInlineParameterObjectMembers: 3
+#         noClassSuffixes: [Error, Element]
+#       layout:
+#         placement:
+#           directories:
+#             - system/agents
+#           rootExceptions:
+#             system/agents:
+#               - agents.types.ts
+#         testColocation:
+#           policy: aqg-repository
+
+projects: []

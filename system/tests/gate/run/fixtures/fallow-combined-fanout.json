@@ -1,0 +1,65 @@
+{
+  "check": {
+    "boundary_violations": [
+      {
+        "col": 2,
+        "from_path": "src/f.ts",
+        "from_zone": "ui",
+        "line": 4,
+        "to_path": "src/g.ts",
+        "to_zone": "db"
+      }
+    ],
+    "circular_dependencies": [{ "col": 1, "files": ["src/c.ts", "src/d.ts"], "line": 2 }],
+    "prop_drilling_chains": [
+      { "hops": [{ "component": "Title", "file": "app/title.tsx", "line": 3 }], "prop": "title" }
+    ],
+    "re_export_cycles": [{ "files": ["src/a.ts", "src/b.ts"], "kind": "cycle" }],
+    "total_issues": 6,
+    "unresolved_imports": [{ "col": 0, "line": 3, "path": "src/e.ts", "specifier": "./missing" }],
+    "unused_exports": [{ "col": 0, "export_name": "dead", "line": 1, "path": "src/dead.ts" }],
+    "unused_files": [{ "path": "src/orphan.ts" }]
+  },
+  "dupes": {
+    "clone_groups": [
+      {
+        "instances": [
+          { "end_line": 20, "file": "src/one.ts", "start_line": 10 },
+          { "end_line": 40, "file": "src/two.ts", "start_line": 30 }
+        ]
+      }
+    ]
+  },
+  "health": {
+    "findings": [
+      { "cognitive": 30, "cyclomatic": 42, "line": 5, "name": "tooComplex", "path": "src/big.ts" }
+    ]
+  },
+  "kind": "combined",
+  "ui": {
+    "completeness": { "routes_complete": true },
+    "coverage": [
+      {
+        "obligation": {
+          "id": "Button.onClick@app.save",
+          "kind": "click",
+          "trigger": { "line": 7, "path": "app/view.tsx" }
+        },
+        "scenarios": [],
+        "status": "uncovered"
+      }
+    ],
+    "diagnostics": [
+      {
+        "code": "uncovered-obligation",
+        "location": { "line": 7, "path": "app/view.tsx" },
+        "message": "obligation Button.onClick@app.save is not covered"
+      }
+    ],
+    "scenarios": [],
+    "schema_version": 1,
+    "summary": { "covered": 0, "obligations": 1, "scenarios": 0, "uncovered": 1 },
+    "unresolved_interactions": [],
+    "warnings": []
+  }
+}

@@ -1,8 +1,8 @@
 import { expect, it } from 'bun:test';
 import type { Options } from '@oxlint/plugins';
 
-import { createBenchRuleContext } from 'agent-quality-gate/oxlint-rule-bench/create-bench-context';
-import { requireCreateOnceRule } from 'agent-quality-gate/oxlint-rule-bench/require-create-once-rule';
+import { createBenchRuleContext } from 'agent-quality-gate/testing/oxlint';
+import { requireCreateOnceRule } from 'agent-quality-gate/testing/oxlint';
 
 /** Assert O1 visitor keys and that the empty-Program force pattern is gone. */
 export function itRegistersTypedVisitors(

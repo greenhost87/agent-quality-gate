@@ -7,7 +7,7 @@ import {
   getRequiredEnv,
   isNodeEnvironment,
   setEnv,
-} from '../../../payload/system/config/environment.ts';
+} from 'agent-quality-gate/internal/presets/config/payload/system/config/environment.ts';
 
 const controlledKeys = [
   'FEATURE_ENABLED',

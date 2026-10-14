@@ -1,8 +1,8 @@
-import noIndexedAccessTypes from '../../oxlint/rules/no-indexed-access-types.ts';
+import noIndexedAccessTypes from 'agent-quality-gate/internal/presets/baseline/oxlint/rules/no-indexed-access-types.ts';
 
-import { benchCreateOnceRule } from 'agent-quality-gate/oxlint-rule-bench';
-import type { BenchCreateOnceRuleInput } from 'agent-quality-gate/oxlint-rule-bench/types';
-import { repeat } from '../support/hot-code.ts';
+import { benchCreateOnceRule } from 'agent-quality-gate/testing/oxlint';
+import type { BenchCreateOnceRuleInput } from 'agent-quality-gate/testing/oxlint';
+import { repeat } from 'agent-quality-gate/internal/presets/baseline/tests/support/hot-code.ts';
 
 export const noIndexedAccessTypesBench: BenchCreateOnceRuleInput = {
   name: 'no-indexed-access-types',

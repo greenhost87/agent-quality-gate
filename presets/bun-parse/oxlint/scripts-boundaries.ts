@@ -1,5 +1,6 @@
 import { defineRule, type Context, type ESTree } from '@oxlint/plugins';
 import { posix } from 'node:path';
+import * as v from 'valibot';
 
 import { isUnderPathSegment, pathHasPrefix, projectPath } from './project-path.ts';
 
@@ -56,17 +57,26 @@ function resolveProjectImport(importerRelativePath: string, source: string): str
   return resolved === '.' ? '' : resolved;
 }
 
-function isScriptsPath(relativePath: string): boolean {
-  return pathHasPrefix(relativePath, 'scripts/');
+const OptionsSchema = v.object({
+  scriptDirectories: v.optional(v.array(v.string()), []),
+});
+
+function isScriptsPath(relativePath: string, scriptDirectories: readonly string[]): boolean {
+  return scriptDirectories.some((directory) => pathHasPrefix(relativePath, `${directory}/`));
 }
 
-function reportScriptsImport(context: Context, node: ESTree.Node, relativePath: string): void {
+function reportScriptsImport(
+  context: Context,
+  node: ESTree.Node,
+  relativePath: string,
+  scriptDirectories: readonly string[],
+): void {
   const source = moduleSpecifier(node);
   if (source == null) {
     return;
   }
   const resolved = resolveProjectImport(relativePath, source);
-  if (resolved == null || !isScriptsPath(resolved)) {
+  if (resolved == null || !isScriptsPath(resolved, scriptDirectories)) {
     return;
   }
   const reportNode = moduleSpecifierNode(node);
@@ -78,32 +88,46 @@ function reportScriptsImport(context: Context, node: ESTree.Node, relativePath: 
 export const scriptsBoundaries = defineRule({
   meta: {
     type: 'problem',
-    schema: [],
+    schema: [
+      {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          scriptDirectories: { type: 'array', items: { type: 'string' } },
+        },
+      },
+    ],
     messages: {
-      scriptsImport: 'scripts/ is CLI-only; move shared parse helpers to production modules.',
+      scriptsImport:
+        'Configured script directories are CLI-only; move shared parse helpers to production modules.',
     },
   },
   createOnce(context) {
     let relativePath = '';
+    let scriptDirectories: readonly string[] = [];
     return {
       before() {
         relativePath = projectPath(context);
-        if (isScriptsPath(relativePath) || isUnderPathSegment(relativePath, 'tests')) {
+        scriptDirectories = v.parse(OptionsSchema, context.options[0] ?? {}).scriptDirectories;
+        if (
+          isScriptsPath(relativePath, scriptDirectories) ||
+          isUnderPathSegment(relativePath, 'tests')
+        ) {
           return false;
         }
         return undefined;
       },
       ImportDeclaration(node) {
-        reportScriptsImport(context, node, relativePath);
+        reportScriptsImport(context, node, relativePath, scriptDirectories);
       },
       ExportAllDeclaration(node) {
-        reportScriptsImport(context, node, relativePath);
+        reportScriptsImport(context, node, relativePath, scriptDirectories);
       },
       ExportNamedDeclaration(node) {
-        reportScriptsImport(context, node, relativePath);
+        reportScriptsImport(context, node, relativePath, scriptDirectories);
       },
       ImportExpression(node) {
-        reportScriptsImport(context, node, relativePath);
+        reportScriptsImport(context, node, relativePath, scriptDirectories);
       },
     };
   },

@@ -2,7 +2,7 @@ import { expect, test } from 'bun:test';
 import { spawn } from 'node:child_process';
 import { chromium } from '@playwright/test';
 import { PhaseDao } from '@/system/database/phases/phases.dao.ts';
-import { useIsolatedTestDatabase } from '../setup/testDatabase.ts';
+import { useIsolatedTestDatabase } from 'agent-quality-gate/internal/presets/playwright/.quality-fixtures/e2e-runner/invalid/foreman-visualizer/tests/setup/testDatabase.ts';
 
 useIsolatedTestDatabase(import.meta.path);
 

@@ -1,8 +1,8 @@
-import noInlineMultilineTestData from '../../oxlint/rules/no-inline-multiline-test-data.ts';
+import noInlineMultilineTestData from 'agent-quality-gate/internal/presets/baseline/oxlint/rules/no-inline-multiline-test-data.ts';
 
-import { benchCreateOnceRule } from 'agent-quality-gate/oxlint-rule-bench';
-import type { BenchCreateOnceRuleInput } from 'agent-quality-gate/oxlint-rule-bench/types';
-import { repeat } from '../support/hot-code.ts';
+import { benchCreateOnceRule } from 'agent-quality-gate/testing/oxlint';
+import type { BenchCreateOnceRuleInput } from 'agent-quality-gate/testing/oxlint';
+import { repeat } from 'agent-quality-gate/internal/presets/baseline/tests/support/hot-code.ts';
 
 export const noInlineMultilineTestDataBench: BenchCreateOnceRuleInput = {
   name: 'no-inline-multiline-test-data',

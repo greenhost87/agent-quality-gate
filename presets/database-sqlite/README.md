@@ -19,7 +19,7 @@ The preset requires `config` transitively. It is an alternative to the PostgreSQ
 
 DAO files live at `system/database/<domain>/<name>.dao.ts`. DAO modules import `Database` as a type and receive the active database explicitly. They do not import the connection singleton or another DAO implementation. Application composition code obtains `getDatabase()` and passes it to DAO operations.
 
-`bun system/database/migrate.ts` applies `migrations/*.sql` in lexicographic order. Each file runs in a transaction and is recorded in `schema_migrations`. Already recorded migrations are skipped. Verify treats migration files present in git `HEAD` as immutable: it restores edited or deleted files and writes the discarded diff to `.aqg/restored-migration.diff`. New uncommitted migration files remain editable.
+`bun system/database/migrate.ts` applies `migrations/*.sql` in lexicographic order. All pending files and their `schema_migrations` records run in one immediate transaction; a failure rolls back the batch. Already recorded migrations are skipped. Verify treats migration files present in git `HEAD` as immutable: it restores edited or deleted files in both the index and working tree and writes the discarded diff to `.aqg/restored-migration.diff`. New uncommitted migration files remain editable.
 
 ## Test contract
 
@@ -60,7 +60,21 @@ The managed APIs and examples use Bun's documented `Database`, strict queries, p
 
 ## Enable
 
+The default database directory is `system/database`:
+
 ```yaml
 presets:
-  - database-sqlite
+  database-sqlite: {}
 ```
+
+To keep the managed connection, migration runner, and DAO modules under an application source tree, configure a project-relative directory:
+
+```yaml
+presets:
+  database-sqlite:
+    databaseDirectory: src/server/database
+```
+
+`connection.ts` and `migrate.ts` are relocated together. `tests/setup/testDatabase.ts` remains in the test tree. Absolute paths, parent traversal, and backslashes are ignored.
+
+Managed file contents retain their canonical `@/system/database/connection`, `@/system/database/migrate`, and `@/system/config/environment` imports. Configure project aliases to resolve them to the relocated files; relocation does not rewrite the payload imports.

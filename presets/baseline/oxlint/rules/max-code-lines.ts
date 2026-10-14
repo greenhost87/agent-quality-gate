@@ -1,6 +1,6 @@
 import { defineRule } from '@oxlint/plugins';
 
-import { createMaxOptionReader } from '../max-option.ts';
+import { createMaxOptionReader } from 'agent-quality-gate/internal/presets/baseline/oxlint/max-option.ts';
 
 const readMax = createMaxOptionReader(400, 0);
 

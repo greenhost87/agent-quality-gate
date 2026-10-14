@@ -1,37 +1,15 @@
 import { describe, expect, it } from 'bun:test';
 
-import type { OxlintRuleSetting } from '../../../preset-catalog/oxlint-config/write-oxlint-config.ts';
-import { applyConfiguredRules, parsePresetConfig, resolveRawConfig } from '../gate-config.ts';
+import type { OxlintRuleSetting } from 'agent-quality-gate/shared/oxlint';
+import {
+  applyConfiguredRules,
+  parsePresetConfig,
+} from 'agent-quality-gate/internal/presets/layout/gate-config.ts';
 
 describe('layout gate-config', () => {
-  it('merges legacy presetConfig keys into layout sections', () => {
-    expect(
-      resolveRawConfig({
-        'module-placement': { directories: ['app/app'] },
-        'test-colocation': { policy: 'application' },
-        packages: { allowedRootModules: ['config.ts'] },
-      }),
-    ).toEqual({
-      placement: { directories: ['app/app'] },
-      testColocation: { policy: 'application' },
-      packages: { allowedRootModules: ['config.ts'] },
-    });
-  });
-
-  it('prefers presetConfig.layout over legacy keys', () => {
-    expect(
-      resolveRawConfig({
-        layout: {
-          placement: { directories: ['from-layout'] },
-          packages: { privatePackages: ['visual'] },
-        },
-        'module-placement': { directories: ['legacy'] },
-        packages: { allowedRootModules: ['config.ts'] },
-      }),
-    ).toEqual({
-      placement: { directories: ['from-layout'] },
-      packages: { privatePackages: ['visual'] },
-    });
+  it('does not interpret flat layout options as sections', () => {
+    expect(parsePresetConfig({ directories: ['app/app'], policy: 'application' })).toBeUndefined();
+    expect(parsePresetConfig({ allowedRootModules: ['config.ts'] })).toBeUndefined();
   });
 
   it('parses nested layout sections', () => {
@@ -61,8 +39,13 @@ describe('layout gate-config', () => {
       testColocation: { policy: 'aqg-repository' },
       packages: {
         allowedRootModules: ['config.ts'],
+        alwaysAllowedDependencies: [],
+        compositionDirectories: [],
         declaredDependencies: { server: ['shared'] },
+        nonProductionDirectories: [],
         privatePackages: ['visual'],
+        testDirectories: [],
+        testImportablePrivatePackages: [],
       },
     });
   });
@@ -91,8 +74,13 @@ describe('layout gate-config', () => {
       phase: 'boundaries',
       options: {
         allowedRootModules: ['config.ts'],
+        alwaysAllowedDependencies: [],
+        compositionDirectories: [],
         declaredDependencies: { server: ['shared'] },
+        nonProductionDirectories: [],
         privatePackages: ['visual'],
+        testDirectories: [],
+        testImportablePrivatePackages: [],
       },
     });
     expect(rules['module-placement/module-placement']).toEqual({
@@ -109,6 +97,5 @@ describe('layout gate-config', () => {
 
   it('returns undefined for an empty bag', () => {
     expect(parsePresetConfig({})).toBeUndefined();
-    expect(resolveRawConfig({})).toBeUndefined();
   });
 });

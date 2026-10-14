@@ -1,6 +1,6 @@
 import { defineRule } from '@oxlint/plugins';
 
-import { unwrapExpression } from '../../../scripts/oxlint-walk/oxlint-walk.ts';
+import { unwrapExpression } from 'agent-quality-gate/shared/oxlint';
 import { staticMemberName } from './static-member-name.ts';
 
 const THROW_MATCHERS = new Set(['toThrow', 'toThrowError']);

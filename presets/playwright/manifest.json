@@ -1,12 +1,7 @@
 {
   "name": "playwright",
   "requires": [],
-  "files": [
-    {
-      "destination": "scripts/playwright-web-server.ts",
-      "source": "payload/scripts/playwright-web-server.ts"
-    }
-  ],
+  "files": [],
   "dependencies": [],
   "oxlint": {
     "nativePlugins": [],

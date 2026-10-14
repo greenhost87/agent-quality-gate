@@ -1,8 +1,9 @@
 import { file } from 'bun';
 import { expect, test } from 'bun:test';
 import { join } from 'node:path';
-import { parsePresetManifest } from '../../../../preset-catalog/manifest/parse-preset-manifest.ts';
-import { EXECUTE_VERIFY_REPO_ROOT } from '../../../../tests/support/execute-verify-fixture.ts';
+import { parsePresetManifest } from 'agent-quality-gate/shared/verify';
+
+const EXECUTE_VERIFY_REPO_ROOT = join(import.meta.dir, '../../../..');
 
 test('keeps the sync helper aligned with managed manifest files', async () => {
   const sqliteManifest = await parsePresetManifest(

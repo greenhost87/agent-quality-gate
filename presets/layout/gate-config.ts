@@ -1,7 +1,7 @@
 import * as v from 'valibot';
 
-import { applyConfiguredRule } from '../../preset-catalog/oxlint-config/apply-configured-rule.ts';
-import type { OxlintRuleSetting } from '../../preset-catalog/oxlint-config/write-oxlint-config.ts';
+import { applyConfiguredRule } from 'agent-quality-gate/shared/oxlint';
+import type { OxlintRuleSetting } from 'agent-quality-gate/shared/oxlint';
 import { parsePackages, type PackagesGateConfig } from './parse-packages-config.ts';
 import {
   parsePlacement,
@@ -14,13 +14,6 @@ import type { TestColocationGateConfig, TestColocationPolicy } from './scan-test
 export type { TestColocationGateConfig, TestColocationPolicy };
 export type { ModulePlacementGateConfig, PackagesGateConfig, RouteCompositionRootConfig };
 
-export const LAYOUT_PRESET_NAME = 'layout';
-export const LAYOUT_LEGACY_PRESET_NAMES = [
-  'module-placement',
-  'test-colocation',
-  'packages',
-] as const;
-
 export type LayoutGateConfig = {
   placement?: ModulePlacementGateConfig;
   testColocation?: TestColocationGateConfig;
@@ -31,61 +24,22 @@ export type LayoutGateConfig = {
 
 const PlainObjectSchema = v.looseObject({});
 type PlainObject = v.InferOutput<typeof PlainObjectSchema>;
-const PresetConfigBagSchema = v.record(v.string(), PlainObjectSchema);
-type PresetConfigBag = v.InferOutput<typeof PresetConfigBagSchema>;
-
 function sectionObject(bag: PlainObject, key: string): PlainObject | undefined {
   const parsed = v.safeParse(PlainObjectSchema, bag[key]);
   return parsed.success ? parsed.output : undefined;
 }
 
-/** Merge canonical `layout` + legacy presetConfig keys into one raw section object. */
-export function resolveRawConfig(presetConfig: PresetConfigBag): PlainObject | undefined {
-  const layoutParsed = v.safeParse(PlainObjectSchema, presetConfig[LAYOUT_PRESET_NAME]);
-  const layout = layoutParsed.success ? layoutParsed.output : undefined;
-  const placementParsed = v.safeParse(
-    PlainObjectSchema,
-    layout?.placement ?? presetConfig['module-placement'],
-  );
-  const placement = placementParsed.success ? placementParsed.output : undefined;
-  const testParsed = v.safeParse(
-    PlainObjectSchema,
-    layout?.testColocation ?? presetConfig['test-colocation'],
-  );
-  const testColocation = testParsed.success ? testParsed.output : undefined;
-  const packagesParsed = v.safeParse(PlainObjectSchema, layout?.packages ?? presetConfig.packages);
-  const packages = packagesParsed.success ? packagesParsed.output : undefined;
-  if (placement === undefined && testColocation === undefined && packages === undefined) {
-    return undefined;
-  }
-  return {
-    ...(placement === undefined ? {} : { placement }),
-    ...(testColocation === undefined ? {} : { testColocation }),
-    ...(packages === undefined ? {} : { packages }),
-  };
-}
-
 function placementFromBag(bag: PlainObject): ModulePlacementGateConfig | undefined {
-  return parsePlacement(
-    sectionObject(bag, 'placement') ?? ('directories' in bag ? bag : undefined),
-  );
+  return parsePlacement(sectionObject(bag, 'placement'));
 }
 
 function testColocationFromBag(bag: PlainObject): ReturnType<typeof parseTestColocation> {
   const nested = sectionObject(bag, 'testColocation');
-  if (nested !== undefined) {
-    return parseTestColocation(nested);
-  }
-  return 'policy' in bag ? parseTestColocation(bag) : {};
+  return nested === undefined ? {} : parseTestColocation(nested);
 }
 
 function packagesFromBag(bag: PlainObject): PackagesGateConfig | undefined {
-  return parsePackages(
-    sectionObject(bag, 'packages') ??
-      ('allowedRootModules' in bag || 'declaredDependencies' in bag || 'privatePackages' in bag
-        ? bag
-        : undefined),
-  );
+  return parsePackages(sectionObject(bag, 'packages'));
 }
 
 export function parsePresetConfig(raw: object | undefined): LayoutGateConfig | undefined {
@@ -162,13 +116,18 @@ export function applyConfiguredRules(
   if (layout.packages !== undefined) {
     enablePackagesRule(rules, {
       allowedRootModules: [...layout.packages.allowedRootModules],
+      alwaysAllowedDependencies: [...layout.packages.alwaysAllowedDependencies],
+      compositionDirectories: [...layout.packages.compositionDirectories],
       declaredDependencies: Object.fromEntries(
         Object.entries(layout.packages.declaredDependencies).map(([owner, dependencies]) => [
           owner,
           [...dependencies],
         ]),
       ),
+      nonProductionDirectories: [...layout.packages.nonProductionDirectories],
       privatePackages: [...layout.packages.privatePackages],
+      testDirectories: [...layout.packages.testDirectories],
+      testImportablePrivatePackages: [...layout.packages.testImportablePrivatePackages],
     });
   }
 }

@@ -6,32 +6,29 @@ import {
   registerSharedAstCreateOnceRules,
   replaySharedAstPrepared,
   runRegisteredBenches,
-} from 'agent-quality-gate/oxlint-rule-bench';
-import {
-  astIndexBuildStats,
-  resetAstIndexBuildCount,
-} from 'agent-quality-gate/oxlint-walk/ast-index';
-import { repeat } from 'agent-quality-gate/oxlint-rule-bench/hot-code';
+} from 'agent-quality-gate/testing/oxlint';
+import { astIndexBuildStats, resetAstIndexBuildCount } from 'agent-quality-gate/shared/oxlint';
+import { repeat } from 'agent-quality-gate/testing/oxlint';
 
-import { consoleFormatPlaceholdersBench } from '../console-format-placeholders/bench.ts';
-import { maxInlineParameterObjectMembersBench } from '../max-inline-parameter-object-members/bench.ts';
-import { noClassBench } from '../no-class/bench.ts';
-import { noDoubleWrappedExpectEqualBench } from '../no-double-wrapped-expect-equal/bench.ts';
-import { noDynamicImportBench } from '../no-dynamic-import/bench.ts';
-import { noEmptyInterfacesBench } from '../no-empty-interfaces/bench.ts';
-import { noIdentityAliasesBench } from '../no-identity-aliases/bench.ts';
-import { noIndexedAccessTypesBench } from '../no-indexed-access-types/bench.ts';
-import { noInlineMultilineTestDataBench } from '../no-inline-multiline-test-data/bench.ts';
-import { noJsonParseJsonStringifyBench } from '../no-json-parse-json-stringify/bench.ts';
-import { noManualExportedStringLiteralUnionsBench } from '../no-manual-exported-string-literal-unions/bench.ts';
-import { noMixedNullishTypesBench } from '../no-mixed-nullish-types/bench.ts';
-import { noRuntimeInTypesFilesBench } from '../no-runtime-in-types-files/bench.ts';
-import { noThinForwardersBench } from '../no-thin-forwarders/bench.ts';
-import { noTrivialConstWrappersBench } from '../no-trivial-const-wrappers/bench.ts';
-import { noUnknownParametersBench } from '../no-unknown-parameters/bench.ts';
-import { noUselessExportedTypeAliasesBench } from '../no-useless-exported-type-aliases/bench.ts';
-import { noWideParameterUnionsBench } from '../no-wide-parameter-unions/bench.ts';
-import { requireExportStringLiteralCatalogsAsConstBench } from '../require-export-string-literal-catalogs-as-const/bench.ts';
+import { consoleFormatPlaceholdersBench } from 'agent-quality-gate/internal/presets/baseline/tests/console-format-placeholders/bench.ts';
+import { maxInlineParameterObjectMembersBench } from 'agent-quality-gate/internal/presets/baseline/tests/max-inline-parameter-object-members/bench.ts';
+import { noClassBench } from 'agent-quality-gate/internal/presets/baseline/tests/no-class/bench.ts';
+import { noDoubleWrappedExpectEqualBench } from 'agent-quality-gate/internal/presets/baseline/tests/no-double-wrapped-expect-equal/bench.ts';
+import { noDynamicImportBench } from 'agent-quality-gate/internal/presets/baseline/tests/no-dynamic-import/bench.ts';
+import { noEmptyInterfacesBench } from 'agent-quality-gate/internal/presets/baseline/tests/no-empty-interfaces/bench.ts';
+import { noIdentityAliasesBench } from 'agent-quality-gate/internal/presets/baseline/tests/no-identity-aliases/bench.ts';
+import { noIndexedAccessTypesBench } from 'agent-quality-gate/internal/presets/baseline/tests/no-indexed-access-types/bench.ts';
+import { noInlineMultilineTestDataBench } from 'agent-quality-gate/internal/presets/baseline/tests/no-inline-multiline-test-data/bench.ts';
+import { noJsonParseJsonStringifyBench } from 'agent-quality-gate/internal/presets/baseline/tests/no-json-parse-json-stringify/bench.ts';
+import { noManualExportedStringLiteralUnionsBench } from 'agent-quality-gate/internal/presets/baseline/tests/no-manual-exported-string-literal-unions/bench.ts';
+import { noMixedNullishTypesBench } from 'agent-quality-gate/internal/presets/baseline/tests/no-mixed-nullish-types/bench.ts';
+import { noRuntimeInTypesFilesBench } from 'agent-quality-gate/internal/presets/baseline/tests/no-runtime-in-types-files/bench.ts';
+import { noThinForwardersBench } from 'agent-quality-gate/internal/presets/baseline/tests/no-thin-forwarders/bench.ts';
+import { noTrivialConstWrappersBench } from 'agent-quality-gate/internal/presets/baseline/tests/no-trivial-const-wrappers/bench.ts';
+import { noUnknownParametersBench } from 'agent-quality-gate/internal/presets/baseline/tests/no-unknown-parameters/bench.ts';
+import { noUselessExportedTypeAliasesBench } from 'agent-quality-gate/internal/presets/baseline/tests/no-useless-exported-type-aliases/bench.ts';
+import { noWideParameterUnionsBench } from 'agent-quality-gate/internal/presets/baseline/tests/no-wide-parameter-unions/bench.ts';
+import { requireExportStringLiteralCatalogsAsConstBench } from 'agent-quality-gate/internal/presets/baseline/tests/require-export-string-literal-catalogs-as-const/bench.ts';
 
 const perRuleBenches = [
   consoleFormatPlaceholdersBench,

@@ -1,13 +1,13 @@
 import {
   findProjectForCwd,
   readGlobalQualityGateConfig,
-} from '../../config/global-config/global-config.js';
+} from '#system/config/global-config/global-config.js';
 import {
   decideFollowUp,
   executeQualityGateForCwd,
   followUpForSettledResult,
-} from '../../gate/quality-gate-run/quality-gate-run.js';
-import type { RegisterQualityGateOptions } from '../../gate/quality-gate-run/quality-gate-run.js';
+} from '#system/gate/quality-gate-run/quality-gate-run.js';
+import type { RegisterQualityGateOptions } from '#system/gate/quality-gate-run/quality-gate-run.js';
 
 import {
   readStopSessionAttempts,

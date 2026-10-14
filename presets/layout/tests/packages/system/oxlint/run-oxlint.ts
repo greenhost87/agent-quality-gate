@@ -18,11 +18,16 @@ export const phoenixOptions = {
     'utils.ts',
     'validation.ts',
   ],
+  alwaysAllowedDependencies: ['system'],
+  compositionDirectories: ['app', 'components', 'system'],
   declaredDependencies: {
     fabrics: ['media'],
     http: ['auth'],
     orders: ['shopify'],
   },
+  nonProductionDirectories: ['deploy', 'migrations', 'scripts', 'tests'],
+  testDirectories: ['tests'],
+  testImportablePrivatePackages: ['app'],
 };
 
 async function writeRuleConfig(options?: Record<string, unknown>) {

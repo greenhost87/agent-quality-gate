@@ -1,8 +1,8 @@
 import { expect, test } from 'bun:test';
-import { join, resolve } from 'node:path';
+import { resolve } from 'node:path';
 
-import { readOxlintConfig } from '../../../../config/verify-config-files/verify-config-files.js';
-import { runOxlintFixture } from '../support/run-oxlint.ts';
+import { packagedAssetsDirectory, readOxlintConfig } from 'agent-quality-gate/shared/verify';
+import { runOxlintFixture } from 'agent-quality-gate/internal/presets/baseline/tests/support/run-oxlint.ts';
 
 const rule = 'eslint-js/no-restricted-syntax';
 const message = 'Do not use Pick, Omit, Partial, or NonNullable. Write the explicit object shape.';
@@ -52,7 +52,7 @@ test('selector allows qualified Namespace.Pick and globalThis.Pick', async () =>
 });
 
 test('assets TS override owns the complete utility-type selector', () => {
-  const config = readOxlintConfig(join(import.meta.dir, '../../../../assets'));
+  const config = readOxlintConfig(packagedAssetsDirectory());
   const tsOverride = config.overrides?.find((entry) => {
     const files = (entry as { files?: string[] }).files;
     return files?.includes('**/*.{ts,tsx,mts,cts}');

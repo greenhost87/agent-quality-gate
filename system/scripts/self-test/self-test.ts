@@ -1,0 +1,135 @@
+#!/usr/bin/env bun
+
+import { createCli, parseCli, reportCommandError } from '#system/process/command/command.js';
+import type { StreamResult } from '#system/gate/public-verify/verify-streams.js';
+import { formatTestOk } from '#system/gate/run/verify-ok-message.js';
+import {
+  exitCodeAfterWritingResults,
+  writeVerifyStreams,
+} from '#system/gate/public-verify/verify-streams.js';
+import {
+  testLocalPresetPackIntegrations,
+  testLocalPresetPacks,
+} from '../self-verify/preset-pack-run.js';
+import { runCapturedProcess } from '#system/process/run-command/run-command.js';
+import { runRequired } from '../run-required/run-required.js';
+import { withSourcePackageResolution } from '../source-package-resolution/source-package-resolution.js';
+import { resolveBunTestTimeoutMs } from './bun-test-timeout.js';
+import { isBunTestParallelEnabled, resolveBunTestParallelArgs } from './bun-test-parallel.js';
+import {
+  containerRuntimeUnavailableResult,
+  isContainerRuntimeAvailable,
+} from './container-runtime.js';
+
+const ROOT_TEST_PATHS = ['./adapters', './shared', './system'] as const;
+
+export function parseSelfTestArgs(argv: readonly string[]): ParseSelfTestArgsResult {
+  const program = createCli('test').option(
+    '--integration',
+    'pack `test:integration` scripts (same as local-build preflight)',
+  );
+  if (parseCli(program, argv) === 'help') {
+    return 'help';
+  }
+  return {
+    mode: program.opts<{ integration?: boolean }>().integration === true ? 'integration' : 'unit',
+  };
+}
+
+export const SELF_TEST_USAGE = `Usage: bun run test [--integration]
+
+Build the release package and run repository / pack unit tests, or run pack
+integration tests only.
+
+  (default)       build:release, root Bun suite, pack unit tests
+  --integration   pack \`test:integration\` scripts (same as local-build preflight)
+  -h, --help      Show this help
+
+`;
+
+export function printSelfTestUsage(): void {
+  process.stdout.write(SELF_TEST_USAGE);
+}
+
+async function runRootTests(projectRoot: string): Promise<StreamResult> {
+  const startedAt = performance.now();
+  const result = await runCapturedProcess({
+    command: 'bun',
+    args: [
+      'test',
+      ...resolveBunTestParallelArgs(),
+      ...ROOT_TEST_PATHS,
+      '--timeout',
+      String(resolveBunTestTimeoutMs()),
+    ],
+    cwd: projectRoot,
+  });
+  if (result.exitCode !== 0) {
+    return result;
+  }
+  return {
+    exitCode: 0,
+    stdout: formatTestOk('repository', Math.round(performance.now() - startedAt)),
+    stderr: '',
+  };
+}
+
+async function runUnitSelfTest(projectRoot: string): Promise<number> {
+  const buildStartedAt = performance.now();
+  runRequired('bun', ['run', 'build:release'], projectRoot, true);
+  writeVerifyStreams({
+    exitCode: 0,
+    stdout: formatTestOk('build:release', Math.round(performance.now() - buildStartedAt)),
+    stderr: '',
+  });
+
+  if (isBunTestParallelEnabled()) {
+    const [repository, packs] = await Promise.all([
+      runRootTests(projectRoot),
+      testLocalPresetPacks(projectRoot),
+    ]);
+    return exitCodeAfterWritingResults(repository, packs);
+  }
+
+  const repository = await runRootTests(projectRoot);
+  const packs = await testLocalPresetPacks(projectRoot);
+  return exitCodeAfterWritingResults(repository, packs);
+}
+
+async function runIntegrationSelfTest(projectRoot: string): Promise<number> {
+  if (!isContainerRuntimeAvailable()) {
+    return exitCodeAfterWritingResults(containerRuntimeUnavailableResult());
+  }
+  return exitCodeAfterWritingResults(await testLocalPresetPackIntegrations(projectRoot));
+}
+
+export async function runSelfTest(args: SelfTestArgs, projectRoot: string): Promise<number> {
+  if (args.mode === 'integration') {
+    return runIntegrationSelfTest(projectRoot);
+  }
+  return withSourcePackageResolution(async () => await runUnitSelfTest(projectRoot));
+}
+
+if (import.meta.main) {
+  try {
+    const parsed = parseSelfTestArgs(process.argv.slice(2));
+    if (parsed === 'help') {
+      printSelfTestUsage();
+    } else {
+      process.exitCode = await runSelfTest(parsed, process.cwd());
+    }
+  } catch (error) {
+    reportCommandError('test', error instanceof Error ? error : String(error));
+    process.exitCode = 2;
+  }
+}
+
+export const SELF_TEST_MODES = ['unit', 'integration'] as const;
+
+export type SelfTestMode = (typeof SELF_TEST_MODES)[number];
+
+export type SelfTestArgs = {
+  mode: SelfTestMode;
+};
+
+export type ParseSelfTestArgsResult = SelfTestArgs | 'help';

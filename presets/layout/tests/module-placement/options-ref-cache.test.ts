@@ -2,9 +2,9 @@ import { describe, expect, it } from 'bun:test';
 import { pathToFileURL } from 'node:url';
 import { join } from 'node:path';
 
-import { createOptionsRefCache } from '../../../../scripts/oxlint-options-ref-cache/options-ref-cache.ts';
+import { createOptionsRefCache } from 'agent-quality-gate/shared/oxlint';
 
-const ATR = '/Users/greenhost/develop/ai/agent-task-runner';
+const PROJECT_ROOT = '/workspace/project';
 
 type PlacementOptions = ReadonlyArray<{
   directories: string[];
@@ -40,8 +40,8 @@ describe('module-placement options ref cache integration', () => {
     const ctx = {
       id: 'module-placement/module-placement',
       options: optionsA as unknown[],
-      filename: join(ATR, 'app/app/x.ts'),
-      cwd: ATR,
+      filename: join(PROJECT_ROOT, 'app/app/x.ts'),
+      cwd: PROJECT_ROOT,
       sourceCode: { ast: { type: 'Program', body: [], range: [0, 0] } },
       report() {},
     };

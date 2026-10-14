@@ -1,8 +1,8 @@
-import { playwrightPlugin } from '../../oxlint/playwright.ts';
+import { playwrightPlugin } from 'agent-quality-gate/internal/presets/playwright/oxlint/playwright.ts';
 
-import { benchCreateOnceRule } from 'agent-quality-gate/oxlint-rule-bench';
-import type { BenchCreateOnceRuleInput } from 'agent-quality-gate/oxlint-rule-bench/types';
-import { repeat } from 'agent-quality-gate/oxlint-rule-bench/hot-code';
+import { benchCreateOnceRule } from 'agent-quality-gate/testing/oxlint';
+import type { BenchCreateOnceRuleInput } from 'agent-quality-gate/testing/oxlint';
+import { repeat } from 'agent-quality-gate/testing/oxlint';
 
 export const e2eBlackBoxBench: BenchCreateOnceRuleInput = {
   name: 'e2e-black-box',
@@ -13,6 +13,7 @@ export const e2eBlackBoxBench: BenchCreateOnceRuleInput = {
       name: 'hot-dao-and-database',
       filename: '/bench/tests/e2e/visualizer.pw.ts',
       cwd: '/bench',
+      options: [{ e2eDirectory: 'tests/e2e' }],
       code: repeat((index) => [
         `import { user${index} } from '../../modules/user.dao.ts';`,
         `import { db${index} } from 'system/database/client';`,

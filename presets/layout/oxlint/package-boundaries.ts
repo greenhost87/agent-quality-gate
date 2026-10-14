@@ -7,33 +7,36 @@ import {
 } from '@oxlint/plugins';
 import * as v from 'valibot';
 
-import { createOptionsRefCache } from '../../../scripts/oxlint-options-ref-cache/options-ref-cache.ts';
+import { createOptionsRefCache } from 'agent-quality-gate/shared/oxlint';
 
 import { projectPath } from './project-path.ts';
 export type ParsedOptions = {
   allowedRootModules: ReadonlySet<string>;
+  alwaysAllowedDependencies: ReadonlySet<string>;
+  compositionDirectories: ReadonlySet<string>;
   declaredDependencies: ReadonlyMap<string, ReadonlySet<string>>;
+  nonProductionDirectories: ReadonlySet<string>;
   privatePackages: ReadonlySet<string>;
+  testDirectories: ReadonlySet<string>;
+  testImportablePrivatePackages: ReadonlySet<string>;
 };
 
-const compositionDirectories = new Set(['app', 'components', 'system']);
-const nonProductionDirectories = new Set(['deploy', 'migrations', 'scripts', 'tests']);
-const privateAppRoot = 'app';
-const rootTestsPrefix = 'tests/';
-const defaultAllowedRootModules = new Set([
-  'config.ts',
-  'instrumentation.ts',
-  'utils.ts',
-  'validation.ts',
-]);
-
 const PackageBoundariesOptionsSchema = v.object({
-  allowedRootModules: v.optional(v.array(v.string())),
+  allowedRootModules: v.optional(v.array(v.string()), []),
+  alwaysAllowedDependencies: v.optional(v.array(v.string()), []),
+  compositionDirectories: v.optional(v.array(v.string()), []),
   declaredDependencies: v.optional(v.record(v.string(), v.array(v.string())), {}),
+  nonProductionDirectories: v.optional(v.array(v.string()), []),
   privatePackages: v.optional(v.array(v.string()), []),
+  testDirectories: v.optional(v.array(v.string()), []),
+  testImportablePrivatePackages: v.optional(v.array(v.string()), []),
 });
 
-function packageName(path: string): string | null {
+function packageName(
+  path: string,
+  compositionDirectories: ReadonlySet<string>,
+  nonProductionDirectories: ReadonlySet<string>,
+): string | null {
   const segments = path.split('/');
   if (segments.length < 2) return null;
   const topLevel = segments[0];
@@ -41,7 +44,11 @@ function packageName(path: string): string | null {
   return topLevel;
 }
 
-function importedPackage(source: string): string | null {
+function importedPackage(
+  source: string,
+  compositionDirectories: ReadonlySet<string>,
+  nonProductionDirectories: ReadonlySet<string>,
+): string | null {
   if (!source.startsWith('@/')) return null;
   const topLevel = importedTopLevelSegment(source);
   if (topLevel === null) return null;
@@ -88,12 +95,13 @@ function resolveProjectImport(importerPath: string, source: string): string | nu
   return resolved;
 }
 
-function isRootTestsPath(path: string): boolean {
-  return path === 'tests' || path.startsWith(rootTestsPrefix);
-}
-
-function isTestsImportPath(resolved: string): boolean {
-  return resolved === 'tests' || resolved.startsWith(rootTestsPrefix);
+function isUnderDirectory(path: string, directories: ReadonlySet<string>): boolean {
+  for (const directory of directories) {
+    if (path === directory || path.startsWith(`${directory}/`)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function importedPrivatePackage(
@@ -118,61 +126,67 @@ function importedPrivatePackage(
   return null;
 }
 
-function allowsPrivateAppFromRootTests(importerPath: string, dependency: string): boolean {
-  return dependency === privateAppRoot && isRootTestsPath(importerPath);
-}
-
 function importsFromPrivatePackage(
   importerPath: string,
   dependency: string,
-  privatePackages: ReadonlySet<string>,
+  options: ParsedOptions,
 ): boolean {
-  if (allowsPrivateAppFromRootTests(importerPath, dependency)) {
+  if (
+    isUnderDirectory(importerPath, options.testDirectories) &&
+    options.testImportablePrivatePackages.has(dependency)
+  ) {
     return false;
   }
-  const importerPackage = packageName(importerPath);
+  const importerPackage = packageName(
+    importerPath,
+    options.compositionDirectories,
+    options.nonProductionDirectories,
+  );
   if (importerPackage === dependency) {
     return false;
   }
   if (importerPath === dependency || importerPath.startsWith(`${dependency}/`)) {
     return false;
   }
-  return privatePackages.has(dependency);
+  return options.privatePackages.has(dependency);
 }
 
 function readOptions(options: Readonly<Options>): ParsedOptions {
   const parsed = v.safeParse(PackageBoundariesOptionsSchema, options[0]);
   if (!parsed.success) {
     return {
-      allowedRootModules: defaultAllowedRootModules,
+      allowedRootModules: new Set(),
+      alwaysAllowedDependencies: new Set(),
+      compositionDirectories: new Set(),
       declaredDependencies: new Map(),
+      nonProductionDirectories: new Set(),
       privatePackages: new Set(),
+      testDirectories: new Set(),
+      testImportablePrivatePackages: new Set(),
     };
   }
-  const allowedRootModules =
-    parsed.output.allowedRootModules === undefined
-      ? defaultAllowedRootModules
-      : new Set(parsed.output.allowedRootModules);
+  const allowedRootModules = new Set(parsed.output.allowedRootModules);
   const declaredDependencies = new Map<string, Set<string>>();
   for (const [owner, dependencies] of Object.entries(parsed.output.declaredDependencies)) {
     declaredDependencies.set(owner, new Set(dependencies));
   }
   return {
     allowedRootModules,
+    alwaysAllowedDependencies: new Set(parsed.output.alwaysAllowedDependencies),
+    compositionDirectories: new Set(parsed.output.compositionDirectories),
     declaredDependencies,
+    nonProductionDirectories: new Set(parsed.output.nonProductionDirectories),
     privatePackages: new Set(parsed.output.privatePackages),
+    testDirectories: new Set(parsed.output.testDirectories),
+    testImportablePrivatePackages: new Set(parsed.output.testImportablePrivatePackages),
   };
 }
 
-function allowsDependency(
-  owner: string,
-  dependency: string,
-  declaredDependencies: ReadonlyMap<string, ReadonlySet<string>>,
-): boolean {
+function allowsDependency(owner: string, dependency: string, options: ParsedOptions): boolean {
   return (
     owner === dependency ||
-    dependency === 'system' ||
-    declaredDependencies.get(owner)?.has(dependency) === true
+    options.alwaysAllowedDependencies.has(dependency) ||
+    options.declaredDependencies.get(owner)?.has(dependency) === true
   );
 }
 
@@ -220,6 +234,14 @@ export const packageBoundaries = defineRule({
             type: 'array',
             items: { type: 'string' },
           },
+          alwaysAllowedDependencies: {
+            type: 'array',
+            items: { type: 'string' },
+          },
+          compositionDirectories: {
+            type: 'array',
+            items: { type: 'string' },
+          },
           declaredDependencies: {
             type: 'object',
             additionalProperties: {
@@ -227,7 +249,19 @@ export const packageBoundaries = defineRule({
               items: { type: 'string' },
             },
           },
+          nonProductionDirectories: {
+            type: 'array',
+            items: { type: 'string' },
+          },
           privatePackages: {
+            type: 'array',
+            items: { type: 'string' },
+          },
+          testDirectories: {
+            type: 'array',
+            items: { type: 'string' },
+          },
+          testImportablePrivatePackages: {
             type: 'array',
             items: { type: 'string' },
           },
@@ -257,9 +291,9 @@ export const packageBoundaries = defineRule({
         return;
       }
 
-      if (!isRootTestsPath(importerPath)) {
+      if (!isUnderDirectory(importerPath, options.testDirectories)) {
         const resolved = resolveProjectImport(importerPath, source);
-        if (resolved !== null && isTestsImportPath(resolved)) {
+        if (resolved !== null && isUnderDirectory(resolved, options.testDirectories)) {
           context.report({
             node: sourceNode,
             messageId: 'testsImport',
@@ -275,7 +309,7 @@ export const packageBoundaries = defineRule({
       );
       if (
         privateDependency !== null &&
-        importsFromPrivatePackage(importerPath, privateDependency, options.privatePackages)
+        importsFromPrivatePackage(importerPath, privateDependency, options)
       ) {
         context.report({
           node: sourceNode,
@@ -287,8 +321,12 @@ export const packageBoundaries = defineRule({
       if (!owner) {
         return;
       }
-      const dependency = importedPackage(source);
-      if (dependency && !allowsDependency(owner, dependency, options.declaredDependencies)) {
+      const dependency = importedPackage(
+        source,
+        options.compositionDirectories,
+        options.nonProductionDirectories,
+      );
+      if (dependency && !allowsDependency(owner, dependency, options)) {
         context.report({
           node: sourceNode,
           messageId: 'dependency',
@@ -300,8 +338,12 @@ export const packageBoundaries = defineRule({
     return {
       before() {
         const path = projectPath(context);
-        const owner = packageName(path);
         const options = optionsCache.get(context.options);
+        const owner = packageName(
+          path,
+          options.compositionDirectories,
+          options.nonProductionDirectories,
+        );
         const isInvalidRootModule =
           !path.includes('/') &&
           /\.[cm]?[jt]sx?$/u.test(path) &&

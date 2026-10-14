@@ -200,14 +200,13 @@ test('package boundaries keep other private packages closed to root tests', asyn
   expect(result.output).toContain(privatePackageMessage);
 });
 
-test('package boundaries use defaults when gate options are absent', async () => {
-  const allowed = await runOxlintFixture('package-boundaries/valid/default-config', 'config.ts');
-  const rejected = await runOxlintFixture(
-    'package-boundaries/invalid/default-next-config',
-    'next.config.ts',
-  );
-  expect(allowed.output).toBe('');
-  expect(allowed.status).toBe(0);
-  expect(rejected.status).not.toBe(0);
-  expect(rejected.output).toContain(placementMessage);
+test('package boundaries have no hidden root-module defaults', async () => {
+  for (const [fixture, entry] of [
+    ['package-boundaries/valid/default-config', 'config.ts'],
+    ['package-boundaries/invalid/default-next-config', 'next.config.ts'],
+  ] as const) {
+    const result = await runOxlintFixture(fixture, entry);
+    expect(result.status).not.toBe(0);
+    expect(result.output).toContain(placementMessage);
+  }
 });

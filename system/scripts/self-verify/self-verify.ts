@@ -1,0 +1,53 @@
+#!/usr/bin/env bun
+
+import { createCli, reportCommandError, runCli } from '#system/process/command/command.js';
+import { executeVerify } from '#system/gate/run/execute-verify.js';
+import { formatVerifyOk } from '#system/gate/run/verify-ok-message.js';
+import { localVerifyRequest } from './cli.js';
+import { verifyLocalPresetPackages } from './preset-baseline-verify.js';
+import { rejectCrossPresetImports } from './preset-isolation.js';
+import { verifyLocalPresetPacks } from './preset-pack-run.js';
+import { firstNonZeroResult } from '#system/gate/public-verify/preset-verify-result.js';
+import { withSourcePackageResolution } from '../source-package-resolution/source-package-resolution.js';
+import {
+  streamResultFromVerifyResult,
+  writeVerifyStreams,
+  type StreamResult,
+} from '#system/gate/public-verify/verify-streams.js';
+
+function timedOk(label: string, startedAt: number): StreamResult {
+  return {
+    exitCode: 0,
+    stdout: formatVerifyOk(label, Math.round(performance.now() - startedAt)),
+    stderr: '',
+  };
+}
+
+try {
+  await withSourcePackageResolution(async () => {
+    await runCli(createCli('verify'), process.argv.slice(2), 'Usage: bun run verify', async () => {
+      const isolationStartedAt = performance.now();
+      const isolation = rejectCrossPresetImports(process.cwd());
+      if (isolation.exitCode !== 0) {
+        writeVerifyStreams(isolation);
+        process.exitCode = isolation.exitCode;
+        return;
+      }
+      writeVerifyStreams(timedOk('preset isolation', isolationStartedAt));
+
+      const [repositoryVerify, packages, packs] = await Promise.all([
+        executeVerify(localVerifyRequest()),
+        verifyLocalPresetPackages(process.cwd()),
+        verifyLocalPresetPacks(process.cwd()),
+      ]);
+      const repository = streamResultFromVerifyResult(repositoryVerify);
+      writeVerifyStreams(repository);
+      writeVerifyStreams(packages);
+      writeVerifyStreams(packs);
+      process.exitCode = firstNonZeroResult(repository, packages, packs)?.exitCode ?? 0;
+    });
+  });
+} catch (error) {
+  reportCommandError('verify', error instanceof Error ? error : String(error));
+  process.exitCode = 2;
+}

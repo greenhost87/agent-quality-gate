@@ -4,14 +4,17 @@ Playwright Test house style for browser e2e. Independent of `database`.
 
 ```yaml
 presets:
-  - playwright
+  playwright:
+    e2eDirectory: tests/e2e
 ```
 
-When active, verify requires Playwright Test as the e2e runner: `tests/e2e/**/*.pw.ts`, the `page` fixture, and `use.baseURL` plus `webServer` in `playwright.config.ts`. It rejects `bun:test` in e2e, `chromium.launch`, in-spec server `spawn`, DAO / `system/database` imports, and the Bun isolated-database hook.
+Set `e2eDirectory` to the project-relative E2E directory. Its default is empty, so directory-scoped runner and black-box checks are inactive until configured. In that directory, the runner rule accepts `*.pw.{js,jsx,ts,tsx}`, `*.helpers.{js,jsx,ts,tsx}`, and `*.types.ts` files. It rejects named `test`/`it`/`describe` imports from `bun:test`, direct `chromium`/`firefox`/`webkit.launch()` calls, `Bun.spawn`, child-process imports, and imports of the Bun isolated-database helper. The black-box rule rejects DAO and `system/database` imports. Use Playwright's `page` fixture to drive the application.
+
+`processRunnerImports` optionally lists additional exact module specifiers rejected in the configured E2E directory. The config rule checks `use.baseURL` and `webServer` on a default-exported object or inline `defineConfig({ ... })` object; other configuration shapes are not inspected by that rule.
 
 This preset does not install Playwright and does not manage `playwright.config.ts`. The `webServer.command` stays project-owned.
 
-Managed file `scripts/playwright-web-server.ts` is a comment stub that documents the intended Postgres + Testcontainers webServer flow; it is not a runnable starter. Verify checks its `contentHash` and refreshes the example under `.aqg/playwright/…`. Point `webServer.command` at a project-owned script (not this managed stub, and not under `tests/` or e2e).
+Point `webServer.command` at a project-owned script outside `tests/` and the configured E2E directory. The generated `.aqg/hints/presets/playwright/playwright-e2e.md` gives general black-box, baseURL, webServer, and external-origin guidance.
 
 ## External network substitutions
 
@@ -28,4 +31,4 @@ Use direct `page.route('https://payments.example.com/**', handler)` calls. Relat
 
 ## Enable
 
-A project that already depends on `@playwright/test`, or that has `tests/e2e/`, must also have a root Playwright config file. Missing config fails verify as `playwright-config:`.
+With this preset active, a project that declares `@playwright/test` in a dependency section, or whose configured `e2eDirectory` exists, must have a root `playwright.config.ts`, `.mts`, `.cts`, `.js`, `.mjs`, or `.cjs` file. Missing config produces `playwright/config`. An unconfigured `tests/e2e/` directory alone does not trigger this preflight.

@@ -41,7 +41,7 @@ import {
   testFilePattern,
   validDaoPlacementPattern,
 } from './dao-boundaries-shared.ts';
-import { isAstNode } from '../../../scripts/oxlint-walk/oxlint-walk.ts';
+import { isAstNode } from 'agent-quality-gate/shared/oxlint';
 
 function buildDaoScanFlags(context: Context): DaoScanFlags {
   const filename = normalizedFilename(context);

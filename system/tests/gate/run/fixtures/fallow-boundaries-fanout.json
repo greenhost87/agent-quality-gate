@@ -1,0 +1,14 @@
+{
+  "boundary_violations": [
+    {
+      "col": 2,
+      "from_path": "src/f.ts",
+      "from_zone": "ui",
+      "line": 4,
+      "to_path": "src/g.ts",
+      "to_zone": "db"
+    }
+  ],
+  "kind": "dead-code",
+  "total_issues": 1
+}

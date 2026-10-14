@@ -2,8 +2,8 @@
  * Sync managed config/database-sqlite files from `.aqg` to project destinations.
  * Run after verify: bun .aqg/database-sqlite/scripts/sync-database-sqlite-managed.ts [project-root]
  */
-import { access, copyFile, mkdir } from 'node:fs/promises';
-import { dirname, join, resolve } from 'node:path';
+import { copyFile, mkdir, readdir } from 'node:fs/promises';
+import { basename, dirname, join, relative, resolve } from 'node:path';
 
 const MANAGED_FILES: readonly ManagedEntry[] = [
   { preset: 'config', destination: 'system/config/environment.ts' },
@@ -12,19 +12,34 @@ const MANAGED_FILES: readonly ManagedEntry[] = [
   { preset: 'database-sqlite', destination: 'tests/setup/testDatabase.ts' },
 ] as const;
 
-async function fileExists(path: string): Promise<boolean> {
-  try {
-    await access(path);
-    return true;
-  } catch {
-    return false;
+async function findRelocatedDestination(
+  projectRoot: string,
+  entry: ManagedEntry,
+): Promise<string | undefined> {
+  const presetRoot = join(projectRoot, '.aqg', entry.preset);
+  const expectedBasename = basename(entry.destination);
+  const matches: string[] = [];
+  const pending = [presetRoot];
+  while (pending.length > 0) {
+    const directory = pending.pop();
+    if (directory === undefined) break;
+    for (const item of await readdir(directory, { withFileTypes: true })) {
+      const path = join(directory, item.name);
+      if (item.isDirectory()) pending.push(path);
+      else if (item.isFile() && item.name === expectedBasename) matches.push(path);
+    }
   }
+  const destinations = matches.map((path) => relative(presetRoot, path));
+  const relocated = destinations.filter((destination) => destination !== entry.destination);
+  if (relocated.length === 1) return relocated[0];
+  return relocated.length === 0 && destinations.includes(entry.destination)
+    ? entry.destination
+    : undefined;
 }
 
 async function syncOne(projectRoot: string, entry: ManagedEntry): Promise<boolean> {
-  const sourcePath = join(projectRoot, '.aqg', entry.preset, entry.destination);
-  const destinationPath = join(projectRoot, entry.destination);
-  if (!(await fileExists(sourcePath))) {
+  const destination = await findRelocatedDestination(projectRoot, entry);
+  if (destination === undefined) {
     console.warn(
       '[database-sqlite sync] missing .aqg/%s/%s — run verify first',
       entry.preset,
@@ -33,13 +48,15 @@ async function syncOne(projectRoot: string, entry: ManagedEntry): Promise<boolea
     return false;
   }
 
+  const sourcePath = join(projectRoot, '.aqg', entry.preset, destination);
+  const destinationPath = join(projectRoot, destination);
   await mkdir(dirname(destinationPath), { recursive: true });
   await copyFile(sourcePath, destinationPath);
   console.log(
     '[database-sqlite sync] copied %s (from .aqg/%s/%s)',
-    entry.destination,
+    destination,
     entry.preset,
-    entry.destination,
+    destination,
   );
   return true;
 }

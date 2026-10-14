@@ -1,7 +1,7 @@
 import type { Context, ESTree } from '@oxlint/plugins';
 
-import { astIndex } from '../../../scripts/oxlint-walk/ast-index.ts';
-import { unwrapExpression } from '../../../scripts/oxlint-walk/oxlint-walk.ts';
+import { astIndex } from 'agent-quality-gate/shared/oxlint';
+import { unwrapExpression } from 'agent-quality-gate/shared/oxlint';
 import { collectSchemaConsts, valibotCallName } from './handmade-json-schema.ts';
 import {
   collectParseValibotBindings,

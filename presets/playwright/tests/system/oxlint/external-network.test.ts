@@ -1,7 +1,10 @@
 import { expect, test } from 'bun:test';
 import { runOxlintFixture } from './run-oxlint.ts';
-import { applyConfiguredRules, parsePresetConfig } from '../../../gate-config.ts';
-import type { OxlintRuleSetting } from '../../../../../preset-catalog/oxlint-config/write-oxlint-config.ts';
+import {
+  applyConfiguredRules,
+  parsePresetConfig,
+} from 'agent-quality-gate/internal/presets/playwright/gate-config.ts';
+import type { OxlintRuleSetting } from 'agent-quality-gate/shared/oxlint';
 
 const rule = 'playwright/external-network-only';
 const options = {
@@ -38,7 +41,14 @@ test('default policy allows no substitutions', async () => {
 test('trusted config maps valid origins and rejects wildcard hosts', () => {
   const rules: Record<string, OxlintRuleSetting> = { [rule]: 'error' };
   applyConfiguredRules(rules, options);
-  expect(rules[rule]).toEqual(['error', options]);
+  expect(rules[rule]).toEqual([
+    'error',
+    {
+      e2eDirectory: '',
+      externalMockOrigins: options.externalMockOrigins,
+      processRunnerImports: [],
+    },
+  ]);
   expect(parsePresetConfig({ externalMockOrigins: ['https://*.example.com'] })).toBeUndefined();
   expect(
     parsePresetConfig({ externalMockOrigins: ['https://payments.example.com/path'] }),

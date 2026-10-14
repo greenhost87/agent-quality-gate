@@ -1,5 +1,5 @@
 import { existsSync, realpathSync } from 'node:fs';
-import { mkdir, rm } from 'node:fs/promises';
+import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'bun:test';
@@ -7,29 +7,31 @@ import { afterEach, describe, expect, it } from 'bun:test';
 import {
   findProjectForCwd,
   readGlobalQualityGateConfig,
-} from '../../../config/global-config/global-config.js';
-import { registerQualityGate } from '../register-quality-gate.js';
+} from '#system/config/global-config/global-config.js';
 import { activeToolNamesForCwd } from '../verify-tool-visibility.js';
-import { VERIFY_TOOL_NAME } from '../../hooks/verify-tool-name.js';
-import { executeVerify } from '../../../gate/execute-verify/execute-verify.js';
-import { streamResultFromVerifyResult } from '../../../gate/public-verify/verify-streams.js';
-import { useIsolatedAgentQualityGateHome } from '../../../tests/support/isolated-home.js';
+import { VERIFY_TOOL_NAME } from '#adapters/hooks/verify-tool-name.js';
+import { executeVerify } from '#system/gate/run/execute-verify.js';
+import { streamResultFromVerifyResult } from '#system/gate/public-verify/verify-streams.js';
+import { useIsolatedAgentQualityGateHome } from '#system/tests/support/isolated-home.js';
+import { removeTrackedTempDirectories } from '#system/tests/support/tracked-temp-directories.js';
+import { expectBudgetExhaustedText } from '#system/tests/support/stop-hook-assertions.js';
 import {
-  createPiExtensionHost,
   createPiProject,
+  emitPiAgentEnd,
+  expectPiSessionBound,
   makePiTempDirectory,
+  registerPiHost,
+  setupAllowlistedProject,
+  setupPiWorkspace,
+  setupUnconfiguredPiHost,
   takePiTempDirectories,
-  writePiGlobalConfig,
 } from './pi-extension-host.js';
+import { projectConfig, writeYamlConfig } from '#system/tests/support/config-fixtures.js';
 
 useIsolatedAgentQualityGateHome();
 
 afterEach(async () => {
-  await Promise.all(
-    takePiTempDirectories().map(async (directory) => {
-      await rm(directory, { recursive: true, force: true });
-    }),
-  );
+  await removeTrackedTempDirectories(takePiTempDirectories());
 });
 
 describe('pi extension', () => {
@@ -38,7 +40,7 @@ describe('pi extension', () => {
     const outer = await makePiTempDirectory('quality-gate-pi-outer-');
     const inner = join(outer, 'nested');
     await mkdir(inner);
-    const configPath = await writePiGlobalConfig(configDirectory, {
+    const configPath = await writeYamlConfig(configDirectory, {
       projects: [
         { root: outer, entries: ['src/index.ts'] },
         { root: inner, entries: ['src/app.ts'] },
@@ -56,10 +58,8 @@ describe('pi extension', () => {
   it('skips relative roots and duplicated canonical roots', async () => {
     const configDirectory = await makePiTempDirectory('quality-gate-pi-invalid-');
     const project = await makePiTempDirectory('quality-gate-pi-dup-');
-    const relativePath = await writePiGlobalConfig(configDirectory, {
-      projects: [{ root: 'relative/path', entries: ['src/index.ts'] }],
-    });
-    const duplicatePath = await writePiGlobalConfig(
+    const relativePath = await writeYamlConfig(configDirectory, projectConfig('relative/path'));
+    const duplicatePath = await writeYamlConfig(
       await makePiTempDirectory('quality-gate-pi-dup-config-'),
       {
         projects: [
@@ -77,17 +77,7 @@ describe('pi extension', () => {
   });
 
   it('runs verify for an allowlisted workspace', async () => {
-    const cwd = await createPiProject('clean-function');
-    const configPath = await writePiGlobalConfig(await makePiTempDirectory('quality-gate-pi-ok-'), {
-      projects: [{ root: cwd, entries: ['src/index.ts'] }],
-    });
-    const project = findProjectForCwd(
-      cwd,
-      (await readGlobalQualityGateConfig(configPath)).projects,
-    );
-    if (project === undefined) {
-      throw new Error('expected allowlisted project');
-    }
+    const { project } = await setupAllowlistedProject('clean-function', 'quality-gate-pi-ok-');
 
     const result = await executeVerify({
       projectRoot: project.root,
@@ -101,11 +91,9 @@ describe('pi extension', () => {
   it('does not expose the verify tool outside the allowlist', async () => {
     const cwd = await createPiProject('debugger-with-export');
     const other = await makePiTempDirectory('quality-gate-pi-other-');
-    const configPath = await writePiGlobalConfig(
+    const configPath = await writeYamlConfig(
       await makePiTempDirectory('quality-gate-pi-skip-'),
-      {
-        projects: [{ root: other, entries: ['src/index.ts'] }],
-      },
+      projectConfig(other),
     );
 
     expect(
@@ -118,11 +106,9 @@ describe('pi extension', () => {
 
   it('exposes the verify tool only for an allowlisted workspace', async () => {
     const cwd = await createPiProject('clean-function');
-    const configPath = await writePiGlobalConfig(
+    const configPath = await writeYamlConfig(
       await makePiTempDirectory('quality-gate-pi-tool-'),
-      {
-        projects: [{ root: cwd, entries: ['src/index.ts'] }],
-      },
+      projectConfig(cwd),
     );
 
     expect(await activeToolNamesForCwd(cwd, ['read', 'bash'], configPath)).toEqual([
@@ -136,20 +122,10 @@ describe('pi extension', () => {
   });
 
   it('returns verify diagnostics used for a settled follow-up when the check fails', async () => {
-    const cwd = await createPiProject('debugger-with-export');
-    const configPath = await writePiGlobalConfig(
-      await makePiTempDirectory('quality-gate-pi-fail-'),
-      {
-        projects: [{ root: cwd, entries: ['src/index.ts'] }],
-      },
+    const { project } = await setupAllowlistedProject(
+      'debugger-with-export',
+      'quality-gate-pi-fail-',
     );
-    const project = findProjectForCwd(
-      cwd,
-      (await readGlobalQualityGateConfig(configPath)).projects,
-    );
-    if (project === undefined) {
-      throw new Error('expected allowlisted project');
-    }
 
     const result = await executeVerify({
       projectRoot: project.root,
@@ -162,6 +138,17 @@ describe('pi extension', () => {
     expect(diagnostics).toContain('no-debugger');
   });
 
+  it('waits for all current findings before suggesting another verify run', async () => {
+    const { cwd, host } = await setupPiWorkspace('quality-gate-pi-retry-guidance-');
+    const result = await host.executeTool(VERIFY_TOOL_NAME, cwd);
+    const output = result.content.map((item) => item.text).join('\n');
+
+    expect(output).toContain('no-debugger');
+    expect(output).toContain(
+      'Fix all current findings before calling verify again; do not rerun it after each edit.',
+    );
+  });
+
   it('creates one global YAML configuration', async () => {
     const cwd = await createPiProject('clean-function');
     const configPath = join(
@@ -169,9 +156,7 @@ describe('pi extension', () => {
       'config',
       'config.yaml',
     );
-    const host = createPiExtensionHost();
-
-    registerQualityGate(host.pi, { configPath });
+    const host = registerPiHost(configPath);
     await host.emitSessionStart(cwd);
 
     expect(existsSync(configPath)).toBe(true);
@@ -182,18 +167,27 @@ describe('pi extension', () => {
     ]);
   });
 
+  it('activates a newly configured workspace on reload', async () => {
+    const cwd = await createPiProject('clean-function');
+    const other = await makePiTempDirectory('quality-gate-pi-reload-other-');
+    const configDirectory = await makePiTempDirectory('quality-gate-pi-reload-config-');
+    const configPath = await writeYamlConfig(configDirectory, projectConfig(other));
+    const host = registerPiHost(configPath);
+    await host.emitSessionStart(cwd);
+    expect(host.registeredTools).toEqual([]);
+
+    await writeYamlConfig(configDirectory, projectConfig(cwd));
+    await host.emitSessionStart(cwd, 'reload');
+
+    expect(host.registeredTools.map((tool) => tool.name)).toEqual([VERIFY_TOOL_NAME]);
+    expect(host.activeTools()).toContain(VERIFY_TOOL_NAME);
+    expect(await emitPiAgentEnd(host, cwd)).toBe('');
+  });
+
   it('does not subscribe to agent lifecycle outside the allowlist', async () => {
     const cwd = await createPiProject('debugger-with-export');
     const other = await makePiTempDirectory('quality-gate-pi-unbind-');
-    const configPath = await writePiGlobalConfig(
-      await makePiTempDirectory('quality-gate-pi-unbind-config-'),
-      {
-        projects: [{ root: other, entries: ['src/index.ts'] }],
-      },
-    );
-    const host = createPiExtensionHost();
-
-    registerQualityGate(host.pi, { configPath });
+    const host = await setupUnconfiguredPiHost('quality-gate-pi-unbind-config-', other);
     expect(host.subscribed).toEqual(['session_start']);
 
     await host.emitSessionStart(cwd);
@@ -207,19 +201,11 @@ describe('pi extension', () => {
 
   it('binds verify and agent lifecycle only after session_start in an allowlisted workspace', async () => {
     const cwd = await createPiProject('debugger-with-export');
-    const configPath = await writePiGlobalConfig(
-      await makePiTempDirectory('quality-gate-pi-bind-'),
-      {
-        projects: [{ root: cwd, entries: ['src/index.ts'] }],
-      },
-    );
-    const host = createPiExtensionHost();
-
-    registerQualityGate(host.pi, { configPath });
+    const host = await setupUnconfiguredPiHost('quality-gate-pi-bind-', cwd);
     expect(host.subscribed).toEqual(['session_start']);
 
     await host.emitSessionStart(cwd);
-    expect(host.subscribed).toEqual(['session_start', 'agent_end']);
+    expectPiSessionBound(host);
     expect(host.registeredTools).toEqual([
       {
         name: VERIFY_TOOL_NAME,
@@ -234,24 +220,13 @@ describe('pi extension', () => {
     expect(host.activeTools()).toContain(VERIFY_TOOL_NAME);
 
     await host.emitSessionStart(cwd);
-    expect(host.subscribed).toEqual(['session_start', 'agent_end']);
+    expectPiSessionBound(host);
 
-    await host.emitAgentEnd(cwd);
-    expect(host.followUps.join('\n')).toContain('no-debugger');
+    expect(await emitPiAgentEnd(host, cwd)).toContain('no-debugger');
   });
 
   it('does not run the completion gate before retry or compaction recovery', async () => {
-    const cwd = await createPiProject('debugger-with-export');
-    const configPath = await writePiGlobalConfig(
-      await makePiTempDirectory('quality-gate-pi-recovery-'),
-      {
-        projects: [{ root: cwd, entries: ['src/index.ts'] }],
-      },
-    );
-    const host = createPiExtensionHost();
-
-    registerQualityGate(host.pi, { configPath });
-    await host.emitSessionStart(cwd);
+    const { cwd, host } = await setupPiWorkspace('quality-gate-pi-recovery-');
 
     await host.emitAgentEnd(cwd, 'error');
     await host.emitAgentEnd(cwd, 'length');
@@ -261,34 +236,12 @@ describe('pi extension', () => {
   });
 
   it('lets an allowlisted workspace complete when verify passes', async () => {
-    const cwd = await createPiProject('clean-function');
-    const configPath = await writePiGlobalConfig(
-      await makePiTempDirectory('quality-gate-pi-complete-ok-'),
-      {
-        projects: [{ root: cwd, entries: ['src/index.ts'] }],
-      },
-    );
-    const host = createPiExtensionHost();
-
-    registerQualityGate(host.pi, { configPath });
-    await host.emitSessionStart(cwd);
-    await host.emitAgentEnd(cwd);
-
-    expect(host.followUps).toEqual([]);
+    const { cwd, host } = await setupPiWorkspace('quality-gate-pi-complete-ok-', 'clean-function');
+    expect(await emitPiAgentEnd(host, cwd)).toBe('');
   });
 
   it('caps follow-ups on repeated failed completions and escalates on the last attempt', async () => {
-    const cwd = await createPiProject('debugger-with-export');
-    const configPath = await writePiGlobalConfig(
-      await makePiTempDirectory('quality-gate-pi-budget-'),
-      {
-        projects: [{ root: cwd, entries: ['src/index.ts'] }],
-      },
-    );
-    const host = createPiExtensionHost();
-
-    registerQualityGate(host.pi, { configPath });
-    await host.emitSessionStart(cwd);
+    const { cwd, host } = await setupPiWorkspace('quality-gate-pi-budget-');
 
     await host.emitAgentEnd(cwd);
     await host.emitAgentEnd(cwd);
@@ -296,9 +249,7 @@ describe('pi extension', () => {
     expect(host.followUps).toHaveLength(3);
     expect(host.followUps[0]).toContain('no-debugger');
     expect(host.followUps[0]).not.toContain('Retry budget exhausted');
-    expect(host.followUps[2]).toContain(
-      'Retry budget exhausted. Stop and report the blocker to the user.',
-    );
+    expectBudgetExhaustedText(host.followUps[2]);
 
     await host.emitAgentEnd(cwd);
     expect(host.followUps).toHaveLength(3);

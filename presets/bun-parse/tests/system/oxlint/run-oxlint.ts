@@ -8,6 +8,10 @@ const pluginPath = resolve(import.meta.dir, '../../../oxlint/index.ts');
 const fixturesRoot = resolve(import.meta.dir, '../../../.quality-fixtures');
 
 async function writeRuleConfig(rule: string, ruleOptions?: object) {
+  const configuredOptions =
+    rule === 'bun-parse/scripts-boundaries'
+      ? { scriptDirectories: ['scripts'], ...ruleOptions }
+      : ruleOptions;
   const workspace = realpathSync(mkdtempSync(join(tmpdir(), 'bun-parse-oxlint-')));
   const configPath = join(workspace, 'oxlint.json');
   await write(
@@ -16,7 +20,7 @@ async function writeRuleConfig(rule: string, ruleOptions?: object) {
       categories: { correctness: 'off' },
       jsPlugins: [{ name: 'bun-parse', specifier: pluginPath }],
       rules: {
-        [rule]: ruleOptions === undefined ? 'error' : ['error', ruleOptions],
+        [rule]: configuredOptions === undefined ? 'error' : ['error', configuredOptions],
       },
     }),
   );

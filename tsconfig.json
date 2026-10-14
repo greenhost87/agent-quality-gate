@@ -1,8 +1,8 @@
 {
   "compilerOptions": {
     "target": "ES2024",
-    "module": "NodeNext",
-    "moduleResolution": "NodeNext",
+    "module": "Preserve",
+    "moduleResolution": "Bundler",
     "strict": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
@@ -12,20 +12,6 @@
     "noEmit": true,
     "allowImportingTsExtensions": true
   },
-  "include": [
-    "install.ts",
-    "config/**/*.ts",
-    "adapters/**/*.ts",
-    "assets/**/*.ts",
-    "gate/**/*.ts",
-    "preset-catalog/**/*.ts",
-    "process/**/*.ts",
-    "scripts/**/*.ts",
-    "tests/support/**/*.ts",
-    "presets/baseline/oxlint/**/*.ts",
-    "presets/baseline/tests/**/*.ts",
-    "presets/database/check.ts",
-    "preset-catalog/database/**/*.ts",
-    "presets/playwright/check.ts"
-  ]
+  "include": ["**/*.ts", "**/*.tsx"],
+  "exclude": ["**/.quality-fixtures/**", "**/node_modules/**", "presets/**"]
 }

@@ -1,8 +1,8 @@
-import { noUnusedParamInCatchClause } from '../../oxlint/no-unused-param-in-catch-clause.ts';
+import { noUnusedParamInCatchClause } from 'agent-quality-gate/internal/presets/n8n-lints/oxlint/no-unused-param-in-catch-clause.ts';
 
-import { benchCreateOnceRule } from 'agent-quality-gate/oxlint-rule-bench';
-import type { BenchCreateOnceRuleInput } from 'agent-quality-gate/oxlint-rule-bench/types';
-import { repeat } from 'agent-quality-gate/oxlint-rule-bench/hot-code';
+import { benchCreateOnceRule } from 'agent-quality-gate/testing/oxlint';
+import type { BenchCreateOnceRuleInput } from 'agent-quality-gate/testing/oxlint';
+import { repeat } from 'agent-quality-gate/testing/oxlint';
 
 export const noUnusedParamInCatchClauseBench: BenchCreateOnceRuleInput = {
   name: 'no-unused-param-in-catch-clause',

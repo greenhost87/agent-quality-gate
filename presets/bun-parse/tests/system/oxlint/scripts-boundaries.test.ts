@@ -4,7 +4,7 @@ import { runOxlintFixture } from './run-oxlint.ts';
 
 const rule = 'bun-parse/scripts-boundaries';
 const scriptsImportMessage =
-  'scripts/ is CLI-only; move shared parse helpers to production modules.';
+  'Configured script directories are CLI-only; move shared parse helpers to production modules.';
 
 async function expectRejected(fixture: string, entry: string) {
   const result = await runOxlintFixture(`scripts-boundaries/invalid/${fixture}`, entry, rule);

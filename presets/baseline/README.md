@@ -34,7 +34,7 @@ Omitting `presets` or using `presets: []` still runs baseline.
 
 ## Hints on verify failure
 
-When baseline flags micro-split smells, verify also emits `hint:avoid-micro-splits — .aqg/hints/avoid-micro-splits.md` and writes that file under `.aqg/hints/`.
+When baseline flags micro-split smells, verify also emits `hint:avoid-micro-splits — .aqg/hints/presets/baseline/avoid-micro-splits.md` and writes that file.
 
 | Rule                                   | Typical micro-split smell                     |
 | -------------------------------------- | --------------------------------------------- |
@@ -43,4 +43,5 @@ When baseline flags micro-split smells, verify also emits `hint:avoid-micro-spli
 | `aqg/no-identity-aliases`              | `const x = y` alias instead of using `y`      |
 | `aqg/no-useless-exported-type-aliases` | exported type that only renames another       |
 | `aqg/no-runtime-in-types-files`        | runtime value leaked into a `*.types.ts` file |
-|                                        |
+
+Baseline rejects deep relative imports matching `../../**`. Use a project import alias or a suitable common module. The corresponding hint is `.aqg/hints/presets/baseline/avoid-deep-relative-imports.md`.

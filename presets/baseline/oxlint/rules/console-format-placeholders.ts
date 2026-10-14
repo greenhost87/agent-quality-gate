@@ -42,7 +42,7 @@ function isConsoleMethodCall(node: ESTree.CallExpression): boolean {
   );
 }
 
-import { staticStringValue } from '../ast.ts';
+import { staticStringValue } from 'agent-quality-gate/internal/presets/baseline/oxlint/ast.ts';
 
 function placeholderCount(format: string): number {
   let count = 0;

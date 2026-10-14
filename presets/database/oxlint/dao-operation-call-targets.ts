@@ -1,6 +1,6 @@
 import type { ESTree } from '@oxlint/plugins';
 
-import { type AstParentOf } from '../../../scripts/oxlint-walk/oxlint-walk.ts';
+import { type AstParentOf } from 'agent-quality-gate/shared/oxlint';
 
 const expressionWrapperTypes = new Set([
   'ChainExpression',

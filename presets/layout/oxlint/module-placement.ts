@@ -7,7 +7,7 @@ import {
 } from '@oxlint/plugins';
 import * as v from 'valibot';
 
-import { createOptionsRefCache } from '../../../scripts/oxlint-options-ref-cache/options-ref-cache.ts';
+import { createOptionsRefCache } from 'agent-quality-gate/shared/oxlint';
 
 import { projectPath } from './project-path.ts';
 

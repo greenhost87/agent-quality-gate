@@ -10,14 +10,15 @@ import {
   insertRuntimeItemThenFail,
   listRuntimeItems,
   listRuntimeItemsByIds,
-} from '../fixture/system/database/runtime/runtime.dao.ts';
-import { useIsolatedTestDatabase } from '../payload/tests/setup/testDatabase.ts';
+} from 'agent-quality-gate/internal/presets/database/fixture/system/database/runtime/runtime.dao.ts';
+import { useIsolatedTestDatabase } from 'agent-quality-gate/internal/presets/database/payload/tests/setup/testDatabase.ts';
 
 const presetRoot = resolve(import.meta.dir, '..');
 chdir(presetRoot);
 
 const fixturesDirectory = join(import.meta.dir, 'fixtures');
-const { runDatabaseMigrations } = await import('../payload/system/database/migrate.ts');
+const { runDatabaseMigrations } =
+  await import('agent-quality-gate/internal/presets/database/payload/system/database/migrate.ts');
 
 useIsolatedTestDatabase(import.meta.path);
 

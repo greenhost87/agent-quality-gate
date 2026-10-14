@@ -1,6 +1,6 @@
 import type { ESTree } from '@oxlint/plugins';
 
-import { type AstParentOf, unwrapExpression } from '../../../scripts/oxlint-walk/oxlint-walk.ts';
+import { type AstParentOf, unwrapExpression } from 'agent-quality-gate/shared/oxlint';
 import {
   collectParseValibotBindings,
   noteParseValibotImportSpecifier,

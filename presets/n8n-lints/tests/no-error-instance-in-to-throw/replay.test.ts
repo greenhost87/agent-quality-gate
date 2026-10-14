@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'bun:test';
 
-import { replayCreateOnceRule } from 'agent-quality-gate/oxlint-rule-bench';
-import { HOT } from 'agent-quality-gate/oxlint-rule-bench/hot-code';
+import { replayCreateOnceRule } from 'agent-quality-gate/testing/oxlint';
+import { HOT } from 'agent-quality-gate/testing/oxlint';
 
-import { itRegistersTypedVisitors } from '../support/expect-typed-visitors.ts';
+import { itRegistersTypedVisitors } from 'agent-quality-gate/internal/presets/n8n-lints/tests/support/expect-typed-visitors.ts';
 import { noErrorInstanceInToThrowBench } from './bench.ts';
 
 describe('no-error-instance-in-to-throw visitors', () => {

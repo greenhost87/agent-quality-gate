@@ -1,8 +1,8 @@
 import { mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
-import { pathExists, readTextFile, writeTextFile } from '../../../process/files/files.ts';
-import { runCapturedProcess } from '../../../process/run-command/run-command.ts';
+import { pathExists, readTextFile, writeTextFile } from 'agent-quality-gate/shared/verify';
+import { runCapturedProcess } from 'agent-quality-gate/shared/verify';
 
 import { afterEach, describe, expect, it } from 'bun:test';
 
@@ -13,7 +13,7 @@ import {
   restoreCommittedMigrations,
   verifyCommittedMigrations,
   writeCommittedMigrationDiff,
-} from '../../../preset-catalog/database/verify-committed-migrations.ts';
+} from 'agent-quality-gate/internal/presets/_shared/database-preflight/verify-committed-migrations.ts';
 
 const tempDirectories: string[] = [];
 

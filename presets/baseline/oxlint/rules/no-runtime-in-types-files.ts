@@ -1,7 +1,7 @@
 import { defineRule, type ESTree } from '@oxlint/plugins';
 
-import { isReadonlyStringLiteralCatalog } from '../ast.ts';
-import { isTypeOnlyFile } from '../type-only-files.ts';
+import { isReadonlyStringLiteralCatalog } from 'agent-quality-gate/internal/presets/baseline/oxlint/ast.ts';
+import { isTypeOnlyFile } from 'agent-quality-gate/internal/presets/baseline/oxlint/type-only-files.ts';
 
 function isExportedReadonlyStringLiteralCatalog(node: ESTree.ExportNamedDeclaration): boolean {
   const declaration = node.declaration;

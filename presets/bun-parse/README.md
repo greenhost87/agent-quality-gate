@@ -7,7 +7,7 @@ Structured file/data parsing goes through Bun into a valibot schema. Types come 
 | Kind         | Detail                                                                                                                                                                                    |
 | ------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Managed file | none                                                                                                                                                                                      |
-| Dependency   | `valibot`                                                                                                                                                                                 |
+| Dependency   | `valibot` 1.4.2 or newer                                                                                                                                                                  |
 | Oxlint rules | `bun-parse/no-handmade-json-types`, `bun-parse/no-raw-json-parse`, `bun-parse/no-typeof-object`, `bun-parse/scripts-boundaries` ← `oxlint/index.ts` (bundled to `.js` on package/install) |
 
 Requires: none.
@@ -34,7 +34,7 @@ const result = v.safeParse(Schema, raw);
 export type Config = v.InferOutput<typeof Schema>;
 ```
 
-On verify failure, the gate writes `.aqg/hints/bun-parse-json.md` and emits `hint:bun-parse-json — .aqg/hints/bun-parse-json.md`.
+On verify failure, the gate writes `.aqg/hints/presets/bun-parse/bun-parse-json.md` and emits `hint:bun-parse-json — .aqg/hints/presets/bun-parse/bun-parse-json.md`.
 
 ### `no-raw-json-parse`
 
@@ -44,11 +44,11 @@ Rejects `JSON.parse(...)` and non-Bun `.json()` calls outside test trees (`tests
 
 Also rejects `v.parse(v.pipe(v.string(), v.parseJson()), …)` and const schemas that are only `v.pipe(v.string(), v.parseJson())` — put the domain schema in the same pipe: `v.parse(v.pipe(v.string(), v.parseJson(), Schema), text)`.
 
-On verify failure, the gate writes `.aqg/hints/bun-parse-json.md` and emits `hint:bun-parse-json — .aqg/hints/bun-parse-json.md`.
+On verify failure, the gate writes `.aqg/hints/presets/bun-parse/bun-parse-json.md` and emits `hint:bun-parse-json — .aqg/hints/presets/bun-parse/bun-parse-json.md`.
 
 ### `no-typeof-object`
 
-Rejects `typeof … ===/!== 'object'` and, in the default `strict` mode, `Array.isArray(...)` outside test trees. Use valibot schemas instead of handmade shape checks.
+Rejects `typeof … ===/!== 'object'` and, in the default `strict` mode, `Array.isArray(...)` in all source files, including test trees. Use valibot schemas instead of handmade shape checks.
 
 A plain-object recipe (`typeof value === 'object' && value !== null && !Array.isArray(value)`) produces one diagnostic instead of separate `typeof` and `Array.isArray` diagnostics. The checks may be reordered, regrouped, or included in a longer `&&` chain. Each recipe must use the same identifier in all three checks.
 
@@ -60,15 +60,15 @@ Tune via `presetConfig.bun-parse.typeofObjectMode`:
 | `typeof-only` | Ban typeof-object compares only; allow standalone `Array.isArray`         |
 | `off`         | Disable this rule                                                         |
 
-Plain-object recipes produce one diagnostic in `strict` and `typeof-only`. They are allowed in test trees and when this rule is `off`.
+Plain-object recipes produce one diagnostic in `strict` and `typeof-only`, including in test trees. They are allowed only when this rule is `off`.
 
 Same `hint:bun-parse-json` as `no-raw-json-parse`.
 
 ### `scripts-boundaries`
 
-Rejects imports and `export … from` (including dynamic `import()`) that resolve into `scripts/` from any file outside `scripts/` and test trees (`tests/` at any depth).
+`scriptDirectories` lists the project-relative CLI-only directories. It defaults to `[]`, so this rule has no directory boundary until configured. For example, `scriptDirectories: [scripts, system/scripts]` rejects static imports, `export … from`, and literal dynamic `import()` calls into those directories from other production files. The resolver recognizes relative paths and the `@/` project alias.
 
-`scripts/` is CLI-only. Shared Bun/valibot parse helpers belong in production modules, not behind a scripts import. Tests may import scripts when exercising those entrypoints.
+Files within a configured script directory and test trees (`tests/` at any depth) may import those entrypoints. Shared Bun/valibot parse helpers belong in production modules when application code needs them.
 
 Same `hint:bun-parse-json` as `no-raw-json-parse`.
 
@@ -86,5 +86,6 @@ presets:
   - bun-parse
 presetConfig:
   bun-parse:
+    scriptDirectories: [scripts, system/scripts]
     typeofObjectMode: typeof-only # or strict | off
 ```

@@ -6,6 +6,7 @@
     {
       "name": "valibot",
       "version": "1.4.2",
+      "compatibleVersions": ["1.5.0"],
       "section": "dependencies"
     }
   ],

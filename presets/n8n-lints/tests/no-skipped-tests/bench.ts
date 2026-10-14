@@ -1,8 +1,8 @@
-import { noSkippedTests } from '../../oxlint/no-skipped-tests.ts';
+import { noSkippedTests } from 'agent-quality-gate/internal/presets/n8n-lints/oxlint/no-skipped-tests.ts';
 
-import { benchCreateOnceRule } from 'agent-quality-gate/oxlint-rule-bench';
-import type { BenchCreateOnceRuleInput } from 'agent-quality-gate/oxlint-rule-bench/types';
-import { repeat } from 'agent-quality-gate/oxlint-rule-bench/hot-code';
+import { benchCreateOnceRule } from 'agent-quality-gate/testing/oxlint';
+import type { BenchCreateOnceRuleInput } from 'agent-quality-gate/testing/oxlint';
+import { repeat } from 'agent-quality-gate/testing/oxlint';
 
 export const noSkippedTestsBench: BenchCreateOnceRuleInput = {
   name: 'no-skipped-tests',

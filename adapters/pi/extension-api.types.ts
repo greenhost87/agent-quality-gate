@@ -29,16 +29,38 @@ export type AgentEndEvent = {
 };
 
 export type SessionStartEvent = {
-  reason: string;
+  reason: 'startup' | 'reload' | 'new' | 'resume' | 'fork';
+};
+
+export type QualityGateToolComponent = {
+  render(width: number): string[];
+  invalidate(): void;
+};
+
+export type QualityGateToolRenderContext = {
+  state: Record<string, unknown>;
+  lastComponent?: QualityGateToolComponent;
 };
 
 export type QualityGateToolDefinition = {
   name: string;
   label: string;
+  renderShell?: 'self';
   description: string;
   parameters: object;
   promptSnippet: string;
   promptGuidelines: string[];
+  renderCall?: (
+    params: EmptyToolParams,
+    theme: unknown,
+    context: QualityGateToolRenderContext,
+  ) => QualityGateToolComponent;
+  renderResult?: (
+    result: QualityGateToolResult,
+    options: { isPartial?: boolean },
+    theme: unknown,
+    context: QualityGateToolRenderContext,
+  ) => QualityGateToolComponent;
   execute: (
     toolCallId: string,
     params: EmptyToolParams,

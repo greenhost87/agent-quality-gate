@@ -1,0 +1,14 @@
+projects:
+  - root: /tmp/example
+    entries:
+      - src/index.ts
+    presets:
+      - layout
+    presetConfig:
+      layout:
+        placement:
+          directories:
+            - system/agents
+          rootExceptions:
+            system/database:
+              - connection.ts

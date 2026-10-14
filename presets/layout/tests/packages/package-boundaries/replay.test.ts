@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'bun:test';
 
-import { createBenchRuleContext } from 'agent-quality-gate/oxlint-rule-bench/create-bench-context';
-import { HOT } from 'agent-quality-gate/oxlint-rule-bench/hot-code';
-import { replayCreateOnceRule } from 'agent-quality-gate/oxlint-rule-bench';
-import { requireCreateOnceRule } from 'agent-quality-gate/oxlint-rule-bench/require-create-once-rule';
+import { createBenchRuleContext } from 'agent-quality-gate/testing/oxlint';
+import { HOT } from 'agent-quality-gate/testing/oxlint';
+import { replayCreateOnceRule } from 'agent-quality-gate/testing/oxlint';
+import { requireCreateOnceRule } from 'agent-quality-gate/testing/oxlint';
 
 import { packageBoundariesBench } from './bench.ts';
 

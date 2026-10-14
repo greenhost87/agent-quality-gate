@@ -7,8 +7,9 @@
  * After `verify` refreshes `.aqg/<preset>/<destination>` examples, run:
  *   bun .aqg/database/scripts/sync-database-managed.ts [project-root]
  *
- * The script copies every managed `config` + `database` file from `.aqg` to
- * its project destination using the project root (argv[2] or `process.cwd()`).
+ * The script copies the default managed `config` + `database` destinations
+ * using the project root (argv[2] or `process.cwd()`). A relocated environment
+ * helper must be copied separately from its configured `.aqg/config` example.
  */
 import { access, copyFile, mkdir } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';

@@ -1,9 +1,6 @@
 import { type Context, type ESTree, type Scope, type Variable } from '@oxlint/plugins';
 
-import {
-  forEachRuntimeAstNode,
-  unwrapExpression,
-} from '../../../scripts/oxlint-walk/oxlint-walk.ts';
+import { forEachRuntimeAstNode, unwrapExpression } from 'agent-quality-gate/shared/oxlint';
 import { importedName } from './import-specifier-name.ts';
 import { memberName } from './member-name.ts';
 

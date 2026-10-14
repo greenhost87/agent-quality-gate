@@ -3,7 +3,7 @@ import { chdir } from 'node:process';
 import { resolve } from 'node:path';
 import { SQL } from 'bun';
 import { createEnv, getRequiredEnv, setEnv } from '@/system/config/environment';
-import { useIsolatedTestDatabase } from '../payload/tests/setup/testDatabase.ts';
+import { useIsolatedTestDatabase } from 'agent-quality-gate/internal/presets/database/payload/tests/setup/testDatabase.ts';
 
 const presetRoot = resolve(import.meta.dir, '..');
 chdir(presetRoot);

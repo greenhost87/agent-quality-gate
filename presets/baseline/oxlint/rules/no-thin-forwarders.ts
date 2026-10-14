@@ -5,8 +5,8 @@ import {
   addIdentifierDeclaratorNames,
   isFunctionLike,
   directReturnExpression,
-} from '../ast.ts';
-import { walkAst } from 'agent-quality-gate/oxlint-walk';
+} from 'agent-quality-gate/internal/presets/baseline/oxlint/ast.ts';
+import { walkAst } from 'agent-quality-gate/shared/oxlint';
 
 function addExportedDeclarationNames(names: Set<string>, declaration: ESTree.Declaration): void {
   if (declaration.type === 'FunctionDeclaration' && declaration.id) {
